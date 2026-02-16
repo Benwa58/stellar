@@ -121,9 +121,26 @@ function LoadingAnimation() {
     };
   }, []);
 
-  const progressPercent = loadingProgress.total > 0
-    ? Math.round((loadingProgress.current / loadingProgress.total) * 100)
-    : 0;
+  // Map each phase to a portion of the overall 0–100% progress bar
+  // so the bar never resets between phases.
+  const PHASE_RANGES = {
+    discover:  { start: 0,  end: 40 },
+    deep_cuts: { start: 40, end: 55 },
+    bridges:   { start: 55, end: 70 },
+    details:   { start: 70, end: 85 },
+    scoring:   { start: 85, end: 93 },
+    building:  { start: 93, end: 100 },
+  };
+
+  let progressPercent = 0;
+  const range = PHASE_RANGES[loadingProgress.phase];
+  if (range && loadingProgress.total > 0) {
+    const phaseProgress = loadingProgress.current / loadingProgress.total;
+    progressPercent = Math.round(range.start + phaseProgress * (range.end - range.start));
+  } else if (range) {
+    // Phase exists but total is 0 — show the start of this phase
+    progressPercent = range.start;
+  }
 
   return (
     <div className="loading-container">
