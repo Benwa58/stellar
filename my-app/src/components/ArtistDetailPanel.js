@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { findArtistTrack } from '../api/spotifyClient';
+import { findArtistTrack } from '../api/musicClient';
 import '../styles/panel.css';
 
 function getBadgeInfo(node) {
@@ -120,18 +120,25 @@ function ArtistDetailPanel({ node, onClose }) {
         <div className="panel-actions">
           {loadingTrack ? (
             <div className="panel-loading-track">Loading preview...</div>
-          ) : topTrack ? (
-            <div className="panel-embed-container">
-              <iframe
-                className="panel-spotify-embed"
-                src={`https://open.spotify.com/embed/track/${topTrack.id}?utm_source=generator&theme=0`}
-                width="100%"
-                height="80"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                title={`Preview: ${topTrack.name}`}
-              />
+          ) : topTrack && topTrack.previewUrl ? (
+            <div className="panel-audio-player">
+              <div className="panel-track-info">
+                {topTrack.albumImage && (
+                  <img className="panel-track-album" src={topTrack.albumImage} alt={topTrack.albumName} />
+                )}
+                <div className="panel-track-details">
+                  <span className="panel-track-name">{topTrack.name}</span>
+                  <span className="panel-track-album-name">{topTrack.albumName}</span>
+                </div>
+              </div>
+              <audio
+                className="panel-audio-element"
+                controls
+                src={topTrack.previewUrl}
+                preload="none"
+              >
+                Your browser does not support audio playback.
+              </audio>
             </div>
           ) : (
             <div className="panel-no-preview">No preview available</div>
@@ -139,12 +146,12 @@ function ArtistDetailPanel({ node, onClose }) {
 
           {node.externalUrl && (
             <a
-              className="panel-spotify-link"
+              className="panel-external-link"
               href={node.externalUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
-              Open in Spotify
+              Open in Deezer
             </a>
           )}
         </div>

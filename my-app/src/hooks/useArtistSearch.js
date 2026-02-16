@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { searchArtists } from '../api/spotifyClient';
+import { searchArtists } from '../api/musicClient';
 
-export function useSpotifySearch() {
+export function useArtistSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);

@@ -28,7 +28,9 @@ export function scoreCandidates(
       genreFrequencyMap
     );
 
-    const popularityScore = (candidate.artist.popularity || 0) / 100;
+    // Normalize fan count to 0-1 using log scale (10M fans = 1.0)
+    const fans = candidate.artist.nbFan || candidate.artist.followers || 0;
+    const popularityScore = fans > 0 ? Math.min(Math.log10(fans) / 7, 1) : 0;
 
     let audioScore = 0;
     if (hasAudio && audioFeaturesMap.has(candidateId)) {

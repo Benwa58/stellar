@@ -1,7 +1,7 @@
-import { discoverRelatedArtists, discoverDeepCuts, discoverBridgeArtists, getMultipleArtists } from '../api/spotifyClient';
+import { discoverRelatedArtists, discoverDeepCuts, discoverBridgeArtists, enrichArtists, clearCache } from '../api/musicClient';
 import {
   MAX_RECOMMENDATIONS,
-  HIDDEN_GEM_FOLLOWER_THRESHOLD,
+  HIDDEN_GEM_FAN_THRESHOLD,
   DEEP_CUT_INTERMEDIATE_COUNT,
   DEEP_CUT_LIMIT,
   BRIDGE_SEARCH_LIMIT,
@@ -10,6 +10,9 @@ import {
 import { clusterByGenre } from './genreAnalysis';
 
 export async function generateRecommendations(seedArtists, onProgress) {
+  // Clear similar-artist cache from previous runs
+  clearCache();
+
   const seedIds = new Set(seedArtists.map((a) => a.id));
   const seedIdArray = Array.from(seedIds);
 
@@ -238,9 +241,15 @@ export async function generateRecommendations(seedArtists, onProgress) {
   const allCandidateMaps = [candidates, deepCutCandidates, bridgeCandidates];
   const needsEnrichment = [];
   for (const map of allCandidateMaps) {
-    for (const [id, candidate] of map) {
+    for (const [, candidate] of map) {
       if (!candidate.artist.image && !candidate.artist.imageLarge) {
-        needsEnrichment.push(id);
+        needsEnrichment.push(candidate.artist.name);
+      }
+      // Also enrich artists missing genre tags
+      if (!candidate.artist.genres || candidate.artist.genres.length === 0) {
+        if (!needsEnrichment.includes(candidate.artist.name)) {
+          needsEnrichment.push(candidate.artist.name);
+        }
       }
     }
   }
@@ -248,17 +257,34 @@ export async function generateRecommendations(seedArtists, onProgress) {
   if (needsEnrichment.length > 0) {
     console.log(`Enriching ${needsEnrichment.length} candidates`);
     try {
-      const fullArtists = await getMultipleArtists(needsEnrichment);
-      for (const artist of fullArtists) {
-        for (const map of allCandidateMaps) {
-          if (map.has(artist.id)) {
-            const existing = map.get(artist.id);
-            existing.artist = { ...existing.artist, ...artist };
+      const enrichedData = await enrichArtists(needsEnrichment);
+      for (const map of allCandidateMaps) {
+        for (const [, candidate] of map) {
+          const data = enrichedData.get(candidate.artist.name.toLowerCase().trim());
+          if (data) {
+            if (!candidate.artist.image && data.image) {
+              candidate.artist.image = data.image;
+            }
+            if (!candidate.artist.imageLarge && data.imageLarge) {
+              candidate.artist.imageLarge = data.imageLarge;
+            }
+            if (data.id && candidate.artist.id.startsWith('lastfm-')) {
+              candidate.artist.id = data.id;
+            }
+            if (data.nbFan && !candidate.artist.nbFan) {
+              candidate.artist.nbFan = data.nbFan;
+            }
+            if (data.externalUrl && !candidate.artist.externalUrl) {
+              candidate.artist.externalUrl = data.externalUrl;
+            }
+            if (data.genres && data.genres.length > 0 && (!candidate.artist.genres || candidate.artist.genres.length === 0)) {
+              candidate.artist.genres = data.genres;
+            }
           }
         }
       }
     } catch (err) {
-      console.warn('Failed to fetch artist details:', err);
+      console.warn('Failed to enrich artist details:', err);
     }
   }
 
@@ -281,17 +307,17 @@ export async function generateRecommendations(seedArtists, onProgress) {
     }
   }
 
-  // Compute dynamic follower threshold
-  const allFollowers = Array.from(allCandidates.values())
-    .map((c) => c.artist.followers || 0)
+  // Compute dynamic fan-count threshold
+  const allFanCounts = Array.from(allCandidates.values())
+    .map((c) => c.artist.nbFan || 0)
     .filter((f) => f > 0)
     .sort((a, b) => a - b);
 
-  const followerThreshold = allFollowers.length > 0
-    ? allFollowers[Math.floor(allFollowers.length * 0.3)]
-    : HIDDEN_GEM_FOLLOWER_THRESHOLD;
+  const fanThreshold = allFanCounts.length > 0
+    ? allFanCounts[Math.floor(allFanCounts.length * 0.3)]
+    : HIDDEN_GEM_FAN_THRESHOLD;
 
-  console.log(`Follower threshold for tier classification: ${followerThreshold}`);
+  console.log(`Fan threshold for tier classification: ${fanThreshold}`);
 
   // Score and classify each candidate
   const popularScored = [];
@@ -300,7 +326,7 @@ export async function generateRecommendations(seedArtists, onProgress) {
   for (const [candidateId, candidate] of allCandidates) {
     const overlapCount = candidate.relatedToSeeds.size;
     const overlapScore = overlapCount / seedCount;
-    const followers = candidate.artist.followers || 0;
+    const fans = candidate.artist.nbFan || 0;
     const method = candidate.discoveryMethod;
 
     // Classify tier
@@ -309,7 +335,7 @@ export async function generateRecommendations(seedArtists, onProgress) {
       tier = 'hidden_gem';
     } else if (method === 'bridge') {
       tier = 'hidden_gem';
-    } else if (overlapCount >= 2 || followers >= followerThreshold) {
+    } else if (overlapCount >= 2 || fans >= fanThreshold) {
       tier = 'popular';
     } else {
       tier = 'hidden_gem';
@@ -333,10 +359,10 @@ export async function generateRecommendations(seedArtists, onProgress) {
         compositeScore += 0.2;
       }
 
-      // Uniqueness bonus (fewer followers = more unique)
-      if (followers > 0) {
-        const followerScore = 1 - Math.min(followers / 500000, 1);
-        compositeScore += followerScore * 0.1;
+      // Uniqueness bonus (fewer fans = more unique)
+      if (fans > 0) {
+        const fanScore = 1 - Math.min(fans / 500000, 1);
+        compositeScore += fanScore * 0.1;
       } else {
         compositeScore += 0.05;
       }

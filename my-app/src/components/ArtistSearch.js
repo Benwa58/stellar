@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { useSpotifySearch } from '../hooks/useSpotifySearch';
+import { useArtistSearch } from '../hooks/useArtistSearch';
 import '../styles/search.css';
 
 function ArtistSearch({ onSelect, selectedIds }) {
   const { query, setQuery, results, isLoading, clearResults } =
-    useSpotifySearch();
+    useArtistSearch();
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef(null);

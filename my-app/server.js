@@ -4,63 +4,42 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 
-const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.REACT_APP_SPOTIFY_CLIENT_ID;
-const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || process.env.REACT_APP_SPOTIFY_CLIENT_SECRET;
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 const PORT = process.env.PORT || 3000;
 
-let cachedToken = null;
-let tokenExpiry = 0;
-
-function getToken() {
+// --- Last.fm proxy ---
+function proxyToLastfm(queryString) {
   return new Promise((resolve, reject) => {
-    if (cachedToken && Date.now() < tokenExpiry - 60000) {
-      return resolve(cachedToken);
-    }
-
-    const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
-    const postData = 'grant_type=client_credentials';
+    const fullUrl = `https://ws.audioscrobbler.com/2.0/?${queryString}&api_key=${LASTFM_API_KEY}&format=json`;
+    const parsed = url.parse(fullUrl);
 
     const req = https.request(
       {
-        hostname: 'accounts.spotify.com',
-        path: '/api/token',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: `Basic ${credentials}`,
-          'Content-Length': Buffer.byteLength(postData),
-        },
+        hostname: parsed.hostname,
+        path: parsed.path,
+        method: 'GET',
       },
       (res) => {
         let body = '';
         res.on('data', (chunk) => (body += chunk));
         res.on('end', () => {
-          if (res.statusCode !== 200) {
-            return reject(new Error(`Token request failed: ${res.statusCode} ${body}`));
-          }
-          const data = JSON.parse(body);
-          cachedToken = data.access_token;
-          tokenExpiry = Date.now() + data.expires_in * 1000;
-          resolve(cachedToken);
+          resolve({ statusCode: res.statusCode, headers: res.headers, body });
         });
       }
     );
     req.on('error', reject);
-    req.write(postData);
     req.end();
   });
 }
 
-function proxyToSpotify(reqPath, token) {
+// --- Deezer proxy (needed because Deezer doesn't set CORS headers) ---
+function proxyToDeezer(reqPath) {
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
-        hostname: 'api.spotify.com',
+        hostname: 'api.deezer.com',
         path: reqPath,
         method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       },
       (res) => {
         let body = '';
@@ -119,12 +98,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Spotify API proxy — handle /v1/* paths
-  if (pathname.startsWith('/v1/')) {
+  // Last.fm API proxy — /lastfm?method=X&artist=Y&...
+  if (pathname === '/lastfm') {
     try {
-      const token = await getToken();
-      const spotifyPath = parsed.path; // includes query string
-      const result = await proxyToSpotify(spotifyPath, token);
+      // Forward all query params except api_key and format (server adds those)
+      const queryString = (parsed.query || '').replace(/[&?]?(api_key|format)=[^&]*/g, '').replace(/^&/, '');
+      const result = await proxyToLastfm(queryString);
 
       res.writeHead(result.statusCode, {
         'Content-Type': 'application/json',
@@ -132,7 +111,26 @@ const server = http.createServer(async (req, res) => {
       });
       res.end(result.body);
     } catch (err) {
-      console.error('Proxy error:', err.message);
+      console.error('Last.fm proxy error:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // Deezer API proxy — /deezer/* → api.deezer.com/*
+  if (pathname.startsWith('/deezer/')) {
+    try {
+      const deezerPath = parsed.path.replace(/^\/deezer/, ''); // strip /deezer prefix, keep query
+      const result = await proxyToDeezer(deezerPath);
+
+      res.writeHead(result.statusCode, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(result.body);
+    } catch (err) {
+      console.error('Deezer proxy error:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }
@@ -175,8 +173,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Galaxy Music running on http://localhost:${PORT}`);
-  console.log(`Spotify Client ID: ${CLIENT_ID ? CLIENT_ID.slice(0, 8) + '...' : 'MISSING'}`);
+  console.log(`Last.fm API Key: ${LASTFM_API_KEY ? LASTFM_API_KEY.slice(0, 8) + '...' : 'MISSING'}`);
   console.log(`Serving static files from: ${buildPath}`);
 });

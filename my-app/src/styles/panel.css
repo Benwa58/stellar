@@ -223,7 +223,7 @@
   background: var(--color-accent-hover);
 }
 
-.panel-spotify-link {
+.panel-external-link {
   display: block;
   text-align: center;
   font-size: 0.8rem;
@@ -232,24 +232,69 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
+  text-decoration: none;
 }
 
-.panel-spotify-link:hover {
+.panel-external-link:hover {
   color: var(--color-text-primary);
   border-color: var(--color-border-hover);
 }
 
-/* Spotify Embed */
-.panel-embed-container {
+/* Audio Player */
+.panel-audio-player {
   width: 100%;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.panel-spotify-embed {
-  display: block;
-  border: none;
+.panel-track-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-track-album {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.panel-track-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panel-track-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-track-album-name {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-audio-element {
+  width: 100%;
+  height: 36px;
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+/* Style audio controls for dark theme */
+.panel-audio-element::-webkit-media-controls-panel {
+  background: rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-md);
 }
 

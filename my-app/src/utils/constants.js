@@ -1,6 +1,3 @@
-export const SPOTIFY_BASE_URL = 'https://api.spotify.com/v1';
-export const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
-
 export const MIN_SEED_ARTISTS = 3;
 export const MAX_RECOMMENDATIONS = 80;
 
@@ -80,7 +77,7 @@ export const SCORING_WEIGHTS = {
 };
 
 // Deep cut & bridge discovery
-export const HIDDEN_GEM_FOLLOWER_THRESHOLD = 100000;
+export const HIDDEN_GEM_FAN_THRESHOLD = 100000;
 export const DEEP_CUT_INTERMEDIATE_COUNT = 5;
 export const DEEP_CUT_LIMIT = 15;
 export const BRIDGE_SEARCH_LIMIT = 8;
