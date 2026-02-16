@@ -3,14 +3,16 @@ import { getRateLimiter } from './rateLimiter';
 const PROXY_BASE = '/v1';
 
 async function spotifyFetch(endpoint, params = {}) {
-  const url = new URL(`${PROXY_BASE}${endpoint}`);
+  const query = new URLSearchParams();
   Object.entries(params).forEach(([key, val]) => {
     if (val !== undefined && val !== null) {
-      url.searchParams.set(key, val);
+      query.set(key, String(val));
     }
   });
+  const qs = query.toString();
+  const fetchUrl = `${PROXY_BASE}${endpoint}${qs ? `?${qs}` : ''}`;
 
-  const response = await fetch(url.toString());
+  const response = await fetch(fetchUrl);
 
   if (!response.ok) {
     const err = new Error(`Spotify API error: ${response.status}`);
