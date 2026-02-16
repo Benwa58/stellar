@@ -335,25 +335,32 @@ export async function generateRecommendations(seedArtists, onProgress) {
     const fans = candidate.artist.nbFan || 0;
     const method = candidate.discoveryMethod;
 
-    // Classify tier
+    // Classify tier — use matchScore + fan count + discovery method
+    const matchScore = candidate.artist.matchScore || 0;
     let tier;
     if (method === 'deep_cut') {
       tier = 'hidden_gem';
     } else if (method === 'bridge') {
       tier = 'hidden_gem';
-    } else if (overlapCount >= 2 || fans >= fanThreshold) {
+    } else if (matchScore >= 0.3 && fans >= fanThreshold && overlapCount >= 2) {
+      // Strong similarity + well-known + multi-seed overlap → popular
+      tier = 'popular';
+    } else if (matchScore >= 0.2 && fans >= fanThreshold) {
+      // Decent similarity + well-known → popular
       tier = 'popular';
     } else {
+      // Low similarity score, low fan count, or single-seed overlap → hidden gem
       tier = 'hidden_gem';
     }
 
     // Score based on tier
     let compositeScore;
     if (tier === 'popular') {
-      compositeScore = overlapScore;
+      // Blend overlap (how many seeds connect) with Last.fm match strength
+      compositeScore = overlapScore * 0.6 + matchScore * 0.4;
     } else {
-      // Hidden gem scoring
-      compositeScore = overlapScore * 0.3;
+      // Hidden gem scoring — blend overlap with match strength
+      compositeScore = overlapScore * 0.2 + matchScore * 0.2;
 
       // Bridge bonus
       if (candidate.artist.isBridge || method === 'bridge') {
@@ -401,21 +408,37 @@ export async function generateRecommendations(seedArtists, onProgress) {
   popularScored.sort((a, b) => b.compositeScore - a.compositeScore || a.name.localeCompare(b.name));
   hiddenGemScored.sort((a, b) => b.compositeScore - a.compositeScore || a.name.localeCompare(b.name));
 
-  // Allocate slots: 60% popular, 40% hidden gems, with overflow to other tier
-  const popularSlots = Math.round(MAX_RECOMMENDATIONS * 0.6);
-  const gemSlots = MAX_RECOMMENDATIONS - popularSlots;
+  // Allocate slots: guarantee at least 30% hidden gems (min 15), up to 50%
+  const MIN_GEM_RATIO = 0.30;
+  const TARGET_GEM_RATIO = 0.45;
+
+  const minGemSlots = Math.max(15, Math.round(MAX_RECOMMENDATIONS * MIN_GEM_RATIO));
+  const targetGemSlots = Math.round(MAX_RECOMMENDATIONS * TARGET_GEM_RATIO);
+
+  // Start with target allocation
+  let gemSlots = Math.min(targetGemSlots, hiddenGemScored.length);
+  let popularSlots = MAX_RECOMMENDATIONS - gemSlots;
+
+  // If not enough popular to fill their slots, give more to gems
+  if (popularScored.length < popularSlots) {
+    popularSlots = popularScored.length;
+    gemSlots = Math.min(MAX_RECOMMENDATIONS - popularSlots, hiddenGemScored.length);
+  }
+
+  // If not enough gems to fill target, give more to popular but enforce minimum
+  if (hiddenGemScored.length < gemSlots) {
+    gemSlots = hiddenGemScored.length;
+    popularSlots = Math.min(MAX_RECOMMENDATIONS - gemSlots, popularScored.length);
+  }
+
+  // Enforce minimum gem slots if gems are available
+  if (gemSlots < minGemSlots && hiddenGemScored.length >= minGemSlots) {
+    gemSlots = minGemSlots;
+    popularSlots = Math.min(MAX_RECOMMENDATIONS - gemSlots, popularScored.length);
+  }
 
   let selectedPopular = popularScored.slice(0, popularSlots);
   let selectedGems = hiddenGemScored.slice(0, gemSlots);
-
-  // If one tier has surplus capacity, give to the other
-  if (selectedPopular.length < popularSlots) {
-    const extraGems = gemSlots + (popularSlots - selectedPopular.length);
-    selectedGems = hiddenGemScored.slice(0, extraGems);
-  } else if (selectedGems.length < gemSlots) {
-    const extraPopular = popularSlots + (gemSlots - selectedGems.length);
-    selectedPopular = popularScored.slice(0, extraPopular);
-  }
 
   const topRecommendations = [...selectedPopular, ...selectedGems];
 
