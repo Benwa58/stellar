@@ -1,0 +1,26 @@
+.galaxy-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.galaxy-header-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 10, 26, 0.9) 0%,
+    rgba(10, 10, 26, 0.5) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.galaxy-header-overlay > * {
+  pointer-events: auto;
+}

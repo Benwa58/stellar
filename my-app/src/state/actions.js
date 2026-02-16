@@ -1,0 +1,15 @@
+export const ADD_SEED_ARTIST = 'ADD_SEED_ARTIST';
+export const REMOVE_SEED_ARTIST = 'REMOVE_SEED_ARTIST';
+export const SET_SEARCH_RESULTS = 'SET_SEARCH_RESULTS';
+export const SET_SEARCH_QUERY = 'SET_SEARCH_QUERY';
+export const START_GENERATING = 'START_GENERATING';
+export const SET_LOADING_PROGRESS = 'SET_LOADING_PROGRESS';
+export const SET_GALAXY_DATA = 'SET_GALAXY_DATA';
+export const SELECT_NODE = 'SELECT_NODE';
+export const HOVER_NODE = 'HOVER_NODE';
+export const SET_PREVIEW_TRACK = 'SET_PREVIEW_TRACK';
+export const SET_PLAYING = 'SET_PLAYING';
+export const SET_ERROR = 'SET_ERROR';
+export const CLEAR_ERROR = 'CLEAR_ERROR';
+export const RESET = 'RESET';
+export const GO_TO_INPUT = 'GO_TO_INPUT';

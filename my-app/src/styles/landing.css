@@ -1,0 +1,199 @@
+.landing-page {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Header */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  position: relative;
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.header-back {
+  color: var(--color-text-secondary);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+}
+
+.header-back:hover {
+  color: var(--color-text-primary);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-badge {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-surface);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+}
+
+/* Content */
+.landing-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px 60px;
+  position: relative;
+  z-index: 10;
+  overflow-y: auto;
+  gap: 32px;
+}
+
+/* Hero */
+.landing-hero {
+  text-align: center;
+  max-width: 540px;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+}
+
+.hero-accent {
+  background: linear-gradient(135deg, var(--color-accent), #a78bfa, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-tagline {
+  font-size: 1.15rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.hero-description {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+/* Input Section */
+.landing-input-section {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Generate Button */
+.generate-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.generate-button {
+  padding: 14px 36px;
+  border-radius: var(--radius-full);
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.generate-button.ready {
+  background: var(--color-accent);
+  color: white;
+  box-shadow: var(--shadow-glow);
+}
+
+.generate-button.ready:hover {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow-strong);
+  transform: translateY(-1px);
+}
+
+.generate-button.disabled {
+  background: var(--color-bg-surface);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  cursor: not-allowed;
+}
+
+.generate-icon {
+  display: flex;
+  align-items: center;
+}
+
+.generate-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* Background Stars Effect */
+.landing-bg-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 30% 60%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 50% 10%, rgba(255, 255, 255, 0.25), transparent),
+    radial-gradient(1.5px 1.5px at 70% 40%, rgba(255, 255, 255, 0.15), transparent),
+    radial-gradient(1px 1px at 80% 80%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 15% 85%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1.5px 1.5px at 90% 15%, rgba(255, 255, 255, 0.15), transparent),
+    radial-gradient(1px 1px at 40% 90%, rgba(255, 255, 255, 0.25), transparent),
+    radial-gradient(1px 1px at 65% 70%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 25% 45%, rgba(255, 255, 255, 0.15), transparent),
+    radial-gradient(1.5px 1.5px at 55% 50%, rgba(255, 255, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 85% 55%, rgba(255, 255, 255, 0.2), transparent);
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .hero-title {
+    font-size: 1.8rem;
+  }
+
+  .landing-content {
+    padding: 0 16px 40px;
+  }
+}

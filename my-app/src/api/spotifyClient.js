@@ -1,0 +1,286 @@
+import { getRateLimiter } from './rateLimiter';
+
+const PROXY_BASE = '/v1';
+
+async function spotifyFetch(endpoint, params = {}) {
+  const url = new URL(`${PROXY_BASE}${endpoint}`);
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null) {
+      url.searchParams.set(key, val);
+    }
+  });
+
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    const err = new Error(`Spotify API error: ${response.status}`);
+    err.status = response.status;
+    if (response.status === 429) {
+      err.retryAfter = parseInt(response.headers.get('Retry-After') || '2', 10);
+    }
+    throw err;
+  }
+
+  return response.json();
+}
+
+function rateLimitedFetch(endpoint, params) {
+  const limiter = getRateLimiter();
+  return limiter.enqueue(() => spotifyFetch(endpoint, params));
+}
+
+export async function searchArtists(query, limit = 6) {
+  if (!query || query.trim().length < 2) return [];
+  const data = await rateLimitedFetch('/search', {
+    q: query,
+    type: 'artist',
+    limit,
+  });
+  return (data.artists?.items || []).map(mapArtist);
+}
+
+export async function searchTracks(query, limit = 10) {
+  if (!query || query.trim().length < 2) return [];
+  const data = await rateLimitedFetch('/search', {
+    q: query,
+    type: 'track',
+    limit: Math.min(limit, 10),
+  });
+  return (data.tracks?.items || []).map(mapTrack);
+}
+
+export async function getArtist(artistId) {
+  const data = await rateLimitedFetch(`/artists/${artistId}`);
+  return mapArtist(data);
+}
+
+export async function getMultipleArtists(artistIds) {
+  if (artistIds.length === 0) return [];
+
+  // Try batch endpoint first; fall back to individual requests if 403
+  try {
+    const firstBatch = artistIds.slice(0, Math.min(50, artistIds.length));
+    const testData = await rateLimitedFetch('/artists', {
+      ids: firstBatch.join(','),
+    });
+    const results = (testData.artists || []).filter(Boolean).map(mapArtist);
+
+    // Batch works — continue with remaining batches
+    for (let i = 50; i < artistIds.length; i += 50) {
+      const batch = artistIds.slice(i, i + 50);
+      const data = await rateLimitedFetch('/artists', {
+        ids: batch.join(','),
+      });
+      results.push(...(data.artists || []).filter(Boolean).map(mapArtist));
+    }
+    return results;
+  } catch (err) {
+    if (err.status === 403) {
+      console.warn('Batch artist endpoint restricted — using individual requests');
+      // Fall back to individual artist fetches
+      const results = [];
+      for (const id of artistIds) {
+        try {
+          const data = await rateLimitedFetch(`/artists/${id}`);
+          results.push(mapArtist(data));
+        } catch (innerErr) {
+          // Skip artists that fail individually
+          if (innerErr.status !== 403) {
+            console.warn(`Failed to fetch artist ${id}:`, innerErr.message);
+          }
+        }
+      }
+      return results;
+    }
+    throw err;
+  }
+}
+
+// Max search limit for this Spotify app (newer Client Credentials apps are capped at 10)
+const SEARCH_LIMIT = 10;
+
+// Helper: paginated search that fetches multiple pages
+async function paginatedSearch(query, type, totalWanted) {
+  const allItems = [];
+  const pages = Math.ceil(totalWanted / SEARCH_LIMIT);
+  for (let page = 0; page < pages; page++) {
+    try {
+      const data = await rateLimitedFetch('/search', {
+        q: query,
+        type,
+        limit: SEARCH_LIMIT,
+        offset: page * SEARCH_LIMIT,
+      });
+      const key = type === 'artist' ? 'artists' : 'tracks';
+      const items = data[key]?.items || [];
+      allItems.push(...items);
+      if (items.length < SEARCH_LIMIT) break; // no more results
+    } catch (err) {
+      // If limit/offset fails, just return what we have
+      if (err.status === 400) break;
+      throw err;
+    }
+  }
+  return allItems;
+}
+
+// Search-based discovery: find artists related to a seed using multiple
+// search strategies since related-artists endpoint is restricted.
+// With Client Credentials on newer apps, only Search and basic Artist endpoints work.
+// Genres and popularity fields often come back empty.
+//
+// Key finding: Spotify's artist-type search relevance algorithm naturally
+// returns similar/related artists. Searching "Radiohead" as type=artist
+// returns Thom Yorke, Nirvana, Billie Eilish, etc. This is our primary signal.
+// Cross-searching "Radiohead Muse" returns artists in their musical intersection.
+export async function discoverRelatedArtists(seedArtist, allSeedNames = [], limit = 25) {
+  const allArtists = new Map();
+  const seedName = seedArtist.name;
+  const seedId = seedArtist.id;
+
+  // Collect artists from artist-type search results (includes images, etc.)
+  function collectFromArtistSearch(artists) {
+    for (const artist of artists) {
+      if (artist.id === seedId || allArtists.has(artist.id)) continue;
+      allArtists.set(artist.id, {
+        id: artist.id,
+        name: artist.name,
+        genres: artist.genres || [],
+        popularity: artist.popularity || 0,
+        externalUrl: artist.external_urls?.spotify,
+        image: getBestImage(artist.images, 160),
+        imageLarge: getBestImage(artist.images, 320),
+      });
+    }
+  }
+
+  // Collect artists mentioned in track results (collaborators, features)
+  function collectFromTracks(tracks) {
+    for (const track of tracks) {
+      for (const artist of track.artists || []) {
+        if (artist.id === seedId || allArtists.has(artist.id)) continue;
+        allArtists.set(artist.id, {
+          id: artist.id,
+          name: artist.name,
+          externalUrl: artist.external_urls?.spotify,
+        });
+      }
+    }
+  }
+
+  // === PRIMARY: Artist search by name (paginated, 3 pages = 30 results) ===
+  // Spotify's relevance algorithm returns artists in the same musical space
+  try {
+    const artists = await paginatedSearch(seedName, 'artist', 30);
+    collectFromArtistSearch(artists);
+  } catch (err) {
+    console.warn(`Artist search failed for "${seedName}":`, err.message);
+  }
+
+  // === CROSS-SEARCH: Combine with other seed names ===
+  // "Radiohead Muse" returns artists in their musical intersection
+  if (allSeedNames.length > 0) {
+    const otherSeeds = allSeedNames.filter((n) => n !== seedName).slice(0, 4);
+    for (const otherName of otherSeeds) {
+      if (allArtists.size >= limit) break;
+      try {
+        const artists = await paginatedSearch(`${seedName} ${otherName}`, 'artist', 10);
+        collectFromArtistSearch(artists);
+      } catch (err) {
+        console.warn(`Cross search failed for "${seedName} + ${otherName}":`, err.message);
+      }
+    }
+  }
+
+  // === TRACK SEARCH: Find collaborators via track results ===
+  if (allArtists.size < limit) {
+    try {
+      const tracks = await paginatedSearch(seedName, 'track', 10);
+      collectFromTracks(tracks);
+    } catch (err) {
+      console.warn(`Track search failed for "${seedName}":`, err.message);
+    }
+  }
+
+  // === COLLABORATION SEARCH: "artist feat" for features ===
+  if (allArtists.size < limit) {
+    try {
+      const tracks = await paginatedSearch(`${seedName} feat`, 'track', 10);
+      collectFromTracks(tracks);
+    } catch (err) {
+      console.warn(`Collab search failed for "${seedName}":`, err.message);
+    }
+  }
+
+  // === GENRE SEARCH: Only if genres are populated (often empty on newer apps) ===
+  if (allArtists.size < limit && seedArtist.genres && seedArtist.genres.length > 0) {
+    for (const genre of seedArtist.genres.slice(0, 2)) {
+      if (allArtists.size >= limit) break;
+      try {
+        const artists = await paginatedSearch(`genre:"${genre}"`, 'artist', 10);
+        collectFromArtistSearch(artists);
+      } catch (err) {
+        console.warn(`Genre search failed for "${genre}":`, err.message);
+      }
+    }
+  }
+
+  console.log(`Discovery for ${seedName}: found ${allArtists.size} unique artists`);
+  return Array.from(allArtists.values()).slice(0, limit);
+}
+
+// Search for tracks by an artist to get playable preview data
+export async function findArtistTrack(artistName) {
+  try {
+    const data = await rateLimitedFetch('/search', {
+      q: `artist:"${artistName}"`,
+      type: 'track',
+      limit: 10,
+    });
+    const tracks = (data.tracks?.items || []).map(mapTrack);
+    // Prefer tracks with preview URLs
+    const withPreview = tracks.find((t) => t.previewUrl);
+    return withPreview || tracks[0] || null;
+  } catch (err) {
+    console.warn(`Track search failed for ${artistName}:`, err.message);
+    return null;
+  }
+}
+
+function mapArtist(artist) {
+  return {
+    id: artist.id,
+    name: artist.name,
+    genres: artist.genres || [],
+    popularity: artist.popularity || 0,
+    image: getBestImage(artist.images, 160),
+    imageLarge: getBestImage(artist.images, 320),
+    followers: artist.followers?.total || 0,
+    externalUrl: artist.external_urls?.spotify,
+  };
+}
+
+function mapTrack(track) {
+  return {
+    id: track.id,
+    name: track.name,
+    previewUrl: track.preview_url,
+    durationMs: track.duration_ms,
+    albumName: track.album?.name,
+    albumImage: getBestImage(track.album?.images, 64),
+    albumImageLarge: getBestImage(track.album?.images, 300),
+    artistName: track.artists?.[0]?.name,
+    artistId: track.artists?.[0]?.id,
+    externalUrl: track.external_urls?.spotify,
+  };
+}
+
+function getBestImage(images, targetSize) {
+  if (!images || images.length === 0) return null;
+  const sorted = [...images].sort(
+    (a, b) =>
+      Math.abs((a.width || 0) - targetSize) -
+      Math.abs((b.width || 0) - targetSize)
+  );
+  return sorted[0]?.url || null;
+}
