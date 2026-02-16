@@ -141,9 +141,11 @@ export async function discoverRelatedArtists(seedArtist, allSeedNames = [], limi
   const seedId = seedArtist.id;
 
   // Collect artists from artist-type search results (includes images, etc.)
-  function collectFromArtistSearch(artists) {
+  // filterName: if provided, reject candidates that look like false-positive name matches
+  function collectFromArtistSearch(artists, filterName = null) {
     for (const artist of artists) {
       if (artist.id === seedId || allArtists.has(artist.id)) continue;
+      if (filterName && isLikelyNameOnlyMatch(filterName, artist.name)) continue;
       allArtists.set(artist.id, {
         id: artist.id,
         name: artist.name,
@@ -158,6 +160,7 @@ export async function discoverRelatedArtists(seedArtist, allSeedNames = [], limi
   }
 
   // Collect artists mentioned in track results (collaborators, features)
+  // No name filtering here — track-based discovery uses associations, not name matching
   function collectFromTracks(tracks) {
     for (const track of tracks) {
       for (const artist of track.artists || []) {
@@ -172,10 +175,11 @@ export async function discoverRelatedArtists(seedArtist, allSeedNames = [], limi
   }
 
   // === PRIMARY: Artist search by name (paginated, 3 pages = 30 results) ===
-  // Spotify's relevance algorithm returns artists in the same musical space
+  // Spotify's relevance algorithm returns artists in the same musical space.
+  // Filter out false-positive name-fragment matches (e.g., "Super___" from "Superheaven").
   try {
     const artists = await paginatedSearch(seedName, 'artist', 30);
-    collectFromArtistSearch(artists);
+    collectFromArtistSearch(artists, seedName);
   } catch (err) {
     console.warn(`Artist search failed for "${seedName}":`, err.message);
   }
@@ -188,7 +192,7 @@ export async function discoverRelatedArtists(seedArtist, allSeedNames = [], limi
       if (allArtists.size >= limit) break;
       try {
         const artists = await paginatedSearch(`${seedName} ${otherName}`, 'artist', 10);
-        collectFromArtistSearch(artists);
+        collectFromArtistSearch(artists, seedName);
       } catch (err) {
         console.warn(`Cross search failed for "${seedName} + ${otherName}":`, err.message);
       }
@@ -248,6 +252,7 @@ export async function discoverDeepCuts(intermediateArtists, seedIds, limit = 15)
       const artists = await paginatedSearch(intermediate.name, 'artist', 10);
       for (const artist of artists) {
         if (seedIdSet.has(artist.id) || intermediateIds.has(artist.id) || allArtists.has(artist.id)) continue;
+        if (isLikelyNameOnlyMatch(intermediate.name, artist.name)) continue;
         allArtists.set(artist.id, {
           id: artist.id,
           name: artist.name,
@@ -272,6 +277,7 @@ export async function discoverDeepCuts(intermediateArtists, seedIds, limit = 15)
         const artists = await paginatedSearch(`${intermediate.name} ${mod}`, 'artist', 10);
         for (const artist of artists) {
           if (seedIdSet.has(artist.id) || intermediateIds.has(artist.id) || allArtists.has(artist.id)) continue;
+          if (isLikelyNameOnlyMatch(intermediate.name, artist.name)) continue;
           allArtists.set(artist.id, {
             id: artist.id,
             name: artist.name,
@@ -303,6 +309,9 @@ export async function discoverBridgeArtists(seedA, seedB, limit = 8) {
 
   function collectArtist(artist) {
     if (excludeIds.has(artist.id) || allArtists.has(artist.id)) return;
+    // For bridges, reject only if the name is a false positive for BOTH seeds
+    if (isLikelyNameOnlyMatch(seedA.name, artist.name) &&
+        isLikelyNameOnlyMatch(seedB.name, artist.name)) return;
     allArtists.set(artist.id, {
       id: artist.id,
       name: artist.name,
@@ -410,6 +419,88 @@ function mapTrack(track) {
     artistId: track.artists?.[0]?.id,
     externalUrl: track.external_urls?.spotify,
   };
+}
+
+// Detect when a candidate artist likely only appeared in search results because
+// of a superficial name fragment match rather than genuine musical relevance.
+// Returns true if the candidate should be REJECTED (it's a false positive).
+//
+// Examples:
+//   isLikelyNameOnlyMatch("Superheaven", "Super Cat")     → true  (shares "super", otherwise unrelated)
+//   isLikelyNameOnlyMatch("Superheaven", "Superheaven")   → false (exact match)
+//   isLikelyNameOnlyMatch("Superheaven", "Title Fight")   → false (no shared tokens — kept as musical relevance)
+//   isLikelyNameOnlyMatch("10 Years", "10,000 Maniacs")   → true  (shares only "10")
+//   isLikelyNameOnlyMatch("10 Years", "Chevelle")         → false (no shared tokens)
+//   isLikelyNameOnlyMatch("Radiohead", "Thom Yorke")      → false (no shared tokens)
+function isLikelyNameOnlyMatch(seedName, candidateName) {
+  const seed = seedName.toLowerCase().trim();
+  const candidate = candidateName.toLowerCase().trim();
+
+  // Exact match is never a false positive
+  if (seed === candidate) return false;
+
+  // One contains the other fully — likely a variant, keep it
+  if (seed.includes(candidate) || candidate.includes(seed)) return false;
+
+  // Tokenize into words, strip common filler words
+  const fillerWords = new Set(['the', 'a', 'an', 'of', 'and', '&', 'de', 'la', 'el', 'le', 'los', 'las', 'les', 'von', 'van', 'der', 'die', 'das']);
+  const tokenize = (s) => s.split(/[\s\-_.,!?&]+/)
+    .map(t => t.replace(/[^a-z0-9]/g, ''))
+    .filter(t => t.length > 0 && !fillerWords.has(t));
+
+  const seedTokens = tokenize(seed);
+  const candidateTokens = tokenize(candidate);
+
+  if (seedTokens.length === 0 || candidateTokens.length === 0) return false;
+
+  // Find shared tokens (exact word matches)
+  const sharedExact = seedTokens.filter(t => candidateTokens.includes(t));
+
+  // Also check for prefix/substring matches (e.g., "super" matching "superheaven" tokens)
+  // A seed token like "superheaven" contains "super" as a prefix
+  const sharedPartial = candidateTokens.filter(ct =>
+    !sharedExact.includes(ct) &&
+    seedTokens.some(st =>
+      (st.length >= 4 && ct.length >= 3 && (st.startsWith(ct) || ct.startsWith(st)))
+    )
+  );
+
+  const totalShared = sharedExact.length + sharedPartial.length;
+
+  // No shared tokens at all — this is a musical-relevance match, KEEP it
+  if (totalShared === 0) return false;
+
+  // Check if shared tokens are all "weak" (short or numeric)
+  const allSharedTokens = [...sharedExact, ...sharedPartial];
+  const isWeakToken = (t) => t.length <= 2 || /^\d+$/.test(t);
+  const allWeak = allSharedTokens.every(isWeakToken);
+
+  // If the only shared tokens are weak ones (like "10", "dj", "mc"), it's almost
+  // certainly a false positive — the match is just a short/numeric coincidence
+  if (allWeak) return true;
+
+  // For stronger shared tokens: check what percentage of the candidate's name
+  // is made up of shared content. If the candidate is mostly "new" words that
+  // have nothing to do with the seed, it's a false positive.
+  const candidateNonShared = candidateTokens.filter(ct =>
+    !sharedExact.includes(ct) && !sharedPartial.includes(ct)
+  );
+
+  // If candidate has significant non-shared content, it's likely a different artist
+  // that just happens to share a word. E.g., "Super Cat" shares "super" with
+  // "Superheaven" but "cat" is completely unrelated.
+  if (candidateNonShared.length >= 1 && sharedExact.length <= 1 && sharedPartial.length <= 1) {
+    // The candidate shares at most 1 word with the seed and has other unrelated words
+    // This is the classic false positive pattern
+    const sharedCharLen = allSharedTokens.reduce((sum, t) => sum + t.length, 0);
+    const totalCharLen = candidateTokens.reduce((sum, t) => sum + t.length, 0);
+    const sharedRatio = sharedCharLen / totalCharLen;
+
+    // If less than half the candidate's name is shared content, reject
+    if (sharedRatio < 0.5) return true;
+  }
+
+  return false;
 }
 
 function getBestImage(images, targetSize) {
