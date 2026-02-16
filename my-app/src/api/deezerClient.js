@@ -5,6 +5,9 @@ const DEEZER_PROXY = '/deezer';
 // Separate rate limiter for Deezer
 const limiter = createRateLimiter(5, 60);
 
+// Cache Deezer lookups by artist name to avoid redundant searches
+const deezerCache = new Map();
+
 async function deezerFetch(path) {
   const fetchUrl = `${DEEZER_PROXY}${path}`;
   const response = await fetch(fetchUrl);
@@ -120,23 +123,32 @@ export async function getArtist(deezerId) {
 
 /**
  * Find a Deezer artist by name (cross-reference from Last.fm).
- * Returns the best match or null.
+ * Returns the best match or null. Results are cached to avoid redundant lookups.
  */
 export async function findArtistByName(artistName) {
   if (!artistName || artistName.trim().length < 1) return null;
 
+  const cacheKey = artistName.toLowerCase().trim();
+
+  // Check cache first
+  if (deezerCache.has(cacheKey)) {
+    return deezerCache.get(cacheKey);
+  }
+
   try {
-    const results = await searchArtists(artistName, 5);
-    if (results.length === 0) return null;
+    // Only fetch 2 results — we just need the best match
+    const results = await searchArtists(artistName, 2);
+    if (results.length === 0) {
+      deezerCache.set(cacheKey, null);
+      return null;
+    }
 
     // Prefer exact case-insensitive match
-    const lower = artistName.toLowerCase().trim();
-    const exact = results.find((a) => a.name.toLowerCase().trim() === lower);
-    if (exact) return exact;
+    const exact = results.find((a) => a.name.toLowerCase().trim() === cacheKey);
+    const result = exact || results[0];
 
-    // Fall back to first result if it's reasonably close
-    // (Deezer search relevance is usually good)
-    return results[0];
+    deezerCache.set(cacheKey, result);
+    return result;
   } catch (err) {
     console.warn(`Deezer findByName failed for "${artistName}":`, err.message);
     return null;
@@ -146,14 +158,27 @@ export async function findArtistByName(artistName) {
 /**
  * Batch enrichment: find Deezer data for multiple artist names.
  * Returns a Map of lowercase name → Deezer artist data.
+ * Uses cache to skip already-looked-up artists and runs lookups concurrently.
  */
 export async function enrichArtistsFromDeezer(artistNames) {
   const enriched = new Map();
+  const uncached = [];
 
-  // Process in batches of 5 to avoid overwhelming the API
-  const BATCH_SIZE = 5;
-  for (let i = 0; i < artistNames.length; i += BATCH_SIZE) {
-    const batch = artistNames.slice(i, i + BATCH_SIZE);
+  // Separate cached from uncached
+  for (const name of artistNames) {
+    const key = name.toLowerCase().trim();
+    if (deezerCache.has(key)) {
+      const cached = deezerCache.get(key);
+      if (cached) enriched.set(key, cached);
+    } else {
+      uncached.push(name);
+    }
+  }
+
+  // Fetch uncached in larger concurrent batches
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < uncached.length; i += BATCH_SIZE) {
+    const batch = uncached.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(
       batch.map((name) => findArtistByName(name))
     );
@@ -166,4 +191,11 @@ export async function enrichArtistsFromDeezer(artistNames) {
   }
 
   return enriched;
+}
+
+/**
+ * Clear the Deezer lookup cache.
+ */
+export function clearCache() {
+  deezerCache.clear();
 }

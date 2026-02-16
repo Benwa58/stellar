@@ -234,30 +234,36 @@ export async function generateRecommendations(seedArtists, onProgress) {
   console.log(`Phase 4: ${bridgeCandidates.size} bridge candidates`);
 
   // ================================================================
-  // Phase 5: Enrich candidates missing images
+  // Phase 5: Enrich candidates — images (Deezer) + tags (Last.fm)
+  // Split into two lists: those missing images vs those only missing tags.
+  // Discovery phases already enriched most with Deezer data (cached),
+  // so the image list is usually small. Tags are fetched in parallel.
   // ================================================================
   onProgress({ phase: 'details', current: 0, total: 1, message: 'Gathering artist details...' });
 
   const allCandidateMaps = [candidates, deepCutCandidates, bridgeCandidates];
-  const needsEnrichment = [];
+  const needsImages = new Set();  // Artists missing images (need Deezer lookup)
+  const needsTags = new Set();    // Artists missing genres (need Last.fm tags)
+
   for (const map of allCandidateMaps) {
     for (const [, candidate] of map) {
+      const name = candidate.artist.name;
       if (!candidate.artist.image && !candidate.artist.imageLarge) {
-        needsEnrichment.push(candidate.artist.name);
+        needsImages.add(name);
       }
-      // Also enrich artists missing genre tags
       if (!candidate.artist.genres || candidate.artist.genres.length === 0) {
-        if (!needsEnrichment.includes(candidate.artist.name)) {
-          needsEnrichment.push(candidate.artist.name);
-        }
+        needsTags.add(name);
       }
     }
   }
 
-  if (needsEnrichment.length > 0) {
-    console.log(`Enriching ${needsEnrichment.length} candidates`);
+  // Combine into one enrichment call (musicClient runs Deezer + Last.fm in parallel)
+  const allNeedEnrichment = new Set([...needsImages, ...needsTags]);
+
+  if (allNeedEnrichment.size > 0) {
+    console.log(`Enriching: ${needsImages.size} need images, ${needsTags.size} need tags (${allNeedEnrichment.size} unique)`);
     try {
-      const enrichedData = await enrichArtists(needsEnrichment);
+      const enrichedData = await enrichArtists(Array.from(allNeedEnrichment));
       for (const map of allCandidateMaps) {
         for (const [, candidate] of map) {
           const data = enrichedData.get(candidate.artist.name.toLowerCase().trim());

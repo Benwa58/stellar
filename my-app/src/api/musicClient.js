@@ -340,16 +340,17 @@ export async function findArtistTrack(artistName) {
 /**
  * Enrich artists that are missing images by looking them up on Deezer.
  * Also fetches Last.fm tags for genre data.
+ * Runs Deezer and Last.fm lookups in parallel for speed.
  * Returns a Map of lowercase name → enriched data.
  */
 export async function enrichArtists(artistNames) {
-  // Get Deezer data (images, IDs, fan counts)
-  const deezerMap = await deezer.enrichArtistsFromDeezer(artistNames);
-
-  // Get Last.fm tags in parallel
-  const tagResults = await Promise.all(
-    artistNames.map((name) => lastfm.getArtistTags(name, 5).catch(() => []))
-  );
+  // Run Deezer and Last.fm lookups in parallel
+  const [deezerMap, tagResults] = await Promise.all([
+    deezer.enrichArtistsFromDeezer(artistNames),
+    Promise.all(
+      artistNames.map((name) => lastfm.getArtistTags(name, 5).catch(() => []))
+    ),
+  ]);
 
   const result = new Map();
   artistNames.forEach((name, i) => {
@@ -369,8 +370,9 @@ export async function enrichArtists(artistNames) {
 }
 
 /**
- * Clear the similar-artist cache (useful between recommendation runs).
+ * Clear caches (useful between recommendation runs).
  */
 export function clearCache() {
   similarCache.clear();
+  deezer.clearCache();
 }
