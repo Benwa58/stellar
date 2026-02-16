@@ -21,6 +21,8 @@ export const NODE_SIZES = {
   seedMax: 18,
   recMin: 4,
   recMax: 12,
+  gemMin: 3,
+  gemMax: 9,
 };
 
 export const GENRE_COLORS = {
@@ -57,6 +59,9 @@ export const GALAXY_COLORS = {
   linkHighlight: 'rgba(150, 180, 255, 0.4)',
   hoverRing: 'rgba(255, 255, 255, 0.6)',
   nebulaOpacity: 0.04,
+  bridgeLinkColor: 'rgba(100, 220, 200, 0.12)',
+  bridgeLinkHighlight: 'rgba(100, 220, 200, 0.35)',
+  hiddenGemRing: 'rgba(100, 220, 200, 0.7)',
 };
 
 export const PARTICLE_CONFIG = {
@@ -73,3 +78,11 @@ export const SCORING_WEIGHTS = {
   genre: 0.35,
   popularity: 0.15,
 };
+
+// Deep cut & bridge discovery
+export const HIDDEN_GEM_FOLLOWER_THRESHOLD = 100000;
+export const DEEP_CUT_INTERMEDIATE_COUNT = 5;
+export const DEEP_CUT_LIMIT = 15;
+export const BRIDGE_SEARCH_LIMIT = 8;
+export const MAX_BRIDGE_PAIRS = 3;
+export const HIDDEN_GEM_COLOR = { h: 175, s: 70, l: 55 };

@@ -99,6 +99,18 @@
   color: var(--color-accent-hover);
 }
 
+.badge-gem {
+  background: rgba(100, 220, 200, 0.15);
+  color: #64dcc8;
+}
+
+.panel-discovery-note {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
 /* Score */
 .panel-score {
   width: 100%;
@@ -126,6 +138,10 @@
   background: linear-gradient(90deg, var(--color-accent), #a78bfa);
   border-radius: 2px;
   transition: width 0.3s ease;
+}
+
+.score-bar-fill-gem {
+  background: linear-gradient(90deg, #4db8a4, #64dcc8);
 }
 
 .score-value {

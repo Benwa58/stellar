@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { findArtistTrack } from '../api/spotifyClient';
 import '../styles/panel.css';
 
+function getBadgeInfo(node) {
+  if (node.type === 'seed') return { label: 'Your Artist', className: 'badge-seed' };
+  if (node.tier === 'hidden_gem') return { label: 'Hidden Gem', className: 'badge-gem' };
+  return { label: 'Top Pick', className: 'badge-rec' };
+}
+
 function ArtistDetailPanel({ node, onClose }) {
   const [topTrack, setTopTrack] = useState(null);
   const [loadingTrack, setLoadingTrack] = useState(false);
@@ -30,6 +36,7 @@ function ArtistDetailPanel({ node, onClose }) {
   if (!node) return null;
 
   const isSeed = node.type === 'seed';
+  const badge = getBadgeInfo(node);
   const scorePercent = node.compositeScore
     ? Math.round(node.compositeScore * 100)
     : null;
@@ -60,16 +67,30 @@ function ArtistDetailPanel({ node, onClose }) {
 
         <h3 className="panel-artist-name">{node.name}</h3>
 
-        <span className={`panel-type-badge ${isSeed ? 'badge-seed' : 'badge-rec'}`}>
-          {isSeed ? 'Your Artist' : 'Recommended'}
+        <span className={`panel-type-badge ${badge.className}`}>
+          {badge.label}
         </span>
+
+        {/* Bridge note: shows which seeds this artist connects */}
+        {node.discoveryMethod === 'bridge' && node.bridgeSeedNames && node.bridgeSeedNames.length > 0 && (
+          <span className="panel-discovery-note">
+            Bridges {node.bridgeSeedNames.join(' & ')}
+          </span>
+        )}
+
+        {/* Deep cut note: shows how this artist was discovered */}
+        {node.discoveryMethod === 'deep_cut' && node.discoveredViaName && (
+          <span className="panel-discovery-note">
+            Discovered via {node.discoveredViaName}
+          </span>
+        )}
 
         {!isSeed && scorePercent != null && (
           <div className="panel-score">
             <span className="score-label">Relevance</span>
-            <div className="score-bar">
+            <div className={`score-bar ${node.tier === 'hidden_gem' ? 'score-bar-gem' : ''}`}>
               <div
-                className="score-bar-fill"
+                className={`score-bar-fill ${node.tier === 'hidden_gem' ? 'score-bar-fill-gem' : ''}`}
                 style={{ width: `${scorePercent}%` }}
               />
             </div>

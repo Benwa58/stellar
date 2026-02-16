@@ -15,6 +15,7 @@ export function createRenderer(canvas, getState) {
   }
 
   function render() {
+    const time = performance.now();
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
@@ -50,7 +51,7 @@ export function createRenderer(canvas, getState) {
     drawLinks(ctx, links, hoveredNode, selectedNode);
 
     // Nodes
-    drawNodes(ctx, nodes, hoveredNode, selectedNode);
+    drawNodes(ctx, nodes, hoveredNode, selectedNode, time);
 
     // Labels for hovered/selected
     if (hoveredNode && hoveredNode !== selectedNode) {
@@ -106,27 +107,44 @@ function drawLinks(ctx, links, hoveredNode, selectedNode) {
     ctx.moveTo(source.x, source.y);
     ctx.lineTo(target.x, target.y);
 
-    if (isHighlighted) {
+    if (link.isBridgeLink) {
+      // Bridge links: dashed teal line
+      ctx.setLineDash([4, 6]);
+      if (isHighlighted) {
+        ctx.strokeStyle = GALAXY_COLORS.bridgeLinkHighlight;
+        ctx.lineWidth = 1.2;
+      } else {
+        ctx.strokeStyle = GALAXY_COLORS.bridgeLinkColor;
+        ctx.lineWidth = 0.8;
+      }
+    } else if (isHighlighted) {
+      ctx.setLineDash([]);
       ctx.strokeStyle = GALAXY_COLORS.linkHighlight;
       ctx.lineWidth = 1.2;
     } else {
+      ctx.setLineDash([]);
       ctx.strokeStyle = `rgba(80, 100, 140, ${link.opacity || 0.06})`;
       ctx.lineWidth = 0.5;
     }
     ctx.stroke();
+    ctx.setLineDash([]);
   }
 }
 
-function drawNodes(ctx, nodes, hoveredNode, selectedNode) {
+function drawNodes(ctx, nodes, hoveredNode, selectedNode, time) {
   if (!nodes) return;
 
   for (const node of nodes) {
     if (node.x == null || node.y == null) continue;
 
+    const isActive = node === hoveredNode || node === selectedNode;
+
     if (node.type === 'seed') {
-      drawSeedNode(ctx, node, node === hoveredNode || node === selectedNode);
+      drawSeedNode(ctx, node, isActive);
+    } else if (node.isHiddenGem) {
+      drawHiddenGemNode(ctx, node, isActive, time);
     } else {
-      drawRecNode(ctx, node, node === hoveredNode || node === selectedNode);
+      drawRecNode(ctx, node, isActive);
     }
   }
 }
@@ -205,6 +223,49 @@ function drawRecNode(ctx, node, isActive) {
   }
 }
 
+function drawHiddenGemNode(ctx, node, isActive, time) {
+  const { x, y, radius, color, glowColor, brightness } = node;
+
+  // Pulsing glow — slow breathe animation
+  const pulse = 0.8 + 0.2 * Math.sin(time * 0.002 + x * 0.01);
+  const glowRadius = radius * 2.5 * pulse;
+
+  // Glow with teal tint
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+  glow.addColorStop(0, glowColor || 'rgba(100, 220, 200, 0.25)');
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.beginPath();
+  ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  // Body circle
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = color || 'rgba(100, 220, 200, 0.8)';
+  ctx.fill();
+
+  // Diamond overlay (4-pointed star shape) — makes hidden gems identifiable
+  const starSize = radius * 0.6;
+  ctx.beginPath();
+  ctx.moveTo(x, y - starSize);
+  ctx.lineTo(x + starSize * 0.4, y);
+  ctx.lineTo(x, y + starSize);
+  ctx.lineTo(x - starSize * 0.4, y);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(255, 255, 255, ${(brightness || 0.5) * 0.4})`;
+  ctx.fill();
+
+  // Active ring with teal color
+  if (isActive) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = GALAXY_COLORS.hiddenGemRing;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+}
+
 function drawNodeLabel(ctx, node) {
   if (!node || node.x == null) return;
 
@@ -224,7 +285,9 @@ function drawNodeLabel(ctx, node) {
   ctx.fill();
 
   // Border
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.strokeStyle = node.isHiddenGem
+    ? 'rgba(100, 220, 200, 0.25)'
+    : 'rgba(255, 255, 255, 0.15)';
   ctx.lineWidth = 0.5;
   ctx.stroke();
 

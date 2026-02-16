@@ -1,14 +1,24 @@
-import { discoverRelatedArtists, getMultipleArtists } from '../api/spotifyClient';
-import { MAX_RECOMMENDATIONS } from '../utils/constants';
+import { discoverRelatedArtists, discoverDeepCuts, discoverBridgeArtists, getMultipleArtists } from '../api/spotifyClient';
+import {
+  MAX_RECOMMENDATIONS,
+  HIDDEN_GEM_FOLLOWER_THRESHOLD,
+  DEEP_CUT_INTERMEDIATE_COUNT,
+  DEEP_CUT_LIMIT,
+  BRIDGE_SEARCH_LIMIT,
+  MAX_BRIDGE_PAIRS,
+} from '../utils/constants';
 import { clusterByGenre } from './genreAnalysis';
 
 export async function generateRecommendations(seedArtists, onProgress) {
   const seedIds = new Set(seedArtists.map((a) => a.id));
+  const seedIdArray = Array.from(seedIds);
 
-  // Phase 1: Discover related artists via search for each seed
+  // ================================================================
+  // Phase 1: Standard discovery — search for related artists per seed
+  // ================================================================
   onProgress({ phase: 'discover', current: 0, total: seedArtists.length, message: 'Discovering related artists...' });
 
-  const candidates = new Map(); // candidateId -> { artist, relatedToSeeds: Set }
+  const candidates = new Map(); // candidateId -> { artist, relatedToSeeds: Set, discoveryMethod }
   let successCount = 0;
   const allSeedNames = seedArtists.map((a) => a.name);
 
@@ -26,7 +36,6 @@ export async function generateRecommendations(seedArtists, onProgress) {
       if (discovered && discovered.length > 0) {
         successCount++;
         for (const artist of discovered) {
-          // Skip any artist that is itself a seed
           if (seedIds.has(artist.id)) continue;
 
           if (candidates.has(artist.id)) {
@@ -35,6 +44,7 @@ export async function generateRecommendations(seedArtists, onProgress) {
             candidates.set(artist.id, {
               artist,
               relatedToSeeds: new Set([seed.id]),
+              discoveryMethod: 'standard',
             });
           }
         }
@@ -51,34 +61,200 @@ export async function generateRecommendations(seedArtists, onProgress) {
     });
   }
 
-  console.log(`Discovery phase: ${successCount}/${seedArtists.length} seeds produced results, ${candidates.size} unique candidates`);
+  console.log(`Phase 1: ${successCount}/${seedArtists.length} seeds produced results, ${candidates.size} unique candidates`);
 
-  if (candidates.size === 0) {
-    throw new Error(
-      'No artists discovered. Try different or more well-known artists.'
-    );
+  // ================================================================
+  // Phase 2: Identify intermediates + disconnected seed pairs
+  // ================================================================
+  onProgress({ phase: 'discover', current: seedArtists.length, total: seedArtists.length, message: 'Analyzing connections...' });
+
+  // Score phase-1 candidates by overlap to pick intermediates
+  const phase1Scored = [];
+  for (const [id, candidate] of candidates) {
+    phase1Scored.push({
+      id,
+      name: candidate.artist.name,
+      overlapCount: candidate.relatedToSeeds.size,
+      relatedToSeeds: candidate.relatedToSeeds,
+    });
+  }
+  phase1Scored.sort((a, b) => b.overlapCount - a.overlapCount);
+
+  // Pick top intermediates (must have overlap >= 1, prefer >= 2)
+  const intermediates = phase1Scored
+    .filter((c) => c.overlapCount >= 1)
+    .slice(0, DEEP_CUT_INTERMEDIATE_COUNT)
+    .map((c) => candidates.get(c.id).artist);
+
+  // Find disconnected seed pairs (no shared candidates)
+  const disconnectedPairs = [];
+  for (let i = 0; i < seedIdArray.length; i++) {
+    for (let j = i + 1; j < seedIdArray.length; j++) {
+      const a = seedIdArray[i];
+      const b = seedIdArray[j];
+      let shared = false;
+      for (const [, candidate] of candidates) {
+        if (candidate.relatedToSeeds.has(a) && candidate.relatedToSeeds.has(b)) {
+          shared = true;
+          break;
+        }
+      }
+      if (!shared) {
+        disconnectedPairs.push([
+          seedArtists.find((s) => s.id === a),
+          seedArtists.find((s) => s.id === b),
+        ]);
+      }
+    }
   }
 
-  // Phase 2: Enrich candidates that lack images with full artist details
-  // Artists found via artist-type search already have images; only those
-  // discovered through track search (name + ID only) need enrichment.
+  console.log(`Phase 2: ${intermediates.length} intermediates, ${disconnectedPairs.length} disconnected pairs`);
+
+  // ================================================================
+  // Phase 3: Deep cut discovery — "second hop" from intermediates
+  // ================================================================
+  const deepCutCandidates = new Map();
+
+  if (intermediates.length > 0) {
+    onProgress({ phase: 'deep_cuts', current: 0, total: 1, message: 'Searching for hidden gems...' });
+
+    try {
+      const deepCuts = await discoverDeepCuts(intermediates, seedIdArray, DEEP_CUT_LIMIT);
+
+      for (const artist of deepCuts) {
+        if (seedIds.has(artist.id)) continue;
+
+        if (candidates.has(artist.id)) {
+          // Already found in standard discovery — enrich with deep cut info
+          const existing = candidates.get(artist.id);
+          existing.artist.discoveredVia = artist.discoveredVia;
+          existing.artist.discoveredViaName = artist.discoveredViaName;
+          continue;
+        }
+
+        if (deepCutCandidates.has(artist.id)) continue;
+
+        // Find which seeds the intermediate is connected to
+        const intermediateCandidate = candidates.get(artist.discoveredVia);
+        const relatedSeeds = intermediateCandidate
+          ? new Set(intermediateCandidate.relatedToSeeds)
+          : new Set();
+
+        // If no seed connection through intermediate, link to first seed
+        if (relatedSeeds.size === 0 && seedIdArray.length > 0) {
+          relatedSeeds.add(seedIdArray[0]);
+        }
+
+        deepCutCandidates.set(artist.id, {
+          artist,
+          relatedToSeeds: relatedSeeds,
+          discoveryMethod: 'deep_cut',
+        });
+      }
+    } catch (err) {
+      console.warn('Deep cut discovery failed:', err.message);
+    }
+
+    onProgress({ phase: 'deep_cuts', current: 1, total: 1, message: `Found ${deepCutCandidates.size} hidden gems` });
+  }
+
+  console.log(`Phase 3: ${deepCutCandidates.size} deep cut candidates`);
+
+  // ================================================================
+  // Phase 4: Bridge discovery — connect disconnected seed pairs
+  // ================================================================
+  const bridgeCandidates = new Map();
+
+  if (disconnectedPairs.length > 0) {
+    const pairsToSearch = disconnectedPairs.slice(0, MAX_BRIDGE_PAIRS);
+    onProgress({ phase: 'bridges', current: 0, total: pairsToSearch.length, message: 'Building bridges between styles...' });
+
+    for (let i = 0; i < pairsToSearch.length; i++) {
+      const [seedA, seedB] = pairsToSearch[i];
+      onProgress({
+        phase: 'bridges',
+        current: i,
+        total: pairsToSearch.length,
+        message: `Connecting ${seedA.name} & ${seedB.name}...`,
+      });
+
+      try {
+        const bridges = await discoverBridgeArtists(seedA, seedB, BRIDGE_SEARCH_LIMIT);
+
+        for (const artist of bridges) {
+          if (seedIds.has(artist.id)) continue;
+
+          if (candidates.has(artist.id)) {
+            // Already in standard candidates — add both seeds as connections
+            const existing = candidates.get(artist.id);
+            existing.relatedToSeeds.add(seedA.id);
+            existing.relatedToSeeds.add(seedB.id);
+            existing.artist.isBridge = true;
+            existing.artist.bridgesBetween = artist.bridgesBetween;
+            existing.artist.bridgeSeedNames = artist.bridgeSeedNames;
+            continue;
+          }
+
+          if (deepCutCandidates.has(artist.id)) {
+            const existing = deepCutCandidates.get(artist.id);
+            existing.relatedToSeeds.add(seedA.id);
+            existing.relatedToSeeds.add(seedB.id);
+            continue;
+          }
+
+          if (bridgeCandidates.has(artist.id)) {
+            const existing = bridgeCandidates.get(artist.id);
+            existing.relatedToSeeds.add(seedA.id);
+            existing.relatedToSeeds.add(seedB.id);
+            continue;
+          }
+
+          bridgeCandidates.set(artist.id, {
+            artist,
+            relatedToSeeds: new Set([seedA.id, seedB.id]),
+            discoveryMethod: 'bridge',
+          });
+        }
+      } catch (err) {
+        console.warn(`Bridge discovery failed for ${seedA.name} & ${seedB.name}:`, err.message);
+      }
+
+      onProgress({
+        phase: 'bridges',
+        current: i + 1,
+        total: pairsToSearch.length,
+        message: `Connected ${seedA.name} & ${seedB.name}`,
+      });
+    }
+  }
+
+  console.log(`Phase 4: ${bridgeCandidates.size} bridge candidates`);
+
+  // ================================================================
+  // Phase 5: Enrich candidates missing images
+  // ================================================================
   onProgress({ phase: 'details', current: 0, total: 1, message: 'Gathering artist details...' });
 
+  const allCandidateMaps = [candidates, deepCutCandidates, bridgeCandidates];
   const needsEnrichment = [];
-  for (const [id, candidate] of candidates) {
-    if (!candidate.artist.image && !candidate.artist.imageLarge) {
-      needsEnrichment.push(id);
+  for (const map of allCandidateMaps) {
+    for (const [id, candidate] of map) {
+      if (!candidate.artist.image && !candidate.artist.imageLarge) {
+        needsEnrichment.push(id);
+      }
     }
   }
 
   if (needsEnrichment.length > 0) {
-    console.log(`Enriching ${needsEnrichment.length} of ${candidates.size} candidates`);
+    console.log(`Enriching ${needsEnrichment.length} candidates`);
     try {
       const fullArtists = await getMultipleArtists(needsEnrichment);
       for (const artist of fullArtists) {
-        if (candidates.has(artist.id)) {
-          const existing = candidates.get(artist.id);
-          existing.artist = { ...existing.artist, ...artist };
+        for (const map of allCandidateMaps) {
+          if (map.has(artist.id)) {
+            const existing = map.get(artist.id);
+            existing.artist = { ...existing.artist, ...artist };
+          }
         }
       }
     } catch (err) {
@@ -88,58 +264,159 @@ export async function generateRecommendations(seedArtists, onProgress) {
 
   onProgress({ phase: 'details', current: 1, total: 1, message: 'Details gathered.' });
 
-  // Phase 3: Score candidates
-  // Primary signal: how many seed artists this candidate appeared near (overlap count)
+  // ================================================================
+  // Phase 6: Score, classify tiers, select top recommendations
+  // ================================================================
   onProgress({ phase: 'scoring', current: 0, total: 1, message: 'Analyzing connections...' });
 
   const seedCount = seedArtists.length;
-  const scored = [];
 
-  for (const [candidateId, candidate] of candidates) {
+  // Merge all candidates for scoring
+  const allCandidates = new Map();
+  for (const map of allCandidateMaps) {
+    for (const [id, candidate] of map) {
+      if (!allCandidates.has(id)) {
+        allCandidates.set(id, candidate);
+      }
+    }
+  }
+
+  // Compute dynamic follower threshold
+  const allFollowers = Array.from(allCandidates.values())
+    .map((c) => c.artist.followers || 0)
+    .filter((f) => f > 0)
+    .sort((a, b) => a - b);
+
+  const followerThreshold = allFollowers.length > 0
+    ? allFollowers[Math.floor(allFollowers.length * 0.3)]
+    : HIDDEN_GEM_FOLLOWER_THRESHOLD;
+
+  console.log(`Follower threshold for tier classification: ${followerThreshold}`);
+
+  // Score and classify each candidate
+  const popularScored = [];
+  const hiddenGemScored = [];
+
+  for (const [candidateId, candidate] of allCandidates) {
     const overlapCount = candidate.relatedToSeeds.size;
     const overlapScore = overlapCount / seedCount;
+    const followers = candidate.artist.followers || 0;
+    const method = candidate.discoveryMethod;
 
-    scored.push({
+    // Classify tier
+    let tier;
+    if (method === 'deep_cut') {
+      tier = 'hidden_gem';
+    } else if (method === 'bridge') {
+      tier = 'hidden_gem';
+    } else if (overlapCount >= 2 || followers >= followerThreshold) {
+      tier = 'popular';
+    } else {
+      tier = 'hidden_gem';
+    }
+
+    // Score based on tier
+    let compositeScore;
+    if (tier === 'popular') {
+      compositeScore = overlapScore;
+    } else {
+      // Hidden gem scoring
+      compositeScore = overlapScore * 0.3;
+
+      // Bridge bonus
+      if (candidate.artist.isBridge || method === 'bridge') {
+        compositeScore += 0.4;
+      }
+
+      // Deep cut bonus
+      if (method === 'deep_cut') {
+        compositeScore += 0.2;
+      }
+
+      // Uniqueness bonus (fewer followers = more unique)
+      if (followers > 0) {
+        const followerScore = 1 - Math.min(followers / 500000, 1);
+        compositeScore += followerScore * 0.1;
+      } else {
+        compositeScore += 0.05;
+      }
+
+      compositeScore = Math.min(compositeScore, 1);
+    }
+
+    const scored = {
       ...candidate.artist,
       id: candidateId,
-      compositeScore: overlapScore,
+      compositeScore,
       overlapScore,
       overlapCount,
+      tier,
+      discoveryMethod: method,
       relatedToSeeds: Array.from(candidate.relatedToSeeds),
       relatedSeedNames: Array.from(candidate.relatedToSeeds)
         .map((id) => seedArtists.find((s) => s.id === id)?.name)
         .filter(Boolean),
-    });
+    };
+
+    if (tier === 'popular') {
+      popularScored.push(scored);
+    } else {
+      hiddenGemScored.push(scored);
+    }
   }
 
-  // Sort: most overlaps first, then alphabetically for ties
-  scored.sort((a, b) => b.compositeScore - a.compositeScore || a.name.localeCompare(b.name));
+  // Sort each tier
+  popularScored.sort((a, b) => b.compositeScore - a.compositeScore || a.name.localeCompare(b.name));
+  hiddenGemScored.sort((a, b) => b.compositeScore - a.compositeScore || a.name.localeCompare(b.name));
 
-  const topRecommendations = scored.slice(0, MAX_RECOMMENDATIONS);
+  // Allocate slots: 60% popular, 40% hidden gems, with overflow to other tier
+  const popularSlots = Math.round(MAX_RECOMMENDATIONS * 0.6);
+  const gemSlots = MAX_RECOMMENDATIONS - popularSlots;
 
-  const multiOverlap = topRecommendations.filter((r) => r.overlapCount > 1);
+  let selectedPopular = popularScored.slice(0, popularSlots);
+  let selectedGems = hiddenGemScored.slice(0, gemSlots);
+
+  // If one tier has surplus capacity, give to the other
+  if (selectedPopular.length < popularSlots) {
+    const extraGems = gemSlots + (popularSlots - selectedPopular.length);
+    selectedGems = hiddenGemScored.slice(0, extraGems);
+  } else if (selectedGems.length < gemSlots) {
+    const extraPopular = popularSlots + (gemSlots - selectedGems.length);
+    selectedPopular = popularScored.slice(0, extraPopular);
+  }
+
+  const topRecommendations = [...selectedPopular, ...selectedGems];
+
   console.log(
-    `Showing ${topRecommendations.length} of ${scored.length} candidates. ` +
-    `${multiOverlap.length} connected to 2+ seeds.`
+    `Phase 6: ${selectedPopular.length} popular + ${selectedGems.length} hidden gems = ${topRecommendations.length} total`
   );
+
+  if (topRecommendations.length === 0 && candidates.size === 0) {
+    throw new Error(
+      'No artists discovered. Try different or more well-known artists.'
+    );
+  }
 
   onProgress({ phase: 'scoring', current: 1, total: 1, message: 'Connections mapped.' });
 
-  // Phase 4: Build graph
+  // ================================================================
+  // Phase 7: Build graph
+  // ================================================================
   onProgress({ phase: 'building', current: 0, total: 1, message: 'Forming your galaxy...' });
 
-  const graphData = buildGraph(seedArtists, topRecommendations);
+  const graphData = buildGraph(seedArtists, topRecommendations, candidates);
 
   onProgress({ phase: 'building', current: 1, total: 1, message: 'Galaxy ready!' });
 
   return graphData;
 }
 
-function buildGraph(seedArtists, recommendations) {
+function buildGraph(seedArtists, recommendations, standardCandidates) {
   const nodes = [];
   const links = [];
   const nodeMap = new Map();
 
+  // Add seed nodes
   for (const seed of seedArtists) {
     const node = {
       id: seed.id,
@@ -156,6 +433,7 @@ function buildGraph(seedArtists, recommendations) {
     nodeMap.set(seed.id, node);
   }
 
+  // Add recommendation nodes with tier info
   for (const rec of recommendations) {
     const node = {
       id: rec.id,
@@ -169,8 +447,13 @@ function buildGraph(seedArtists, recommendations) {
       compositeScore: rec.compositeScore,
       overlapScore: rec.overlapScore,
       overlapCount: rec.overlapCount,
+      tier: rec.tier,
+      discoveryMethod: rec.discoveryMethod,
       relatedSeedNames: rec.relatedSeedNames,
       relatedToSeeds: rec.relatedToSeeds,
+      discoveredViaName: rec.discoveredViaName,
+      isBridge: rec.isBridge,
+      bridgeSeedNames: rec.bridgeSeedNames,
     };
     nodes.push(node);
     nodeMap.set(rec.id, node);
@@ -180,17 +463,39 @@ function buildGraph(seedArtists, recommendations) {
   for (const rec of recommendations) {
     for (const seedId of rec.relatedToSeeds) {
       if (nodeMap.has(seedId)) {
+        const isBridgeLink = rec.isBridge && rec.bridgesBetween?.includes(seedId);
         links.push({
           source: rec.id,
           target: seedId,
-          strength: 0.2 + rec.compositeScore * 0.5,
+          strength: rec.tier === 'hidden_gem'
+            ? 0.15 + rec.compositeScore * 0.3
+            : 0.2 + rec.compositeScore * 0.5,
+          isBridgeLink: isBridgeLink || false,
         });
       }
     }
   }
 
+  // Link deep cuts to their intermediate artist (if present in graph)
+  for (const rec of recommendations) {
+    if (rec.discoveryMethod === 'deep_cut' && rec.discoveredVia && nodeMap.has(rec.discoveredVia)) {
+      links.push({
+        source: rec.id,
+        target: rec.discoveredVia,
+        strength: 0.15,
+        isDeepCutLink: true,
+      });
+    }
+  }
+
   // Link seeds that share at least 1 recommendation
   const seedArray = seedArtists.map((s) => s.id);
+  const seedConnections = new Map(); // seedId -> Set of connected seedIds
+
+  for (const seedId of seedArray) {
+    seedConnections.set(seedId, new Set());
+  }
+
   for (let i = 0; i < seedArray.length; i++) {
     for (let j = i + 1; j < seedArray.length; j++) {
       const a = seedArray[i];
@@ -207,6 +512,39 @@ function buildGraph(seedArtists, recommendations) {
           target: b,
           strength: Math.min(0.8, 0.1 + sharedCount * 0.05),
         });
+        seedConnections.get(a).add(b);
+        seedConnections.get(b).add(a);
+      }
+    }
+  }
+
+  // Guarantee full seed connectivity — no floating islands
+  // Find isolated seeds and connect them to the most-connected seed (hub)
+  for (const seedId of seedArray) {
+    const connections = seedConnections.get(seedId);
+    if (connections.size === 0) {
+      // Find the seed with the most connections to act as hub
+      let hubId = null;
+      let maxConnections = -1;
+      for (const otherId of seedArray) {
+        if (otherId === seedId) continue;
+        const otherConns = seedConnections.get(otherId).size;
+        if (otherConns > maxConnections) {
+          maxConnections = otherConns;
+          hubId = otherId;
+        }
+      }
+
+      if (hubId) {
+        links.push({
+          source: seedId,
+          target: hubId,
+          strength: 0.05,
+          isBridgeLink: true,
+        });
+        seedConnections.get(seedId).add(hubId);
+        seedConnections.get(hubId).add(seedId);
+        console.log(`Connected isolated seed "${seedArtists.find((s) => s.id === seedId)?.name}" to hub`);
       }
     }
   }

@@ -1,5 +1,5 @@
-import { NODE_SIZES } from '../utils/constants';
-import { getGenreColorString, getGenreColor } from '../utils/colorUtils';
+import { NODE_SIZES, HIDDEN_GEM_COLOR } from '../utils/constants';
+import { getGenreColorString, getGenreColor, hslToRgba } from '../utils/colorUtils';
 import { normalize } from '../utils/mathUtils';
 
 export function buildGalaxyGraph(galaxyData) {
@@ -22,18 +22,36 @@ export function buildGalaxyGraph(galaxyData) {
     }
 
     const scoreNorm = normalize(node.compositeScore, minScore, maxScore);
-    const radius =
-      NODE_SIZES.recMin + scoreNorm * (NODE_SIZES.recMax - NODE_SIZES.recMin);
-    const genreHsl = getGenreColor(node.genres);
+    const isHiddenGem = node.tier === 'hidden_gem';
+
+    // Hidden gems: smaller size range
+    const sizeMin = isHiddenGem ? NODE_SIZES.gemMin : NODE_SIZES.recMin;
+    const sizeMax = isHiddenGem ? NODE_SIZES.gemMax : NODE_SIZES.recMax;
+    const radius = sizeMin + scoreNorm * (sizeMax - sizeMin);
+
+    const genreHsl = isHiddenGem ? HIDDEN_GEM_COLOR : getGenreColor(node.genres);
     const brightness = 0.4 + scoreNorm * 0.6;
+
+    // Hidden gems get a teal/cyan tint blended with genre color
+    let color, glowColor;
+    if (isHiddenGem) {
+      const { h, s, l } = HIDDEN_GEM_COLOR;
+      color = hslToRgba(h, s, l, brightness);
+      glowColor = hslToRgba(h, s, l, brightness * 0.3);
+    } else {
+      color = getGenreColorString(node.genres, brightness);
+      glowColor = getGenreColorString(node.genres, brightness * 0.3);
+    }
 
     return {
       ...node,
       radius,
-      color: getGenreColorString(node.genres, brightness),
-      glowColor: getGenreColorString(node.genres, brightness * 0.3),
+      color,
+      glowColor,
       genreHsl,
       brightness,
+      isHiddenGem,
+      isBridge: node.discoveryMethod === 'bridge',
     };
   });
 
@@ -42,6 +60,8 @@ export function buildGalaxyGraph(galaxyData) {
     target: link.target,
     strength: link.strength || 0.3,
     opacity: 0.03 + (link.strength || 0.3) * 0.12,
+    isBridgeLink: link.isBridgeLink || false,
+    isDeepCutLink: link.isDeepCutLink || false,
   }));
 
   return { nodes, links, genreClusters };

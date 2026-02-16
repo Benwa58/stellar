@@ -149,6 +149,7 @@ export async function discoverRelatedArtists(seedArtist, allSeedNames = [], limi
         name: artist.name,
         genres: artist.genres || [],
         popularity: artist.popularity || 0,
+        followers: artist.followers?.total || 0,
         externalUrl: artist.external_urls?.spotify,
         image: getBestImage(artist.images, 160),
         imageLarge: getBestImage(artist.images, 320),
@@ -228,6 +229,140 @@ export async function discoverRelatedArtists(seedArtist, allSeedNames = [], limi
   }
 
   console.log(`Discovery for ${seedName}: found ${allArtists.size} unique artists`);
+  return Array.from(allArtists.values()).slice(0, limit);
+}
+
+// "Second hop" discovery: search for artists near high-scoring intermediate
+// discoveries rather than seeds directly. This finds less obvious connections.
+export async function discoverDeepCuts(intermediateArtists, seedIds, limit = 15) {
+  const allArtists = new Map();
+  const seedIdSet = new Set(seedIds);
+  const intermediateIds = new Set(intermediateArtists.map((a) => a.id));
+  const modifiers = ['acoustic', 'underground', 'indie', 'live'];
+
+  for (const intermediate of intermediateArtists.slice(0, 5)) {
+    if (allArtists.size >= limit) break;
+
+    // Strategy 1: Search by intermediate artist name
+    try {
+      const artists = await paginatedSearch(intermediate.name, 'artist', 10);
+      for (const artist of artists) {
+        if (seedIdSet.has(artist.id) || intermediateIds.has(artist.id) || allArtists.has(artist.id)) continue;
+        allArtists.set(artist.id, {
+          id: artist.id,
+          name: artist.name,
+          genres: artist.genres || [],
+          popularity: artist.popularity || 0,
+          followers: artist.followers?.total || 0,
+          externalUrl: artist.external_urls?.spotify,
+          image: getBestImage(artist.images, 160),
+          imageLarge: getBestImage(artist.images, 320),
+          discoveredVia: intermediate.id,
+          discoveredViaName: intermediate.name,
+        });
+      }
+    } catch (err) {
+      console.warn(`Deep cut search failed for "${intermediate.name}":`, err.message);
+    }
+
+    // Strategy 2: Modified queries for more lateral results
+    for (const mod of modifiers.slice(0, 2)) {
+      if (allArtists.size >= limit) break;
+      try {
+        const artists = await paginatedSearch(`${intermediate.name} ${mod}`, 'artist', 10);
+        for (const artist of artists) {
+          if (seedIdSet.has(artist.id) || intermediateIds.has(artist.id) || allArtists.has(artist.id)) continue;
+          allArtists.set(artist.id, {
+            id: artist.id,
+            name: artist.name,
+            genres: artist.genres || [],
+            popularity: artist.popularity || 0,
+            followers: artist.followers?.total || 0,
+            externalUrl: artist.external_urls?.spotify,
+            image: getBestImage(artist.images, 160),
+            imageLarge: getBestImage(artist.images, 320),
+            discoveredVia: intermediate.id,
+            discoveredViaName: intermediate.name,
+          });
+        }
+      } catch (err) {
+        // Skip modifier failures silently
+      }
+    }
+  }
+
+  console.log(`Deep cut discovery: found ${allArtists.size} unique artists`);
+  return Array.from(allArtists.values()).slice(0, limit);
+}
+
+// Bridge discovery: find artists that connect two otherwise-disconnected seeds.
+// Uses creative cross-queries to find artists in the intersection of two styles.
+export async function discoverBridgeArtists(seedA, seedB, limit = 8) {
+  const allArtists = new Map();
+  const excludeIds = new Set([seedA.id, seedB.id]);
+
+  function collectArtist(artist) {
+    if (excludeIds.has(artist.id) || allArtists.has(artist.id)) return;
+    allArtists.set(artist.id, {
+      id: artist.id,
+      name: artist.name,
+      genres: artist.genres || [],
+      popularity: artist.popularity || 0,
+      followers: artist.followers?.total || 0,
+      externalUrl: artist.external_urls?.spotify,
+      image: getBestImage(artist.images, 160),
+      imageLarge: getBestImage(artist.images, 320),
+      isBridge: true,
+      bridgesBetween: [seedA.id, seedB.id],
+      bridgeSeedNames: [seedA.name, seedB.name],
+    });
+  }
+
+  // Strategy 1: Reversed name combination search
+  try {
+    const artists = await paginatedSearch(`${seedB.name} ${seedA.name}`, 'artist', 20);
+    artists.forEach(collectArtist);
+  } catch (err) {
+    console.warn(`Bridge search failed for "${seedB.name} ${seedA.name}":`, err.message);
+  }
+
+  // Strategy 2: Track search combining both names
+  if (allArtists.size < limit) {
+    try {
+      const tracks = await paginatedSearch(`${seedA.name} ${seedB.name}`, 'track', 10);
+      for (const track of tracks) {
+        for (const artist of track.artists || []) {
+          if (excludeIds.has(artist.id) || allArtists.has(artist.id)) continue;
+          allArtists.set(artist.id, {
+            id: artist.id,
+            name: artist.name,
+            externalUrl: artist.external_urls?.spotify,
+            isBridge: true,
+            bridgesBetween: [seedA.id, seedB.id],
+            bridgeSeedNames: [seedA.name, seedB.name],
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`Bridge track search failed:`, err.message);
+    }
+  }
+
+  // Strategy 3: Genre cross-pollination (if genres available)
+  if (allArtists.size < limit && seedA.genres?.length > 0) {
+    try {
+      const artists = await paginatedSearch(`${seedA.genres[0]} ${seedB.name}`, 'artist', 10);
+      artists.forEach(collectArtist);
+    } catch (err) { /* skip */ }
+  }
+  if (allArtists.size < limit && seedB.genres?.length > 0) {
+    try {
+      const artists = await paginatedSearch(`${seedB.genres[0]} ${seedA.name}`, 'artist', 10);
+      artists.forEach(collectArtist);
+    } catch (err) { /* skip */ }
+  }
+
+  console.log(`Bridge discovery (${seedA.name} ↔ ${seedB.name}): found ${allArtists.size} artists`);
   return Array.from(allArtists.values()).slice(0, limit);
 }
 

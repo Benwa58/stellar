@@ -18,19 +18,33 @@ export function createSimulation(nodes, links, width, height) {
         .distance((d) => {
           const sourceIsSeed = d.source.type === 'seed' || typeof d.source === 'string';
           const targetIsSeed = d.target.type === 'seed' || typeof d.target === 'string';
-          if (sourceIsSeed && targetIsSeed) return FORCE_CONFIG.linkDistanceSeedToSeed;
-          if (sourceIsSeed || targetIsSeed) return FORCE_CONFIG.linkDistanceSeedToRec;
+          const isGemLink = (d.source.isHiddenGem || d.target.isHiddenGem);
+          const isBridgeLink = d.isBridgeLink;
+
+          if (sourceIsSeed && targetIsSeed) {
+            // Bridge links between seeds are wider
+            return isBridgeLink
+              ? FORCE_CONFIG.linkDistanceSeedToSeed * 1.2
+              : FORCE_CONFIG.linkDistanceSeedToSeed;
+          }
+          if (sourceIsSeed || targetIsSeed) {
+            // Hidden gem links are slightly farther from seeds
+            return isGemLink
+              ? FORCE_CONFIG.linkDistanceSeedToRec * 1.3
+              : FORCE_CONFIG.linkDistanceSeedToRec;
+          }
           return FORCE_CONFIG.linkDistanceRecToRec;
         })
         .strength((d) => d.strength || 0.3)
     )
     .force(
       'charge',
-      forceManyBody().strength((d) =>
-        d.type === 'seed'
-          ? FORCE_CONFIG.chargeSeed
-          : FORCE_CONFIG.chargeRecommendation
-      )
+      forceManyBody().strength((d) => {
+        if (d.type === 'seed') return FORCE_CONFIG.chargeSeed;
+        // Hidden gems push less so they cluster on the periphery
+        if (d.isHiddenGem) return FORCE_CONFIG.chargeRecommendation * 0.7;
+        return FORCE_CONFIG.chargeRecommendation;
+      })
     )
     .force('center', forceCenter(width / 2, height / 2).strength(FORCE_CONFIG.centerStrength))
     .force(
