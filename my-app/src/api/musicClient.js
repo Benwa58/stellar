@@ -314,19 +314,18 @@ export async function discoverBridgeArtists(seedA, seedB, limit = 8) {
 
 /**
  * Find a multi-hop chain of artists connecting two distant seeds.
- * Uses bidirectional BFS: expand from both seeds simultaneously,
- * checking for intersection at each level.
+ * Uses bidirectional BFS: expand BOTH sides each round, fetch in parallel,
+ * use depth-based scoring (not multiplicative) to avoid score decay.
  *
  * Returns { chain, chainArtists, hops } or null if no path found.
  */
 export async function discoverChainBridge(seedA, seedB, {
-  maxHops = 4,
-  branchLimits = [20, 15, 10, 8],
+  maxHops = 6,
+  branchLimits = [30, 25, 20, 15, 12, 10],
 } = {}) {
   const seedAKey = seedA.name.toLowerCase().trim();
   const seedBKey = seedB.name.toLowerCase().trim();
 
-  // Get or fetch similar-artist lists for both seeds (usually cached from Phase 1)
   async function getSimilarCached(artistName, limit = 50) {
     const key = artistName.toLowerCase().trim();
     let cached = similarCache.get(key);
@@ -337,22 +336,59 @@ export async function discoverChainBridge(seedA, seedB, {
     return cached;
   }
 
+  // Expand a frontier in parallel: fetch similar artists for top entries,
+  // return new frontier entries. Each side has its own visited set.
+  async function expandFrontier(frontier, visited, reached, branchLimit) {
+    const sorted = Array.from(frontier.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, branchLimit);
+
+    // Fetch all similar-artist lists in parallel
+    const results = await Promise.all(
+      sorted.map(async (node) => {
+        try {
+          const similar = await getSimilarCached(node.name, 50);
+          return { node, similar };
+        } catch {
+          return { node, similar: [] };
+        }
+      })
+    );
+
+    const newFrontier = new Map();
+    for (const { node, similar } of results) {
+      for (const s of similar) {
+        const key = s.name.toLowerCase().trim();
+        if (visited.has(key)) continue;
+        visited.add(key);
+
+        const newPath = [...node.path, s.name];
+        // Use the direct matchScore (not multiplied) — score represents
+        // how strong the LAST hop is, not the cumulative path weakness.
+        const entry = { name: s.name, path: newPath, score: s.matchScore };
+        newFrontier.set(key, entry);
+        reached.set(key, entry);
+      }
+    }
+    return newFrontier;
+  }
+
   // reachedA/B: accumulated Maps of ALL discovered artists from each side
-  // Map<nameLower, { name, path: string[], score: number }>
   const visitedA = new Set([seedAKey]);
   const visitedB = new Set([seedBKey]);
-  const reachedA = new Map(); // all artists reachable from A (any depth)
-  const reachedB = new Map(); // all artists reachable from B (any depth)
+  const reachedA = new Map();
+  const reachedB = new Map();
 
-  // Initialize frontiers from seed similar-artist lists
-  let frontierA = new Map(); // current expansion level for A
-  let frontierB = new Map(); // current expansion level for B
+  // Initialize frontiers from seed similar-artist lists (in parallel)
+  const [similarA, similarB] = await Promise.all([
+    getSimilarCached(seedA.name, 100),
+    getSimilarCached(seedB.name, 100),
+  ]);
 
-  const similarA = await getSimilarCached(seedA.name, 100);
+  let frontierA = new Map();
   for (const a of similarA) {
     const key = a.name.toLowerCase().trim();
     if (key === seedBKey) {
-      // Direct similarity — shouldn't need chain, but return 1-hop anyway
       return buildChainResult([seedA.name, a.name, seedB.name], seedA, seedB);
     }
     visitedA.add(key);
@@ -361,7 +397,7 @@ export async function discoverChainBridge(seedA, seedB, {
     reachedA.set(key, entry);
   }
 
-  const similarB = await getSimilarCached(seedB.name, 100);
+  let frontierB = new Map();
   for (const b of similarB) {
     const key = b.name.toLowerCase().trim();
     if (key === seedAKey) {
@@ -373,99 +409,68 @@ export async function discoverChainBridge(seedA, seedB, {
     reachedB.set(key, entry);
   }
 
-  console.log(`Chain bridge: frontierA has ${frontierA.size} entries, frontierB has ${frontierB.size} entries`);
+  console.log(`Chain bridge ${seedA.name} ↔ ${seedB.name}: A=${frontierA.size}, B=${frontierB.size}`);
 
   // Check 1-hop intersection
-  const hop1 = findIntersection(reachedA, reachedB, seedA.name, seedB.name);
+  const hop1 = findIntersection(reachedA, reachedB);
   if (hop1) {
-    console.log(`Chain bridge: Found 1-hop intersection for ${seedA.name} ↔ ${seedB.name}`);
+    console.log(`Chain bridge: 1-hop match for ${seedA.name} ↔ ${seedB.name}`);
     return buildChainResult(hop1.path, seedA, seedB);
   }
 
-  // Expand alternating sides up to maxHops
-  for (let hop = 2; hop <= maxHops; hop++) {
-    const branchLimit = branchLimits[Math.min(hop - 1, branchLimits.length - 1)];
+  // Expand BOTH sides each round, checking for intersection after each
+  for (let depth = 1; depth <= Math.floor(maxHops / 2); depth++) {
+    const branchLimit = branchLimits[Math.min(depth - 1, branchLimits.length - 1)];
 
-    // Alternate which side expands (A on even hops, B on odd)
-    const expandingA = hop % 2 === 0;
-    const frontier = expandingA ? frontierA : frontierB;
-    const visited = expandingA ? visitedA : visitedB;
-    const reached = expandingA ? reachedA : reachedB;
+    // Expand both frontiers in parallel
+    const [newA, newB] = await Promise.all([
+      expandFrontier(frontierA, visitedA, reachedA, branchLimit),
+      expandFrontier(frontierB, visitedB, reachedB, branchLimit),
+    ]);
 
-    // Sort frontier by score, take top entries to expand
-    const sorted = Array.from(frontier.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, branchLimit);
+    frontierA = newA;
+    frontierB = newB;
 
-    const newFrontier = new Map();
+    console.log(`Chain bridge depth ${depth}: A frontier=${newA.size} (reached=${reachedA.size}), B frontier=${newB.size} (reached=${reachedB.size})`);
 
-    // Expand each frontier node
-    for (const node of sorted) {
-      let similar;
-      try {
-        similar = await getSimilarCached(node.name, 50);
-      } catch {
-        continue;
-      }
-
-      for (const s of similar) {
-        const key = s.name.toLowerCase().trim();
-        if (visited.has(key)) continue;
-        visited.add(key);
-
-        const newPath = [...node.path, s.name];
-        const newScore = node.score * s.matchScore;
-
-        const entry = { name: s.name, path: newPath, score: newScore };
-        newFrontier.set(key, entry);
-        reached.set(key, entry);
-      }
-    }
-
-    console.log(`Chain bridge hop ${hop}: expanded ${expandingA ? 'A' : 'B'}, newFrontier has ${newFrontier.size} entries (reachedA: ${reachedA.size}, reachedB: ${reachedB.size})`);
-
-    // Update frontier to the new expansion level (for next iteration)
-    if (expandingA) {
-      frontierA = newFrontier;
-    } else {
-      frontierB = newFrontier;
-    }
-
-    // Check intersection between ALL reached artists from both sides
-    const chain = findIntersection(reachedA, reachedB, seedA.name, seedB.name);
+    // Check intersection
+    const chain = findIntersection(reachedA, reachedB);
     if (chain) {
-      console.log(`Chain bridge: Found chain at hop ${hop} for ${seedA.name} ↔ ${seedB.name}: ${chain.path.join(' → ')}`);
+      console.log(`Chain bridge: Found at depth ${depth} for ${seedA.name} ↔ ${seedB.name}: ${chain.path.join(' → ')}`);
       return buildChainResult(chain.path, seedA, seedB);
     }
+
+    // If both frontiers are empty, no more to explore
+    if (newA.size === 0 && newB.size === 0) break;
   }
 
-  console.log(`No chain found between "${seedA.name}" and "${seedB.name}" within ${maxHops} hops`);
+  console.log(`No chain found between "${seedA.name}" and "${seedB.name}"`);
   return null;
 }
 
 /**
- * Find the best intersection between two frontiers.
- * Returns { path, score } or null.
+ * Find the best intersection between two reached-artist maps.
+ * Returns { path, score } or null. Prefers shortest path, then highest score.
  */
-function findIntersection(frontierA, frontierB, seedAName, seedBName) {
-  const chains = [];
+function findIntersection(reachedA, reachedB) {
+  let best = null;
 
-  for (const [key, entryA] of frontierA) {
-    if (frontierB.has(key)) {
-      const entryB = frontierB.get(key);
-      // Merge: A-side path + reversed B-side path (skip the shared artist in B's path)
+  for (const [key, entryA] of reachedA) {
+    if (reachedB.has(key)) {
+      const entryB = reachedB.get(key);
+      // Merge: A-side path + reversed B-side path (skip shared artist in B's path)
       const pathB = [...entryB.path].reverse();
       const fullPath = [...entryA.path, ...pathB.slice(1)];
-      const score = entryA.score * entryB.score;
-      chains.push({ path: fullPath, score });
+      const score = entryA.score + entryB.score; // additive, not multiplicative
+
+      if (!best || fullPath.length < best.path.length ||
+          (fullPath.length === best.path.length && score > best.score)) {
+        best = { path: fullPath, score };
+      }
     }
   }
 
-  if (chains.length === 0) return null;
-
-  // Prefer shortest chain, then highest score
-  chains.sort((a, b) => a.path.length - b.path.length || b.score - a.score);
-  return chains[0];
+  return best;
 }
 
 /**
