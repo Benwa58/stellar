@@ -144,16 +144,14 @@ function ArtistDetailPanel({ node, onClose }) {
             <div className="panel-no-preview">No preview available</div>
           )}
 
-          {node.externalUrl && (
-            <a
-              className="panel-external-link"
-              href={node.externalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open in Deezer
-            </a>
-          )}
+          <a
+            className="panel-external-link"
+            href={`https://open.spotify.com/search/${encodeURIComponent(node.name)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open in Spotify
+          </a>
         </div>
       </div>
     </div>
