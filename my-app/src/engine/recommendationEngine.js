@@ -1,4 +1,4 @@
-import { discoverRelatedArtists, discoverDeepCuts, discoverBridgeArtists, enrichArtists, clearCache } from '../api/musicClient';
+import { discoverRelatedArtists, discoverDeepCuts, discoverBridgeArtists, discoverChainBridge, enrichArtists, clearCache } from '../api/musicClient';
 import {
   MAX_RECOMMENDATIONS,
   HIDDEN_GEM_FAN_THRESHOLD,
@@ -234,6 +234,89 @@ export async function generateRecommendations(seedArtists, onProgress) {
   console.log(`Phase 4: ${bridgeCandidates.size} bridge candidates`);
 
   // ================================================================
+  // Phase 4b: Chain bridge — multi-hop pathfinding for still-unbridged pairs
+  // ================================================================
+  // Identify pairs that STILL have no connection after Phase 4
+  const unbridgedPairs = [];
+  const pairsSearched = disconnectedPairs.slice(0, MAX_BRIDGE_PAIRS);
+  for (const [seedA, seedB] of pairsSearched) {
+    let hasBridge = false;
+    // Check if any bridge candidate connects this pair
+    for (const [, bc] of bridgeCandidates) {
+      if (bc.artist.bridgesBetween &&
+          bc.artist.bridgesBetween.includes(seedA.id) &&
+          bc.artist.bridgesBetween.includes(seedB.id)) {
+        hasBridge = true;
+        break;
+      }
+    }
+    // Also check standard candidates
+    if (!hasBridge) {
+      for (const [, c] of candidates) {
+        if (c.relatedToSeeds.has(seedA.id) && c.relatedToSeeds.has(seedB.id)) {
+          hasBridge = true;
+          break;
+        }
+      }
+    }
+    if (!hasBridge) unbridgedPairs.push([seedA, seedB]);
+  }
+
+  if (unbridgedPairs.length > 0) {
+    onProgress({ phase: 'chain_bridges', current: 0, total: unbridgedPairs.length, message: 'Forging chain bridges between distant styles...' });
+
+    for (let i = 0; i < unbridgedPairs.length; i++) {
+      const [seedA, seedB] = unbridgedPairs[i];
+      onProgress({
+        phase: 'chain_bridges',
+        current: i,
+        total: unbridgedPairs.length,
+        message: `Chaining ${seedA.name} to ${seedB.name}...`,
+      });
+
+      try {
+        const chainResult = await discoverChainBridge(seedA, seedB);
+        if (chainResult && chainResult.chainArtists.length > 0) {
+          for (const artist of chainResult.chainArtists) {
+            if (seedIds.has(artist.id)) continue;
+
+            // If already a candidate, just add seed connections
+            if (candidates.has(artist.id) || deepCutCandidates.has(artist.id) || bridgeCandidates.has(artist.id)) {
+              const existing = candidates.get(artist.id) || deepCutCandidates.get(artist.id) || bridgeCandidates.get(artist.id);
+              existing.relatedToSeeds.add(seedA.id);
+              existing.relatedToSeeds.add(seedB.id);
+              // Preserve chain metadata on the artist object
+              existing.artist.isChainBridge = true;
+              existing.artist.chainPosition = artist.chainPosition;
+              existing.artist.chainLength = artist.chainLength;
+              existing.artist.chainBridgesBetween = artist.chainBridgesBetween;
+              existing.artist.chainBridgeSeedNames = artist.chainBridgeSeedNames;
+              continue;
+            }
+
+            bridgeCandidates.set(artist.id, {
+              artist,
+              relatedToSeeds: new Set([seedA.id, seedB.id]),
+              discoveryMethod: 'chain_bridge',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`Chain bridge failed for ${seedA.name} & ${seedB.name}:`, err.message);
+      }
+
+      onProgress({
+        phase: 'chain_bridges',
+        current: i + 1,
+        total: unbridgedPairs.length,
+        message: `Chained ${seedA.name} to ${seedB.name}`,
+      });
+    }
+
+    console.log(`Phase 4b: ${unbridgedPairs.length} pairs chain-bridged`);
+  }
+
+  // ================================================================
   // Phase 5: Enrich candidates — images (Deezer) + tags (Last.fm)
   // Split into two lists: those missing images vs those only missing tags.
   // Discovery phases already enriched most with Deezer data (cached),
@@ -342,6 +425,8 @@ export async function generateRecommendations(seedArtists, onProgress) {
       tier = 'hidden_gem';
     } else if (method === 'bridge') {
       tier = 'hidden_gem';
+    } else if (method === 'chain_bridge') {
+      tier = 'hidden_gem';
     } else if (matchScore >= 0.3 && fans >= fanThreshold && overlapCount >= 2) {
       // Strong similarity + well-known + multi-seed overlap → popular
       tier = 'popular';
@@ -370,6 +455,11 @@ export async function generateRecommendations(seedArtists, onProgress) {
       // Deep cut bonus
       if (method === 'deep_cut') {
         compositeScore += 0.2;
+      }
+
+      // Chain bridge bonus (slightly less than direct bridge)
+      if (method === 'chain_bridge') {
+        compositeScore += 0.35;
       }
 
       // Uniqueness bonus (fewer fans = more unique)
@@ -509,13 +599,20 @@ function buildGraph(seedArtists, recommendations, standardCandidates) {
       discoveredViaName: rec.discoveredViaName,
       isBridge: rec.isBridge,
       bridgeSeedNames: rec.bridgeSeedNames,
+      isChainBridge: rec.isChainBridge || rec.discoveryMethod === 'chain_bridge',
+      chainPosition: rec.chainPosition,
+      chainLength: rec.chainLength,
+      chainBridgesBetween: rec.chainBridgesBetween,
+      chainBridgeSeedNames: rec.chainBridgeSeedNames,
     };
     nodes.push(node);
     nodeMap.set(rec.id, node);
   }
 
   // Link each recommendation to its related seeds
+  // (skip chain_bridge artists — they get sequential chain links below)
   for (const rec of recommendations) {
+    if (rec.discoveryMethod === 'chain_bridge') continue;
     for (const seedId of rec.relatedToSeeds) {
       if (nodeMap.has(seedId)) {
         const isBridgeLink = rec.isBridge && rec.bridgesBetween?.includes(seedId);
@@ -541,6 +638,64 @@ function buildGraph(seedArtists, recommendations, standardCandidates) {
         isDeepCutLink: true,
       });
     }
+  }
+
+  // Link chain bridge artists sequentially: SeedA → X → Y → SeedB
+  const chainGroups = new Map(); // key → [artists sorted by position]
+  for (const rec of recommendations) {
+    if (rec.discoveryMethod === 'chain_bridge' && rec.chainBridgesBetween) {
+      const key = [...rec.chainBridgesBetween].sort().join('-');
+      if (!chainGroups.has(key)) chainGroups.set(key, []);
+      chainGroups.get(key).push(rec);
+    }
+  }
+
+  for (const [key, chainArtists] of chainGroups) {
+    chainArtists.sort((a, b) => a.chainPosition - b.chainPosition);
+    const seedIds = key.split('-');
+    const seedAId = seedIds[0];
+    const seedBId = seedIds[1];
+
+    // Link first chain artist to seedA
+    if (nodeMap.has(seedAId) && nodeMap.has(chainArtists[0].id)) {
+      links.push({
+        source: chainArtists[0].id,
+        target: seedAId,
+        strength: 0.25,
+        isChainLink: true,
+        chainPosition: 0,
+        chainLength: chainArtists.length,
+      });
+    }
+
+    // Link chain artists to each other
+    for (let i = 0; i < chainArtists.length - 1; i++) {
+      if (nodeMap.has(chainArtists[i].id) && nodeMap.has(chainArtists[i + 1].id)) {
+        links.push({
+          source: chainArtists[i].id,
+          target: chainArtists[i + 1].id,
+          strength: 0.3,
+          isChainLink: true,
+          chainPosition: i + 1,
+          chainLength: chainArtists.length,
+        });
+      }
+    }
+
+    // Link last chain artist to seedB
+    const lastChain = chainArtists[chainArtists.length - 1];
+    if (nodeMap.has(seedBId) && nodeMap.has(lastChain.id)) {
+      links.push({
+        source: lastChain.id,
+        target: seedBId,
+        strength: 0.25,
+        isChainLink: true,
+        chainPosition: chainArtists.length,
+        chainLength: chainArtists.length,
+      });
+    }
+
+    console.log(`Chain bridge: ${seedAId} → ${chainArtists.map(a => a.name).join(' → ')} → ${seedBId}`);
   }
 
   // Link seeds that share at least 1 recommendation

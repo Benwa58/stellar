@@ -107,7 +107,21 @@ function drawLinks(ctx, links, hoveredNode, selectedNode) {
     ctx.moveTo(source.x, source.y);
     ctx.lineTo(target.x, target.y);
 
-    if (link.isBridgeLink) {
+    if (link.isChainLink) {
+      // Chain links: dotted line with gradient color (teal → purple)
+      ctx.setLineDash([2, 4]);
+      const t = (link.chainPosition || 0) / Math.max(link.chainLength || 1, 1);
+      const r = Math.round(100 + t * 55);
+      const g = Math.round(220 - t * 100);
+      const b = Math.round(200 - t * 40);
+      if (isHighlighted) {
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
+        ctx.lineWidth = 1.5;
+      } else {
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
+        ctx.lineWidth = 1.0;
+      }
+    } else if (link.isBridgeLink) {
       // Bridge links: dashed teal line
       ctx.setLineDash([4, 6]);
       if (isHighlighted) {

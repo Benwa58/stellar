@@ -4,6 +4,7 @@ import '../styles/panel.css';
 
 function getBadgeInfo(node) {
   if (node.type === 'seed') return { label: 'Your Artist', className: 'badge-seed' };
+  if (node.discoveryMethod === 'chain_bridge') return { label: 'Chain Bridge', className: 'badge-gem' };
   if (node.tier === 'hidden_gem') return { label: 'Hidden Gem', className: 'badge-gem' };
   return { label: 'Top Pick', className: 'badge-rec' };
 }
@@ -82,6 +83,16 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
         {node.discoveryMethod === 'deep_cut' && node.discoveredViaName && (
           <span className="panel-discovery-note">
             Discovered via {node.discoveredViaName}
+          </span>
+        )}
+
+        {/* Chain bridge note: shows the path this artist is part of */}
+        {node.discoveryMethod === 'chain_bridge' && node.chainBridgeSeedNames && (
+          <span className="panel-discovery-note">
+            Chain bridge between {node.chainBridgeSeedNames.join(' & ')}
+            {node.chainPosition && node.chainLength && (
+              <> (step {node.chainPosition} of {node.chainLength})</>
+            )}
           </span>
         )}
 

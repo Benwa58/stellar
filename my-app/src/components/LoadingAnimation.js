@@ -124,12 +124,13 @@ function LoadingAnimation() {
   // Map each phase to a portion of the overall 0–100% progress bar
   // so the bar never resets between phases.
   const PHASE_RANGES = {
-    discover:  { start: 0,  end: 40 },
-    deep_cuts: { start: 40, end: 55 },
-    bridges:   { start: 55, end: 70 },
-    details:   { start: 70, end: 85 },
-    scoring:   { start: 85, end: 93 },
-    building:  { start: 93, end: 100 },
+    discover:       { start: 0,  end: 35 },
+    deep_cuts:      { start: 35, end: 48 },
+    bridges:        { start: 48, end: 58 },
+    chain_bridges:  { start: 58, end: 72 },
+    details:        { start: 72, end: 85 },
+    scoring:        { start: 85, end: 93 },
+    building:       { start: 93, end: 100 },
   };
 
   let progressPercent = 0;

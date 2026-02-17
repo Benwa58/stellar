@@ -50,6 +50,7 @@ export function buildGalaxyGraph(galaxyData) {
       brightness,
       isHiddenGem,
       isBridge: node.discoveryMethod === 'bridge',
+      isChainBridge: node.discoveryMethod === 'chain_bridge' || node.isChainBridge,
     };
   });
 
@@ -60,6 +61,9 @@ export function buildGalaxyGraph(galaxyData) {
     opacity: 0.03 + (link.strength || 0.3) * 0.12,
     isBridgeLink: link.isBridgeLink || false,
     isDeepCutLink: link.isDeepCutLink || false,
+    isChainLink: link.isChainLink || false,
+    chainPosition: link.chainPosition,
+    chainLength: link.chainLength,
   }));
 
   return { nodes, links, genreClusters };

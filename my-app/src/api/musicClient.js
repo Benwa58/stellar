@@ -309,6 +309,206 @@ export async function discoverBridgeArtists(seedA, seedB, limit = 8) {
 }
 
 // ===================================================================
+// Chain bridge discovery — multi-hop pathfinding between distant seeds
+// ===================================================================
+
+/**
+ * Find a multi-hop chain of artists connecting two distant seeds.
+ * Uses bidirectional BFS: expand from both seeds simultaneously,
+ * checking for intersection at each level.
+ *
+ * Returns { chain, chainArtists, hops } or null if no path found.
+ */
+export async function discoverChainBridge(seedA, seedB, {
+  maxHops = 4,
+  branchLimits = [20, 15, 10, 8],
+} = {}) {
+  const seedAKey = seedA.name.toLowerCase().trim();
+  const seedBKey = seedB.name.toLowerCase().trim();
+
+  // Get or fetch similar-artist lists for both seeds (usually cached from Phase 1)
+  async function getSimilarCached(artistName, limit = 50) {
+    const key = artistName.toLowerCase().trim();
+    let cached = similarCache.get(key);
+    if (!cached) {
+      cached = await lastfm.getSimilarArtists(artistName, limit);
+      similarCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  // frontierA/B: Map<nameLower, { name, path: string[], score: number }>
+  // path = ordered list of artist names from seed to this artist
+  const visitedA = new Set([seedAKey]);
+  const visitedB = new Set([seedBKey]);
+
+  // Initialize frontiers from seed similar-artist lists
+  let frontierA = new Map();
+  let frontierB = new Map();
+
+  const similarA = await getSimilarCached(seedA.name, 100);
+  for (const a of similarA) {
+    const key = a.name.toLowerCase().trim();
+    if (key === seedBKey) {
+      // Direct similarity — shouldn't need chain, but return 1-hop anyway
+      return buildChainResult([seedA.name, a.name, seedB.name], seedA, seedB);
+    }
+    visitedA.add(key);
+    frontierA.set(key, {
+      name: a.name,
+      path: [seedA.name, a.name],
+      score: a.matchScore,
+    });
+  }
+
+  const similarB = await getSimilarCached(seedB.name, 100);
+  for (const b of similarB) {
+    const key = b.name.toLowerCase().trim();
+    if (key === seedAKey) {
+      return buildChainResult([seedA.name, b.name, seedB.name], seedA, seedB);
+    }
+    visitedB.add(key);
+    frontierB.set(key, {
+      name: b.name,
+      path: [seedB.name, b.name],
+      score: b.matchScore,
+    });
+  }
+
+  // Check 1-hop intersection (this is the existing bridge case — skip, already handled)
+  const hop1 = findIntersection(frontierA, frontierB, seedA.name, seedB.name);
+  if (hop1) return buildChainResult(hop1.path, seedA, seedB);
+
+  // Expand alternating sides up to maxHops
+  for (let hop = 2; hop <= maxHops; hop++) {
+    const branchLimit = branchLimits[Math.min(hop - 1, branchLimits.length - 1)];
+
+    // Alternate which side expands (A on even hops, B on odd)
+    const expandingA = hop % 2 === 0;
+    const frontier = expandingA ? frontierA : frontierB;
+    const visited = expandingA ? visitedA : visitedB;
+
+    // Sort frontier by score, take top entries to expand
+    const sorted = Array.from(frontier.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, branchLimit);
+
+    const newFrontier = new Map();
+
+    // Expand each frontier node
+    for (const node of sorted) {
+      let similar;
+      try {
+        similar = await getSimilarCached(node.name, 50);
+      } catch {
+        continue;
+      }
+
+      for (const s of similar) {
+        const key = s.name.toLowerCase().trim();
+        if (visited.has(key)) continue;
+        visited.add(key);
+
+        const newPath = [...node.path, s.name];
+        const newScore = node.score * s.matchScore;
+
+        newFrontier.set(key, {
+          name: s.name,
+          path: newPath,
+          score: newScore,
+        });
+      }
+    }
+
+    // Replace frontier with the new expansion level
+    if (expandingA) {
+      frontierA = newFrontier;
+    } else {
+      frontierB = newFrontier;
+    }
+
+    // Check intersection between frontierA and frontierB
+    const chain = findIntersection(
+      expandingA ? newFrontier : frontierA,
+      expandingA ? frontierB : newFrontier,
+      seedA.name,
+      seedB.name
+    );
+    if (chain) return buildChainResult(chain.path, seedA, seedB);
+  }
+
+  console.log(`No chain found between "${seedA.name}" and "${seedB.name}" within ${maxHops} hops`);
+  return null;
+}
+
+/**
+ * Find the best intersection between two frontiers.
+ * Returns { path, score } or null.
+ */
+function findIntersection(frontierA, frontierB, seedAName, seedBName) {
+  const chains = [];
+
+  for (const [key, entryA] of frontierA) {
+    if (frontierB.has(key)) {
+      const entryB = frontierB.get(key);
+      // Merge: A-side path + reversed B-side path (skip the shared artist in B's path)
+      const pathB = [...entryB.path].reverse();
+      const fullPath = [...entryA.path, ...pathB.slice(1)];
+      const score = entryA.score * entryB.score;
+      chains.push({ path: fullPath, score });
+    }
+  }
+
+  if (chains.length === 0) return null;
+
+  // Prefer shortest chain, then highest score
+  chains.sort((a, b) => a.path.length - b.path.length || b.score - a.score);
+  return chains[0];
+}
+
+/**
+ * Build the final chain result object with enriched artist data.
+ */
+async function buildChainResult(fullPath, seedA, seedB) {
+  // fullPath = [seedA.name, intermediate1, intermediate2, ..., seedB.name]
+  // Extract just the intermediates (skip first and last which are seeds)
+  const intermediateNames = fullPath.slice(1, -1);
+
+  if (intermediateNames.length === 0) return null;
+
+  console.log(`Chain found: ${fullPath.join(' → ')} (${intermediateNames.length} hops)`);
+
+  // Enrich intermediates with Deezer data
+  const enrichedMap = await deezer.enrichArtistsFromDeezer(intermediateNames);
+
+  const chainArtists = intermediateNames.map((name, i) => {
+    const deezerData = enrichedMap.get(name.toLowerCase().trim());
+    return {
+      id: deezerData?.id || `chain-${name}`,
+      name,
+      genres: [],
+      popularity: 0,
+      nbFan: deezerData?.nbFan || 0,
+      image: deezerData?.image || null,
+      imageLarge: deezerData?.imageLarge || null,
+      externalUrl: deezerData?.externalUrl || '',
+      matchScore: 0.3, // Moderate default for chain artists
+      isChainBridge: true,
+      chainPosition: i + 1,
+      chainLength: intermediateNames.length,
+      chainBridgesBetween: [seedA.id, seedB.id],
+      chainBridgeSeedNames: [seedA.name, seedB.name],
+    };
+  });
+
+  return {
+    chain: fullPath,
+    chainArtists,
+    hops: intermediateNames.length,
+  };
+}
+
+// ===================================================================
 // Track lookup (for detail panel playback)
 // ===================================================================
 

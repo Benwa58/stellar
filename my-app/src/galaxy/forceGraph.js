@@ -21,6 +21,10 @@ export function createSimulation(nodes, links, width, height) {
           const isGemLink = (d.source.isHiddenGem || d.target.isHiddenGem);
           const isBridgeLink = d.isBridgeLink;
 
+          // Chain links: keep chain nodes close to form a visible path
+          if (d.isChainLink) {
+            return FORCE_CONFIG.linkDistanceChain;
+          }
           if (sourceIsSeed && targetIsSeed) {
             // Bridge links between seeds are wider
             return isBridgeLink
