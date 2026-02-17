@@ -6,6 +6,7 @@ import {
   DEEP_CUT_LIMIT,
   BRIDGE_SEARCH_LIMIT,
   MAX_BRIDGE_PAIRS,
+  MAX_CHAIN_BRIDGE_PAIRS,
 } from '../utils/constants';
 import { clusterByGenre } from './genreAnalysis';
 
@@ -236,10 +237,9 @@ export async function generateRecommendations(seedArtists, onProgress) {
   // ================================================================
   // Phase 4b: Chain bridge — multi-hop pathfinding for still-unbridged pairs
   // ================================================================
-  // Identify pairs that STILL have no connection after Phase 4
+  // Check ALL disconnected pairs (not just the subset searched in Phase 4)
   const unbridgedPairs = [];
-  const pairsSearched = disconnectedPairs.slice(0, MAX_BRIDGE_PAIRS);
-  for (const [seedA, seedB] of pairsSearched) {
+  for (const [seedA, seedB] of disconnectedPairs) {
     let hasBridge = false;
     // Check if any bridge candidate connects this pair
     for (const [, bc] of bridgeCandidates) {
@@ -250,7 +250,7 @@ export async function generateRecommendations(seedArtists, onProgress) {
         break;
       }
     }
-    // Also check standard candidates
+    // Also check standard candidates that overlap both seeds
     if (!hasBridge) {
       for (const [, c] of candidates) {
         if (c.relatedToSeeds.has(seedA.id) && c.relatedToSeeds.has(seedB.id)) {
@@ -262,15 +262,20 @@ export async function generateRecommendations(seedArtists, onProgress) {
     if (!hasBridge) unbridgedPairs.push([seedA, seedB]);
   }
 
-  if (unbridgedPairs.length > 0) {
-    onProgress({ phase: 'chain_bridges', current: 0, total: unbridgedPairs.length, message: 'Forging chain bridges between distant styles...' });
+  console.log(`Phase 4b: ${disconnectedPairs.length} disconnected pairs, ${unbridgedPairs.length} still unbridged after Phase 4`);
 
-    for (let i = 0; i < unbridgedPairs.length; i++) {
-      const [seedA, seedB] = unbridgedPairs[i];
+  // Cap the number of chain bridge attempts to avoid excessive API calls
+  const chainPairsToSearch = unbridgedPairs.slice(0, MAX_CHAIN_BRIDGE_PAIRS);
+
+  if (chainPairsToSearch.length > 0) {
+    onProgress({ phase: 'chain_bridges', current: 0, total: chainPairsToSearch.length, message: 'Forging chain bridges between distant styles...' });
+
+    for (let i = 0; i < chainPairsToSearch.length; i++) {
+      const [seedA, seedB] = chainPairsToSearch[i];
       onProgress({
         phase: 'chain_bridges',
         current: i,
-        total: unbridgedPairs.length,
+        total: chainPairsToSearch.length,
         message: `Chaining ${seedA.name} to ${seedB.name}...`,
       });
 
@@ -280,13 +285,29 @@ export async function generateRecommendations(seedArtists, onProgress) {
           for (const artist of chainResult.chainArtists) {
             if (seedIds.has(artist.id)) continue;
 
-            // If already a candidate, just add seed connections
-            if (candidates.has(artist.id) || deepCutCandidates.has(artist.id) || bridgeCandidates.has(artist.id)) {
-              const existing = candidates.get(artist.id) || deepCutCandidates.get(artist.id) || bridgeCandidates.get(artist.id);
+            // Check if already a candidate by ID or by name (IDs may differ between sources)
+            let existing = candidates.get(artist.id) || deepCutCandidates.get(artist.id) || bridgeCandidates.get(artist.id);
+            if (!existing) {
+              // Fallback: search by name across all candidate maps
+              const nameLower = artist.name.toLowerCase().trim();
+              for (const map of [candidates, deepCutCandidates, bridgeCandidates]) {
+                for (const [, c] of map) {
+                  if (c.artist.name.toLowerCase().trim() === nameLower) {
+                    existing = c;
+                    break;
+                  }
+                }
+                if (existing) break;
+              }
+            }
+
+            if (existing) {
               existing.relatedToSeeds.add(seedA.id);
               existing.relatedToSeeds.add(seedB.id);
-              // Preserve chain metadata on the artist object
+              // Promote discovery method so buildGraph creates chain links
+              existing.discoveryMethod = 'chain_bridge';
               existing.artist.isChainBridge = true;
+              existing.artist.discoveryMethod = 'chain_bridge';
               existing.artist.chainPosition = artist.chainPosition;
               existing.artist.chainLength = artist.chainLength;
               existing.artist.chainBridgesBetween = artist.chainBridgesBetween;
@@ -308,12 +329,23 @@ export async function generateRecommendations(seedArtists, onProgress) {
       onProgress({
         phase: 'chain_bridges',
         current: i + 1,
-        total: unbridgedPairs.length,
+        total: chainPairsToSearch.length,
         message: `Chained ${seedA.name} to ${seedB.name}`,
       });
     }
 
-    console.log(`Phase 4b: ${unbridgedPairs.length} pairs chain-bridged`);
+    // Count how many chain_bridge artists were added
+    let chainCount = 0;
+    for (const [, bc] of bridgeCandidates) {
+      if (bc.discoveryMethod === 'chain_bridge') chainCount++;
+    }
+    for (const [, c] of candidates) {
+      if (c.discoveryMethod === 'chain_bridge') chainCount++;
+    }
+    for (const [, dc] of deepCutCandidates) {
+      if (dc.discoveryMethod === 'chain_bridge') chainCount++;
+    }
+    console.log(`Phase 4b: ${chainPairsToSearch.length} pairs searched, ${chainCount} chain bridge artists found`);
   }
 
   // ================================================================
@@ -532,8 +564,19 @@ export async function generateRecommendations(seedArtists, onProgress) {
 
   const topRecommendations = [...selectedPopular, ...selectedGems];
 
+  // Guarantee chain bridge artists are always included (they form visual chains on the map)
+  const selectedIds = new Set(topRecommendations.map(r => r.id));
+  const chainBridgeMissing = hiddenGemScored.filter(
+    r => r.discoveryMethod === 'chain_bridge' && !selectedIds.has(r.id)
+  );
+  if (chainBridgeMissing.length > 0) {
+    topRecommendations.push(...chainBridgeMissing);
+    console.log(`Phase 6: Added ${chainBridgeMissing.length} chain bridge artists that were outside gem slots`);
+  }
+
+  const chainBridgeCount = topRecommendations.filter(r => r.discoveryMethod === 'chain_bridge').length;
   console.log(
-    `Phase 6: ${selectedPopular.length} popular + ${selectedGems.length} hidden gems = ${topRecommendations.length} total`
+    `Phase 6: ${selectedPopular.length} popular + ${selectedGems.length} hidden gems + ${chainBridgeMissing.length} chain bridges = ${topRecommendations.length} total (${chainBridgeCount} chain bridge artists)`
   );
 
   if (topRecommendations.length === 0 && candidates.size === 0) {
@@ -648,6 +691,11 @@ function buildGraph(seedArtists, recommendations, standardCandidates) {
       if (!chainGroups.has(key)) chainGroups.set(key, []);
       chainGroups.get(key).push(rec);
     }
+  }
+
+  console.log(`buildGraph: ${chainGroups.size} chain groups found among ${recommendations.length} recommendations`);
+  for (const [key, artists] of chainGroups) {
+    console.log(`  Chain group ${key}: ${artists.map(a => `${a.name}(pos=${a.chainPosition})`).join(', ')}`);
   }
 
   for (const [key, chainArtists] of chainGroups) {
