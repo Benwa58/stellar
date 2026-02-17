@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
 import { SELECT_NODE, HOVER_NODE } from '../state/actions';
 import { useCanvasSize } from '../hooks/useCanvasSize';
@@ -10,7 +10,42 @@ import { renderNebulaeToCanvas } from './nebulaRenderer';
 import { setupInteractions } from './interactionHandler';
 import { clamp } from '../utils/mathUtils';
 
-function GalaxyCanvas() {
+/**
+ * Compute a transform that fits all nodes within the viewport with padding.
+ */
+function computeFitTransform(nodes, viewWidth, viewHeight, padding = 60) {
+  if (!nodes || nodes.length === 0) return { x: 0, y: 0, scale: 1 };
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const node of nodes) {
+    if (node.x == null || node.y == null) continue;
+    const r = node.radius || 10;
+    minX = Math.min(minX, node.x - r);
+    minY = Math.min(minY, node.y - r);
+    maxX = Math.max(maxX, node.x + r);
+    maxY = Math.max(maxY, node.y + r);
+  }
+
+  if (!isFinite(minX)) return { x: 0, y: 0, scale: 1 };
+
+  const graphWidth = maxX - minX;
+  const graphHeight = maxY - minY;
+  if (graphWidth === 0 || graphHeight === 0) return { x: 0, y: 0, scale: 1 };
+
+  const scaleX = (viewWidth - padding * 2) / graphWidth;
+  const scaleY = (viewHeight - padding * 2) / graphHeight;
+  const scale = clamp(Math.min(scaleX, scaleY), 0.2, 2);
+
+  // Center the graph in the viewport
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const x = viewWidth / 2 - cx * scale;
+  const y = viewHeight / 2 - cy * scale;
+
+  return { x, y, scale };
+}
+
+const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   const { galaxyData } = useAppState();
   const dispatch = useDispatch();
 
@@ -29,6 +64,16 @@ function GalaxyCanvas() {
   const cleanupRef = useRef(null);
 
   const size = useCanvasSize(containerRef);
+
+  // Reset view to fit all nodes
+  const resetView = useCallback(() => {
+    const { nodes } = stateRef.current;
+    if (!nodes || size.width === 0 || size.height === 0) return;
+    stateRef.current.transform = computeFitTransform(nodes, size.width, size.height);
+  }, [size.width, size.height]);
+
+  // Expose resetView to parent via ref
+  useImperativeHandle(ref, () => ({ resetView }), [resetView]);
 
   // Build graph data when galaxyData changes
   useEffect(() => {
@@ -52,8 +97,13 @@ function GalaxyCanvas() {
 
     const { nodes, links, genreClusters } = stateRef.current;
 
-    // Reset transform to center
+    // Start centered; will auto-fit once simulation settles
     stateRef.current.transform = { x: 0, y: 0, scale: 1 };
+
+    // Do an early fit after nodes have spread out a bit
+    let earlyFitTimeout = setTimeout(() => {
+      stateRef.current.transform = computeFitTransform(nodes, size.width, size.height);
+    }, 500);
 
     // Create particles
     stateRef.current.particles = createParticleSystem(size.width, size.height);
@@ -83,6 +133,8 @@ function GalaxyCanvas() {
       // Re-render nebulae with final positions
       const nebulaCanvas = renderNebulaeToCanvas(genreClusters, size.width, size.height);
       renderer.setNebulaCanvas(nebulaCanvas);
+      // Auto-fit to show all nodes once layout is final
+      stateRef.current.transform = computeFitTransform(nodes, size.width, size.height);
     });
 
     renderer.start();
@@ -122,6 +174,7 @@ function GalaxyCanvas() {
 
     return () => {
       clearTimeout(nebulaTimeout);
+      clearTimeout(earlyFitTimeout);
       sim.stop();
       renderer.stop();
       cleanup();
@@ -136,6 +189,6 @@ function GalaxyCanvas() {
       />
     </div>
   );
-}
+});
 
 export default GalaxyCanvas;

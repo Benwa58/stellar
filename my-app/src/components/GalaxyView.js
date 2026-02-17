@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
 import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR } from '../state/actions';
 import { generateRecommendations } from '../engine/recommendationEngine';
@@ -10,6 +10,7 @@ import '../styles/galaxy.css';
 function GalaxyView() {
   const { selectedNode, seedArtists } = useAppState();
   const dispatch = useDispatch();
+  const canvasRef = useRef(null);
 
   const handleBack = useCallback(() => {
     dispatch({ type: GO_TO_INPUT });
@@ -66,7 +67,20 @@ function GalaxyView() {
         />
       </div>
 
-      <GalaxyCanvas />
+      <GalaxyCanvas ref={canvasRef} />
+
+      <button
+        className="reset-zoom-button"
+        onClick={() => canvasRef.current?.resetView()}
+        title="Reset zoom"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+          <path d="M15 3h6v6" />
+          <path d="M9 21H3v-6" />
+          <path d="M21 3l-7 7" />
+          <path d="M3 21l7-7" />
+        </svg>
+      </button>
 
       {selectedNode && (
         <ArtistDetailPanel
