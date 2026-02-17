@@ -1,14 +1,8 @@
 import { NODE_SIZES, HIDDEN_GEM_COLOR } from '../utils/constants';
 import { getGenreColorString, getGenreColor, hslToRgba } from '../utils/colorUtils';
-import { normalize } from '../utils/mathUtils';
 
 export function buildGalaxyGraph(galaxyData) {
   const { nodes: rawNodes, links: rawLinks, genreClusters } = galaxyData;
-
-  const recNodes = rawNodes.filter((n) => n.type === 'recommendation');
-  const scores = recNodes.map((n) => n.compositeScore);
-  const minScore = Math.min(...scores, 0);
-  const maxScore = Math.max(...scores, 1);
 
   const nodes = rawNodes.map((node) => {
     if (node.type === 'seed') {
@@ -21,10 +15,14 @@ export function buildGalaxyGraph(galaxyData) {
       };
     }
 
-    const scoreNorm = normalize(node.compositeScore, minScore, maxScore);
+    // Use compositeScore directly (already 0–1) with a power curve
+    // to spread out mid-range values and make differences more visible.
+    const rawScore = Math.max(0, Math.min(1, node.compositeScore || 0));
+    const scoreNorm = Math.pow(rawScore, 0.7);
+
     const isHiddenGem = node.tier === 'hidden_gem';
 
-    // Hidden gems: smaller size range
+    // Size scales with match strength within each tier
     const sizeMin = isHiddenGem ? NODE_SIZES.gemMin : NODE_SIZES.recMin;
     const sizeMax = isHiddenGem ? NODE_SIZES.gemMax : NODE_SIZES.recMax;
     const radius = sizeMin + scoreNorm * (sizeMax - sizeMin);

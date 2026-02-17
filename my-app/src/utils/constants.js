@@ -16,10 +16,10 @@ export const FORCE_CONFIG = {
 export const NODE_SIZES = {
   seedMin: 14,
   seedMax: 18,
-  recMin: 4,
-  recMax: 12,
-  gemMin: 3,
-  gemMax: 9,
+  recMin: 3,
+  recMax: 14,
+  gemMin: 2.5,
+  gemMax: 10,
 };
 
 export const GENRE_COLORS = {
