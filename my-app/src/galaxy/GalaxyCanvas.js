@@ -45,6 +45,34 @@ function computeFitTransform(nodes, viewWidth, viewHeight, padding = 60) {
   return { x, y, scale };
 }
 
+/**
+ * Smoothly animate the transform from current to target over `duration` ms.
+ * Uses ease-out cubic for a natural deceleration feel.
+ */
+function animateTransform(stateRef, target, duration = 400) {
+  const start = { ...stateRef.current.transform };
+  const startTime = performance.now();
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    // Ease-out cubic: 1 - (1-t)^3
+    const ease = 1 - Math.pow(1 - t, 3);
+
+    stateRef.current.transform = {
+      x: start.x + (target.x - start.x) * ease,
+      y: start.y + (target.y - start.y) * ease,
+      scale: start.scale + (target.scale - start.scale) * ease,
+    };
+
+    if (t < 1) {
+      requestAnimationFrame(step);
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
 const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   const { galaxyData } = useAppState();
   const dispatch = useDispatch();
@@ -65,11 +93,12 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
 
   const size = useCanvasSize(containerRef);
 
-  // Reset view to fit all nodes
+  // Smoothly animate view to fit all nodes
   const resetView = useCallback(() => {
     const { nodes } = stateRef.current;
     if (!nodes || size.width === 0 || size.height === 0) return;
-    stateRef.current.transform = computeFitTransform(nodes, size.width, size.height);
+    const target = computeFitTransform(nodes, size.width, size.height);
+    animateTransform(stateRef, target);
   }, [size.width, size.height]);
 
   // Expose resetView to parent via ref
@@ -97,13 +126,8 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
 
     const { nodes, links, genreClusters } = stateRef.current;
 
-    // Start centered; will auto-fit once simulation settles
+    // Reset transform to center
     stateRef.current.transform = { x: 0, y: 0, scale: 1 };
-
-    // Do an early fit after nodes have spread out a bit
-    let earlyFitTimeout = setTimeout(() => {
-      stateRef.current.transform = computeFitTransform(nodes, size.width, size.height);
-    }, 500);
 
     // Create particles
     stateRef.current.particles = createParticleSystem(size.width, size.height);
@@ -133,8 +157,9 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
       // Re-render nebulae with final positions
       const nebulaCanvas = renderNebulaeToCanvas(genreClusters, size.width, size.height);
       renderer.setNebulaCanvas(nebulaCanvas);
-      // Auto-fit to show all nodes once layout is final
-      stateRef.current.transform = computeFitTransform(nodes, size.width, size.height);
+      // Smoothly auto-fit to show all nodes once layout is final
+      const target = computeFitTransform(nodes, size.width, size.height);
+      animateTransform(stateRef, target, 600);
     });
 
     renderer.start();
@@ -174,7 +199,6 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
 
     return () => {
       clearTimeout(nebulaTimeout);
-      clearTimeout(earlyFitTimeout);
       sim.stop();
       renderer.stop();
       cleanup();
