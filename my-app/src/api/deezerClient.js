@@ -122,8 +122,37 @@ export async function getArtist(deezerId) {
 }
 
 /**
+ * Normalize an artist name for matching: lowercase, strip "the", punctuation.
+ */
+function normalizeName(s) {
+  return s.toLowerCase()
+    .trim()
+    .replace(/^the\s+/, '')
+    .replace(/[''`]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Check if a Deezer search result name matches the expected artist name.
+ * Prevents returning a wrong artist when a smaller band shares a name fragment
+ * with a more popular one.
+ */
+function isDeezerNameMatch(expected, actual) {
+  const a = normalizeName(expected);
+  const b = normalizeName(actual);
+
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+
+  return false;
+}
+
+/**
  * Find a Deezer artist by name (cross-reference from Last.fm).
  * Returns the best match or null. Results are cached to avoid redundant lookups.
+ * Validates the returned name matches the query to avoid wrong-artist results.
  */
 export async function findArtistByName(artistName) {
   if (!artistName || artistName.trim().length < 1) return null;
@@ -136,19 +165,31 @@ export async function findArtistByName(artistName) {
   }
 
   try {
-    // Only fetch 2 results — we just need the best match
-    const results = await searchArtists(artistName, 2);
+    // Fetch a few results so we can find a validated match
+    const results = await searchArtists(artistName, 5);
     if (results.length === 0) {
       deezerCache.set(cacheKey, null);
       return null;
     }
 
-    // Prefer exact case-insensitive match
+    // Prefer exact case-insensitive match first
     const exact = results.find((a) => a.name.toLowerCase().trim() === cacheKey);
-    const result = exact || results[0];
+    if (exact) {
+      deezerCache.set(cacheKey, exact);
+      return exact;
+    }
 
-    deezerCache.set(cacheKey, result);
-    return result;
+    // Then try fuzzy match — pick the first result whose name is close enough
+    const fuzzy = results.find((a) => isDeezerNameMatch(artistName, a.name));
+    if (fuzzy) {
+      deezerCache.set(cacheKey, fuzzy);
+      return fuzzy;
+    }
+
+    // No matching result — don't return a wrong artist
+    console.warn(`Deezer: no name match for "${artistName}" in results: [${results.map(r => r.name).join(', ')}]`);
+    deezerCache.set(cacheKey, null);
+    return null;
   } catch (err) {
     console.warn(`Deezer findByName failed for "${artistName}":`, err.message);
     return null;

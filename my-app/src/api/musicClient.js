@@ -522,13 +522,35 @@ async function buildChainResult(fullPath, seedA, seedB) {
 /**
  * Find a playable track for an artist using Deezer.
  * Returns a track object with a 30-second preview URL.
+ *
+ * @param {string} artistName - The artist name (used for search fallback)
+ * @param {string} [deezerId] - Deezer artist ID. If provided (and numeric),
+ *   fetches tracks directly by ID — avoids wrong-artist mismatches for
+ *   smaller bands that share names with bigger artists.
  */
-export async function findArtistTrack(artistName) {
+export async function findArtistTrack(artistName, deezerId) {
   try {
-    const artist = await deezer.findArtistByName(artistName);
-    if (!artist) return null;
+    let artistId = null;
 
-    const tracks = await deezer.getArtistTopTracks(artist.id, 5);
+    // If we have a numeric Deezer ID, use it directly (skip name search)
+    if (deezerId && /^\d+$/.test(deezerId)) {
+      artistId = deezerId;
+    } else {
+      // Fallback: search by name with validation
+      const artist = await deezer.findArtistByName(artistName);
+      if (!artist) return null;
+
+      // Validate the name actually matches to avoid wrong-artist results
+      if (!namesMatch(artistName, artist.name)) {
+        console.warn(
+          `findArtistTrack: Deezer returned "${artist.name}" for query "${artistName}" — skipping (name mismatch)`
+        );
+        return null;
+      }
+      artistId = artist.id;
+    }
+
+    const tracks = await deezer.getArtistTopTracks(artistId, 5);
     if (tracks.length === 0) return null;
 
     // Prefer tracks with preview URLs
@@ -538,6 +560,32 @@ export async function findArtistTrack(artistName) {
     console.warn(`findArtistTrack failed for "${artistName}":`, err.message);
     return null;
   }
+}
+
+/**
+ * Check if two artist names are close enough to be the same artist.
+ * Handles common variations: case, "The" prefix, punctuation, accents.
+ */
+function namesMatch(expected, actual) {
+  const normalize = (s) =>
+    s.toLowerCase()
+      .trim()
+      .replace(/^the\s+/, '')
+      .replace(/[''`]/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const a = normalize(expected);
+  const b = normalize(actual);
+
+  // Exact match after normalization
+  if (a === b) return true;
+
+  // One contains the other (handles "Artist" vs "Artist Band" cases)
+  if (a.includes(b) || b.includes(a)) return true;
+
+  return false;
 }
 
 // ===================================================================

@@ -20,7 +20,7 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
 
     let cancelled = false;
 
-    findArtistTrack(node.name)
+    findArtistTrack(node.name, node.id)
       .then((track) => {
         if (!cancelled) setTopTrack(track);
       })
