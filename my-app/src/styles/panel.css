@@ -104,6 +104,11 @@
   color: #64dcc8;
 }
 
+.badge-chain {
+  background: rgba(180, 140, 255, 0.15);
+  color: #b48cff;
+}
+
 .panel-discovery-note {
   font-size: 0.68rem;
   color: var(--color-text-muted);

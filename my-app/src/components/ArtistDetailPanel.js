@@ -4,7 +4,7 @@ import '../styles/panel.css';
 
 function getBadgeInfo(node) {
   if (node.type === 'seed') return { label: 'Your Artist', className: 'badge-seed' };
-  if (node.discoveryMethod === 'chain_bridge') return { label: 'Chain Bridge', className: 'badge-gem' };
+  if (node.discoveryMethod === 'chain_bridge') return { label: 'Chain Bridge', className: 'badge-chain' };
   if (node.tier === 'hidden_gem') return { label: 'Hidden Gem', className: 'badge-gem' };
   return { label: 'Top Pick', className: 'badge-rec' };
 }

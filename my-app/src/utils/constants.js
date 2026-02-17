@@ -59,8 +59,9 @@ export const GALAXY_COLORS = {
   nebulaOpacity: 0.04,
   bridgeLinkColor: 'rgba(100, 220, 200, 0.12)',
   bridgeLinkHighlight: 'rgba(100, 220, 200, 0.35)',
-  chainLinkColor: 'rgba(130, 180, 200, 0.15)',
-  chainLinkHighlight: 'rgba(130, 180, 200, 0.4)',
+  chainLinkColor: 'rgba(200, 160, 255, 0.2)',
+  chainLinkHighlight: 'rgba(200, 160, 255, 0.5)',
+  chainNodeRing: 'rgba(200, 160, 255, 0.7)',
   hiddenGemRing: 'rgba(100, 220, 200, 0.7)',
 };
 
@@ -89,3 +90,4 @@ export const MAX_CHAIN_BRIDGE_PAIRS = 5;
 export const CHAIN_BRIDGE_MAX_HOPS = 4;
 export const CHAIN_BRIDGE_BRANCH_LIMITS = [20, 15, 10, 8];
 export const HIDDEN_GEM_COLOR = { h: 175, s: 70, l: 55 };
+export const CHAIN_BRIDGE_COLOR = { h: 270, s: 60, l: 65 };

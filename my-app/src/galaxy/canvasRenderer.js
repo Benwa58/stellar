@@ -108,18 +108,19 @@ function drawLinks(ctx, links, hoveredNode, selectedNode) {
     ctx.lineTo(target.x, target.y);
 
     if (link.isChainLink) {
-      // Chain links: dotted line with gradient color (teal → purple)
-      ctx.setLineDash([2, 4]);
+      // Chain links: dotted purple line with gradient along the chain
+      ctx.setLineDash([3, 3]);
       const t = (link.chainPosition || 0) / Math.max(link.chainLength || 1, 1);
-      const r = Math.round(100 + t * 55);
-      const g = Math.round(220 - t * 100);
-      const b = Math.round(200 - t * 40);
+      // Purple gradient: lighter → deeper along the chain
+      const r = Math.round(190 - t * 30);
+      const g = Math.round(150 - t * 40);
+      const b = Math.round(255 - t * 20);
       if (isHighlighted) {
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.55)`;
+        ctx.lineWidth = 2.0;
       } else {
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
-        ctx.lineWidth = 1.0;
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.25)`;
+        ctx.lineWidth = 1.2;
       }
     } else if (link.isBridgeLink) {
       // Bridge links: dashed teal line
@@ -155,6 +156,8 @@ function drawNodes(ctx, nodes, hoveredNode, selectedNode, time) {
 
     if (node.type === 'seed') {
       drawSeedNode(ctx, node, isActive);
+    } else if (node.isChainBridge) {
+      drawChainBridgeNode(ctx, node, isActive, time);
     } else if (node.isHiddenGem) {
       drawHiddenGemNode(ctx, node, isActive, time);
     } else {
@@ -237,6 +240,63 @@ function drawRecNode(ctx, node, isActive) {
   }
 }
 
+function drawChainBridgeNode(ctx, node, isActive, time) {
+  const { x, y, radius, color, glowColor, brightness } = node;
+
+  // Slow rotation animation
+  const angle = time * 0.0008 + x * 0.005;
+
+  // Pulsing glow
+  const pulse = 0.85 + 0.15 * Math.sin(time * 0.003 + y * 0.01);
+  const glowRadius = radius * 2.8 * pulse;
+
+  // Purple/violet glow
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+  glow.addColorStop(0, glowColor || 'rgba(180, 140, 255, 0.3)');
+  glow.addColorStop(0.6, 'rgba(160, 120, 255, 0.08)');
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.beginPath();
+  ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  // Hexagon body (6-sided polygon)
+  const sides = 6;
+  ctx.beginPath();
+  for (let i = 0; i < sides; i++) {
+    const a = angle + (Math.PI * 2 * i) / sides;
+    const px = x + radius * Math.cos(a);
+    const py = y + radius * Math.sin(a);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = color || 'rgba(180, 140, 255, 0.85)';
+  ctx.fill();
+
+  // Inner ring to suggest a "link" in a chain
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.55, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(255, 255, 255, ${(brightness || 0.5) * 0.35})`;
+  ctx.lineWidth = radius * 0.15;
+  ctx.stroke();
+
+  // Bright center dot
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255, 255, 255, ${(brightness || 0.5) * 0.5})`;
+  ctx.fill();
+
+  // Active ring
+  if (isActive) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = GALAXY_COLORS.chainNodeRing;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+}
+
 function drawHiddenGemNode(ctx, node, isActive, time) {
   const { x, y, radius, color, glowColor, brightness } = node;
 
@@ -299,9 +359,11 @@ function drawNodeLabel(ctx, node) {
   ctx.fill();
 
   // Border
-  ctx.strokeStyle = node.isHiddenGem
-    ? 'rgba(100, 220, 200, 0.25)'
-    : 'rgba(255, 255, 255, 0.15)';
+  ctx.strokeStyle = node.isChainBridge
+    ? 'rgba(200, 160, 255, 0.3)'
+    : node.isHiddenGem
+      ? 'rgba(100, 220, 200, 0.25)'
+      : 'rgba(255, 255, 255, 0.15)';
   ctx.lineWidth = 0.5;
   ctx.stroke();
 

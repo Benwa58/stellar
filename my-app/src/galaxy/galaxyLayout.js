@@ -1,4 +1,4 @@
-import { NODE_SIZES, HIDDEN_GEM_COLOR } from '../utils/constants';
+import { NODE_SIZES, HIDDEN_GEM_COLOR, CHAIN_BRIDGE_COLOR } from '../utils/constants';
 import { getGenreColorString, getGenreColor, hslToRgba } from '../utils/colorUtils';
 
 export function buildGalaxyGraph(galaxyData) {
@@ -21,22 +21,30 @@ export function buildGalaxyGraph(galaxyData) {
     const scoreNorm = Math.pow(rawScore, 0.7);
 
     const isHiddenGem = node.tier === 'hidden_gem';
+    const isChainBridge = node.discoveryMethod === 'chain_bridge' || node.isChainBridge;
 
     // Size scales with match strength within each tier
     const sizeMin = isHiddenGem ? NODE_SIZES.gemMin : NODE_SIZES.recMin;
     const sizeMax = isHiddenGem ? NODE_SIZES.gemMax : NODE_SIZES.recMax;
     const radius = sizeMin + scoreNorm * (sizeMax - sizeMin);
 
-    const genreHsl = isHiddenGem ? HIDDEN_GEM_COLOR : getGenreColor(node.genres);
     const brightness = 0.4 + scoreNorm * 0.6;
 
-    // Hidden gems get a teal/cyan tint blended with genre color
-    let color, glowColor;
-    if (isHiddenGem) {
+    // Chain bridge nodes get a distinct purple/violet color
+    // Hidden gems get teal, top picks get genre-based color
+    let color, glowColor, genreHsl;
+    if (isChainBridge) {
+      const { h, s, l } = CHAIN_BRIDGE_COLOR;
+      genreHsl = CHAIN_BRIDGE_COLOR;
+      color = hslToRgba(h, s, l, brightness);
+      glowColor = hslToRgba(h, s, l, brightness * 0.3);
+    } else if (isHiddenGem) {
       const { h, s, l } = HIDDEN_GEM_COLOR;
+      genreHsl = HIDDEN_GEM_COLOR;
       color = hslToRgba(h, s, l, brightness);
       glowColor = hslToRgba(h, s, l, brightness * 0.3);
     } else {
+      genreHsl = getGenreColor(node.genres);
       color = getGenreColorString(node.genres, brightness);
       glowColor = getGenreColorString(node.genres, brightness * 0.3);
     }
@@ -48,9 +56,9 @@ export function buildGalaxyGraph(galaxyData) {
       glowColor,
       genreHsl,
       brightness,
-      isHiddenGem,
+      isHiddenGem: isHiddenGem && !isChainBridge, // chain bridges get their own renderer
       isBridge: node.discoveryMethod === 'bridge',
-      isChainBridge: node.discoveryMethod === 'chain_bridge' || node.isChainBridge,
+      isChainBridge,
     };
   });
 
