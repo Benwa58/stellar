@@ -97,6 +97,25 @@ export function appReducer(state, action) {
         isPlaying: false,
       };
 
+    case actions.ADD_SEED_AND_REGENERATE: {
+      const exists = state.seedArtists.some((a) => a.id === action.payload.id);
+      const updatedSeeds = exists
+        ? state.seedArtists
+        : [...state.seedArtists, action.payload];
+      return {
+        ...state,
+        seedArtists: updatedSeeds,
+        phase: 'loading',
+        loadingProgress: { phase: '', current: 0, total: 0, message: 'Initializing...' },
+        galaxyData: null,
+        selectedNode: null,
+        hoveredNode: null,
+        previewTrack: null,
+        isPlaying: false,
+        error: null,
+      };
+    }
+
     case actions.RESET:
       return { ...initialState };
 
