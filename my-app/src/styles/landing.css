@@ -162,9 +162,15 @@
   align-items: center;
 }
 
-.generate-hint {
+.generate-helper {
   font-size: 0.8rem;
   color: var(--color-text-muted);
+  text-align: center;
+  transition: color var(--transition-normal);
+}
+
+.generate-helper.helper-ready {
+  color: var(--color-text-secondary);
 }
 
 /* Background Stars Effect */
