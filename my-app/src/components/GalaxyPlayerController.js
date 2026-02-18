@@ -94,9 +94,6 @@ function GalaxyPlayerController({ canvasRef }) {
       dispatch({ type: SELECT_NODE, payload: node });
       setTimeout(() => { navigatingFromClickRef.current = false; }, 100);
 
-      // Pan camera to node
-      canvasRef.current?.focusOnNode(node);
-
       // Fetch track
       setIsLoadingTrack(true);
       let track = trackCache.current.get(node.id);
@@ -137,7 +134,7 @@ function GalaxyPlayerController({ canvasRef }) {
         }
       }
     },
-    [mode, dispatch, canvasRef, audio]
+    [mode, dispatch, audio]
   );
 
   // React to currentIndex changes
