@@ -74,7 +74,7 @@ function LandingPage() {
         </div>
 
         <div className="landing-input-section">
-          <ArtistSearch onSelect={handleSelect} selectedIds={selectedIds} />
+          <ArtistSearch onSelect={handleSelect} selectedIds={selectedIds} artistCount={seedArtists.length} />
           <ArtistChipList artists={seedArtists} onRemove={handleRemove} />
           <GenerateButton
             artistCount={seedArtists.length}
