@@ -9,6 +9,18 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Use refs so play/toggle callbacks stay stable
+  const currentTrackRef = useRef(null);
+  const isPlayingRef = useRef(false);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
   useEffect(() => {
     const audio = new Audio();
     audio.volume = 0.7;
@@ -26,12 +38,14 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
 
     function onEnded() {
       setIsPlaying(false);
+      isPlayingRef.current = false;
       setProgress(0);
       if (onEndedRef.current) onEndedRef.current();
     }
 
     function onError() {
       setIsPlaying(false);
+      isPlayingRef.current = false;
     }
 
     audio.addEventListener('timeupdate', onTimeUpdate);
@@ -53,37 +67,44 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     const audio = audioRef.current;
     if (!audio || !track?.previewUrl) return;
 
-    if (currentTrack?.id === track.id && !isPlaying) {
+    // Resume same track
+    if (currentTrackRef.current?.id === track.id && !isPlayingRef.current) {
       audio.play().catch(() => {});
       setIsPlaying(true);
+      isPlayingRef.current = true;
       return;
     }
 
+    // Play new track
     audio.pause();
     audio.src = track.previewUrl;
     audio.load();
     audio.play().catch(() => {});
     setCurrentTrack(track);
+    currentTrackRef.current = track;
     setIsPlaying(true);
+    isPlayingRef.current = true;
     setProgress(0);
-  }, [currentTrack, isPlaying]);
+  }, []); // Stable — no deps, reads from refs
 
   const pause = useCallback(() => {
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
       setIsPlaying(false);
+      isPlayingRef.current = false;
     }
   }, []);
 
   const toggle = useCallback(() => {
-    if (isPlaying) {
+    if (isPlayingRef.current) {
       pause();
-    } else if (currentTrack) {
+    } else if (currentTrackRef.current) {
       audioRef.current?.play().catch(() => {});
       setIsPlaying(true);
+      isPlayingRef.current = true;
     }
-  }, [isPlaying, currentTrack, pause]);
+  }, [pause]); // Stable — pause is stable, reads from refs
 
   const seek = useCallback((fraction) => {
     const audio = audioRef.current;

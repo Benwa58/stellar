@@ -74,7 +74,7 @@ function animateTransform(stateRef, target, duration = 400) {
 }
 
 const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
-  const { galaxyData } = useAppState();
+  const { galaxyData, selectedNode: reduxSelectedNode } = useAppState();
   const dispatch = useDispatch();
 
   const containerRef = useRef(null);
@@ -120,6 +120,20 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes }), [resetView, focusOnNode, getNodes]);
+
+  // Sync Redux selectedNode to canvas stateRef so the renderer highlights it.
+  // The player dispatches SELECT_NODE with a copy, so we match by ID to find
+  // the actual node reference that the renderer uses for identity comparison.
+  useEffect(() => {
+    if (!reduxSelectedNode) {
+      stateRef.current.selectedNode = null;
+      return;
+    }
+    const nodes = stateRef.current.nodes;
+    if (!nodes) return;
+    const match = nodes.find((n) => n.id === reduxSelectedNode.id);
+    stateRef.current.selectedNode = match || null;
+  }, [reduxSelectedNode]);
 
   // Build graph data when galaxyData changes
   useEffect(() => {
