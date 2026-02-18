@@ -1,4 +1,5 @@
 import * as actions from './actions';
+import { clusterByGenre } from '../engine/genreAnalysis';
 
 export const initialState = {
   phase: 'inputting',
@@ -113,6 +114,27 @@ export function appReducer(state, action) {
         previewTrack: null,
         isPlaying: false,
         error: null,
+      };
+    }
+
+    case actions.LOAD_SAVED_MAP: {
+      const { seedArtists, galaxyData } = action.payload;
+      const fullGalaxyData = {
+        ...galaxyData,
+        genreClusters: galaxyData.genreClusters || clusterByGenre(galaxyData.nodes),
+      };
+      return {
+        ...state,
+        phase: 'viewing',
+        seedArtists,
+        galaxyData: fullGalaxyData,
+        selectedNode: null,
+        hoveredNode: null,
+        previewTrack: null,
+        isPlaying: false,
+        error: null,
+        searchQuery: '',
+        searchResults: [],
       };
     }
 
