@@ -44,27 +44,36 @@ function PreviewPlayer({
 
       <div className="player-main">
         <div className="player-left">
-          {currentTrack?.albumImage ? (
-            <img
-              className="player-album-art"
-              src={currentTrack.albumImage}
-              alt={currentTrack.albumName || 'Album'}
-            />
-          ) : (
-            <div className="player-album-art player-album-placeholder">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-          )}
-          <div className="player-info">
-            <span className="player-track-name">
-              {isLoading ? 'Loading...' : currentTrack?.name || ''}
-            </span>
-            <span className="player-artist-name">
-              {currentTrack?.artistName || ''}
-            </span>
-          </div>
+          <button
+            className={`player-mode-btn ${mode === 'shuffle' ? 'active' : ''}`}
+            onClick={onModeToggle}
+            title={mode === 'shuffle' ? 'Switch to sequential (clockwise)' : 'Switch to shuffle'}
+          >
+            {mode === 'shuffle' ? (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <polyline points="16 3 21 3 21 8" />
+                  <line x1="4" y1="20" x2="21" y2="3" />
+                  <polyline points="21 16 21 21 16 21" />
+                  <line x1="15" y1="15" x2="21" y2="21" />
+                  <line x1="4" y1="4" x2="9" y2="9" />
+                </svg>
+                <span className="player-mode-label">Shuffle</span>
+              </>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+                <span className="player-mode-label">Sequential</span>
+              </>
+            )}
+          </button>
+
+          <span className="player-position">
+            {currentIndex + 1} / {totalCount}
+          </span>
         </div>
 
         <div className="player-center">
@@ -101,35 +110,27 @@ function PreviewPlayer({
         </div>
 
         <div className="player-right">
-          <span className="player-position">
-            {currentIndex + 1} / {totalCount}
-          </span>
-          <button
-            className={`player-mode-btn ${mode === 'shuffle' ? 'active' : ''}`}
-            onClick={onModeToggle}
-            title={mode === 'shuffle' ? 'Switch to sequential (clockwise)' : 'Switch to shuffle'}
-          >
-            {mode === 'shuffle' ? (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <polyline points="16 3 21 3 21 8" />
-                  <line x1="4" y1="20" x2="21" y2="3" />
-                  <polyline points="21 16 21 21 16 21" />
-                  <line x1="15" y1="15" x2="21" y2="21" />
-                  <line x1="4" y1="4" x2="9" y2="9" />
-                </svg>
-                <span className="player-mode-label">Shuffle</span>
-              </>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <polyline points="1 4 1 10 7 10" />
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                </svg>
-                <span className="player-mode-label">Sequential</span>
-              </>
-            )}
-          </button>
+          {currentTrack?.albumImage ? (
+            <img
+              className="player-album-art"
+              src={currentTrack.albumImage}
+              alt={currentTrack.albumName || 'Album'}
+            />
+          ) : (
+            <div className="player-album-art player-album-placeholder">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+              </svg>
+            </div>
+          )}
+          <div className="player-info">
+            <span className="player-track-name">
+              {isLoading ? 'Loading...' : currentTrack?.name || ''}
+            </span>
+            <span className="player-artist-name">
+              {currentTrack?.artistName || ''}
+            </span>
+          </div>
         </div>
       </div>
     </div>
