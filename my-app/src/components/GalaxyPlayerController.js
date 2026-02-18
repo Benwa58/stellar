@@ -63,7 +63,7 @@ function GalaxyPlayerController({ canvasRef }) {
     });
   }, [mode]);
 
-  const audio = useAudioPreview({ onEnded: handleAutoAdvance });
+  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek } = useAudioPreview({ onEnded: handleAutoAdvance });
 
   // Build playlists when galaxy data changes
   useEffect(() => {
@@ -112,7 +112,7 @@ function GalaxyPlayerController({ canvasRef }) {
 
       if (track && track.previewUrl) {
         setCurrentNodeTrack(track);
-        audio.play(track);
+        audioPlay(track);
         skipCountRef.current = 0;
 
         // Pre-fetch next track
@@ -134,7 +134,7 @@ function GalaxyPlayerController({ canvasRef }) {
         }
       }
     },
-    [mode, dispatch, audio]
+    [mode, dispatch, audioPlay]
   );
 
   // React to currentIndex changes
@@ -160,9 +160,9 @@ function GalaxyPlayerController({ canvasRef }) {
       setIsActive(true);
       setCurrentIndex(0);
     } else {
-      audio.toggle();
+      audioToggle();
     }
-  }, [isActive, audio]);
+  }, [isActive, audioToggle]);
 
   const handleNext = useCallback(() => {
     const playlist = getPlaylist();
@@ -220,11 +220,11 @@ function GalaxyPlayerController({ canvasRef }) {
       {isActive && (
         <PreviewPlayer
           currentTrack={currentNodeTrack}
-          isPlaying={audio.isPlaying}
+          isPlaying={isPlaying}
           isLoading={isLoadingTrack}
-          progress={audio.progress}
-          onToggle={audio.toggle}
-          onSeek={audio.seek}
+          progress={progress}
+          onToggle={audioToggle}
+          onSeek={audioSeek}
           onNext={handleNext}
           onPrev={handlePrev}
           mode={mode}
