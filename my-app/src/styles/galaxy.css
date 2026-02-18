@@ -299,9 +299,8 @@
 /* Galaxy player start button — prominent CTA */
 .galaxy-player-start-button {
   position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 20px;
+  left: 170px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -324,17 +323,18 @@
 .galaxy-player-start-button:hover {
   background: var(--color-accent-hover, #818cf8);
   box-shadow: 0 4px 24px rgba(99, 102, 241, 0.5), 0 0 50px rgba(99, 102, 241, 0.2);
-  transform: translateX(-50%) scale(1.03);
+  transform: scale(1.03);
 }
 
 .galaxy-player-start-button:active {
-  transform: translateX(-50%) scale(0.97);
+  transform: scale(0.97);
 }
 
 /* Shift toolbar buttons up when player bar is visible */
 .galaxy-view:has(.preview-player) .reset-zoom-button,
 .galaxy-view:has(.preview-player) .info-button,
-.galaxy-view:has(.preview-player) .save-map-button {
+.galaxy-view:has(.preview-player) .save-map-button,
+.galaxy-view:has(.preview-player) .galaxy-player-start-button {
   bottom: 84px;
 }
 
@@ -362,13 +362,15 @@
 
   .galaxy-player-start-button {
     bottom: 16px;
+    left: 154px;
     padding: 8px 20px;
     font-size: 0.82rem;
   }
 
   .galaxy-view:has(.preview-player) .reset-zoom-button,
   .galaxy-view:has(.preview-player) .info-button,
-  .galaxy-view:has(.preview-player) .save-map-button {
+  .galaxy-view:has(.preview-player) .save-map-button,
+  .galaxy-view:has(.preview-player) .galaxy-player-start-button {
     bottom: 80px;
   }
 
