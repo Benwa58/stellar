@@ -254,6 +254,7 @@ function GalaxyPlayerController({ canvasRef }) {
           <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
             <polygon points="6,3 20,12 6,21" />
           </svg>
+          <span>Explore</span>
         </button>
       )}
 
