@@ -156,7 +156,7 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
         <div className="panel-actions">
           {loadingTrack ? (
             <div className="panel-loading-track">Loading preview...</div>
-          ) : topTrack && topTrack.previewUrl ? (
+          ) : topTrack ? (
             <div className="panel-audio-player">
               <div className="panel-track-info">
                 {topTrack.albumImage && (
@@ -167,14 +167,6 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
                   <span className="panel-track-album-name">{topTrack.albumName}</span>
                 </div>
               </div>
-              <audio
-                className="panel-audio-element"
-                controls
-                src={topTrack.previewUrl}
-                preload="none"
-              >
-                Your browser does not support audio playback.
-              </audio>
             </div>
           ) : (
             <div className="panel-no-preview">No preview available</div>

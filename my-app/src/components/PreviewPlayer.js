@@ -1,7 +1,20 @@
 import { useCallback } from 'react';
 import '../styles/player.css';
 
-function PreviewPlayer({ currentTrack, isPlaying, progress, onToggle, onSeek }) {
+function PreviewPlayer({
+  currentTrack,
+  isPlaying,
+  isLoading,
+  progress,
+  onToggle,
+  onSeek,
+  onNext,
+  onPrev,
+  mode,
+  onModeToggle,
+  currentIndex,
+  totalCount,
+}) {
   const handleSeek = useCallback(
     (e) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -11,7 +24,7 @@ function PreviewPlayer({ currentTrack, isPlaying, progress, onToggle, onSeek }) 
     [onSeek]
   );
 
-  if (!currentTrack) return null;
+  if (!currentTrack && !isLoading) return null;
 
   const elapsed = Math.floor((progress || 0) * 30);
   const minutes = Math.floor(elapsed / 60);
@@ -20,7 +33,7 @@ function PreviewPlayer({ currentTrack, isPlaying, progress, onToggle, onSeek }) 
   return (
     <div className="preview-player">
       <div className="player-left">
-        {currentTrack.albumImage ? (
+        {currentTrack?.albumImage ? (
           <img
             className="player-album-art"
             src={currentTrack.albumImage}
@@ -34,12 +47,23 @@ function PreviewPlayer({ currentTrack, isPlaying, progress, onToggle, onSeek }) 
           </div>
         )}
         <div className="player-info">
-          <span className="player-track-name">{currentTrack.name}</span>
-          <span className="player-artist-name">{currentTrack.artistName}</span>
+          <span className="player-track-name">
+            {isLoading ? 'Loading...' : currentTrack?.name || ''}
+          </span>
+          <span className="player-artist-name">
+            {currentTrack?.artistName || ''}
+          </span>
         </div>
       </div>
 
       <div className="player-center">
+        <button className="player-nav-btn" onClick={onPrev} title="Previous">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <polygon points="19,20 9,12 19,4" />
+            <rect x="5" y="4" width="2" height="16" />
+          </svg>
+        </button>
+
         <button className="player-toggle" onClick={onToggle}>
           {isPlaying ? (
             <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
@@ -51,6 +75,13 @@ function PreviewPlayer({ currentTrack, isPlaying, progress, onToggle, onSeek }) 
               <polygon points="5,3 19,12 5,21" />
             </svg>
           )}
+        </button>
+
+        <button className="player-nav-btn" onClick={onNext} title="Next">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <polygon points="5,4 15,12 5,20" />
+            <rect x="17" y="4" width="2" height="16" />
+          </svg>
         </button>
       </div>
 
@@ -64,6 +95,32 @@ function PreviewPlayer({ currentTrack, isPlaying, progress, onToggle, onSeek }) 
             style={{ width: `${(progress || 0) * 100}%` }}
           />
         </div>
+      </div>
+
+      <div className="player-controls-right">
+        <span className="player-position">
+          {currentIndex + 1} / {totalCount}
+        </span>
+        <button
+          className={`player-mode-btn ${mode === 'shuffle' ? 'active' : ''}`}
+          onClick={onModeToggle}
+          title={mode === 'shuffle' ? 'Shuffle' : 'Sequential'}
+        >
+          {mode === 'shuffle' ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+              <line x1="4" y1="4" x2="9" y2="9" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+          )}
+        </button>
       </div>
     </div>
   );
