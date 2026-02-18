@@ -216,8 +216,9 @@
 @media (max-width: 480px) {
   .player-main {
     padding: 4px 12px 6px;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   /* Track info spans full width on top row */
@@ -232,15 +233,12 @@
     height: 28px;
   }
 
+  /* Hide mode toggle + position on mobile — transport controls center naturally */
   .player-left {
-    flex: 0;
-  }
-
-  .player-time {
     display: none;
   }
 
-  .player-mode-label {
+  .player-time {
     display: none;
   }
 
