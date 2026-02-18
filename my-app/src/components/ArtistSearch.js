@@ -67,7 +67,7 @@ function ArtistSearch({ onSelect, selectedIds }) {
           ref={inputRef}
           type="text"
           className="search-input"
-          placeholder="Search for an artist..."
+          placeholder="Search for an artist... (3 minimum)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsFocused(true)}
