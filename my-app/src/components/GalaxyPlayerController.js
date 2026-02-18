@@ -48,6 +48,7 @@ function GalaxyPlayerController({ canvasRef }) {
   const navigationGenRef = useRef(0);
   const skipCountRef = useRef(0);
   const navigatingFromClickRef = useRef(false);
+  const silentSyncRef = useRef(false);
 
   const getPlaylist = useCallback(() => {
     return mode === 'shuffle' ? shuffleOrder.current : sequentialOrder.current;
@@ -140,20 +141,50 @@ function GalaxyPlayerController({ canvasRef }) {
   // React to currentIndex changes
   useEffect(() => {
     if (currentIndex >= 0 && isActive) {
+      if (silentSyncRef.current) {
+        silentSyncRef.current = false;
+        return;
+      }
       navigateToIndex(currentIndex);
     }
   }, [currentIndex, isActive, navigateToIndex]);
 
-  // Sync when user clicks a node on the canvas
+  // Sync when user clicks a node on the canvas.
+  // Only update the player's position — don't auto-play if paused.
   useEffect(() => {
     if (!selectedNode || !isActive || navigatingFromClickRef.current) return;
 
     const playlist = mode === 'shuffle' ? shuffleOrder.current : sequentialOrder.current;
     const idx = playlist.findIndex((n) => n.id === selectedNode.id);
-    if (idx >= 0 && idx !== currentIndex) {
+    if (idx < 0 || idx === currentIndex) return;
+
+    if (isPlaying) {
+      // Player is actively playing — navigate and play the clicked node
       setCurrentIndex(idx);
+    } else {
+      // Player is paused — sync position silently without auto-playing
+      navigationGenRef.current++;
+      silentSyncRef.current = true;
+      setCurrentIndex(idx);
+      // Fetch track info for display only (no playback)
+      const node = playlist[idx];
+      const cached = trackCache.current.get(node.id);
+      if (cached) {
+        setCurrentNodeTrack(cached);
+      } else {
+        setIsLoadingTrack(true);
+        findArtistTrack(node.name, node.id)
+          .then((track) => {
+            if (track) {
+              trackCache.current.set(node.id, track);
+              setCurrentNodeTrack(track);
+            }
+          })
+          .catch(() => {})
+          .finally(() => setIsLoadingTrack(false));
+      }
     }
-  }, [selectedNode, isActive, mode, currentIndex]);
+  }, [selectedNode, isActive, mode, currentIndex, isPlaying]);
 
   const handlePlay = useCallback(() => {
     if (!isActive) {
