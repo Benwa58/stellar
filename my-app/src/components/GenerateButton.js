@@ -27,7 +27,7 @@ function GenerateButton({ artistCount, onClick }) {
         </span>
         {isReady
           ? `Generate Galaxy (${artistCount} artists)`
-          : `${artistCount}/${MIN_SEED_ARTISTS} artists`}
+          : `${artistCount} artists added`}
       </button>
       <p className={`generate-helper ${isReady ? 'helper-ready' : ''}`}>
         {getHelperText(artistCount)}
