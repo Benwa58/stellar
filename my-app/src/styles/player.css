@@ -13,6 +13,11 @@
   animation: playerSlideUp 0.25s ease;
 }
 
+/* Pull player bar back when detail panel is open */
+.galaxy-view:has(.detail-panel) .preview-player {
+  right: 320px;
+}
+
 @keyframes playerSlideUp {
   from {
     transform: translateY(100%);
@@ -223,5 +228,9 @@
 
   .player-mode-label {
     display: none;
+  }
+
+  .galaxy-view:has(.detail-panel) .preview-player {
+    right: 0;
   }
 }
