@@ -700,9 +700,9 @@ function buildGraph(seedArtists, recommendations, standardCandidates) {
 
   for (const [key, chainArtists] of chainGroups) {
     chainArtists.sort((a, b) => a.chainPosition - b.chainPosition);
-    const seedIds = key.split('-');
-    const seedAId = seedIds[0];
-    const seedBId = seedIds[1];
+    // Use the original chainBridgesBetween order (seedA→seedB as discovered),
+    // not the alphabetically-sorted key, so the chain direction is preserved.
+    const [seedAId, seedBId] = chainArtists[0].chainBridgesBetween;
 
     // Link first chain artist to seedA
     if (nodeMap.has(seedAId) && nodeMap.has(chainArtists[0].id)) {
