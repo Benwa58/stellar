@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { findArtistTrack } from '../api/musicClient';
+import { getArtistInfo } from '../api/lastfmClient';
 import '../styles/panel.css';
 
 function getBadgeInfo(node) {
@@ -12,6 +13,7 @@ function getBadgeInfo(node) {
 function ArtistDetailPanel({ node, onClose, onAddSeed }) {
   const [topTrack, setTopTrack] = useState(null);
   const [loadingTrack, setLoadingTrack] = useState(false);
+  const [listeners, setListeners] = useState(null);
 
   useEffect(() => {
     if (!node) return;
@@ -28,6 +30,23 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
       .finally(() => {
         if (!cancelled) setLoadingTrack(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [node]);
+
+  useEffect(() => {
+    if (!node) return;
+    setListeners(null);
+
+    let cancelled = false;
+
+    getArtistInfo(node.name)
+      .then((info) => {
+        if (!cancelled && info) setListeners(info.listeners);
+      })
+      .catch(() => {});
 
     return () => {
       cancelled = true;
@@ -94,6 +113,12 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
               <> (step {node.chainPosition} of {node.chainLength})</>
             )}
           </span>
+        )}
+
+        {listeners > 0 && (
+          <div className="panel-listeners">
+            {listeners.toLocaleString()} listeners
+          </div>
         )}
 
         {!isSeed && scorePercent != null && (
