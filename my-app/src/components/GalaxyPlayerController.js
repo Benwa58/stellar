@@ -66,20 +66,25 @@ function GalaxyPlayerController({ canvasRef }) {
 
   const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek } = useAudioPreview({ onEnded: handleAutoAdvance });
 
-  // Build playlists when galaxy data changes
+  // Clear playlists when galaxy data changes (will rebuild on play start)
   useEffect(() => {
     if (!galaxyData) return;
+    sequentialOrder.current = [];
+    shuffleOrder.current = [];
+    trackCache.current.clear();
+  }, [galaxyData]);
 
-    // Small delay to let simulation positions settle
-    const timer = setTimeout(() => {
-      const allNodes = canvasRef.current?.getNodes() || [];
+  // Build playlists on demand from current (settled) node positions
+  const ensurePlaylistsBuilt = useCallback(() => {
+    const allNodes = canvasRef.current?.getNodes() || [];
+    if (allNodes.length === 0) return;
+    if (sequentialOrder.current.length === 0) {
       sequentialOrder.current = buildSequentialOrder(allNodes);
+    }
+    if (shuffleOrder.current.length === 0) {
       shuffleOrder.current = buildShuffleOrder(allNodes);
-      trackCache.current.clear();
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [galaxyData, canvasRef]);
+    }
+  }, [canvasRef]);
 
   // Navigate to a node by index
   const navigateToIndex = useCallback(
@@ -188,12 +193,13 @@ function GalaxyPlayerController({ canvasRef }) {
 
   const handlePlay = useCallback(() => {
     if (!isActive) {
+      ensurePlaylistsBuilt();
       setIsActive(true);
       setCurrentIndex(0);
     } else {
       audioToggle();
     }
-  }, [isActive, audioToggle]);
+  }, [isActive, audioToggle, ensurePlaylistsBuilt]);
 
   const handleNext = useCallback(() => {
     const playlist = getPlaylist();
@@ -211,10 +217,13 @@ function GalaxyPlayerController({ canvasRef }) {
     setMode((prev) => {
       const newMode = prev === 'sequential' ? 'shuffle' : 'sequential';
 
+      const allNodes = canvasRef.current?.getNodes() || [];
       // Re-shuffle when switching to shuffle
       if (newMode === 'shuffle') {
-        const allNodes = canvasRef.current?.getNodes() || [];
         shuffleOrder.current = buildShuffleOrder(allNodes);
+      } else if (sequentialOrder.current.length === 0) {
+        // Ensure sequential order is built
+        sequentialOrder.current = buildSequentialOrder(allNodes);
       }
 
       // Find current node in the new ordering
