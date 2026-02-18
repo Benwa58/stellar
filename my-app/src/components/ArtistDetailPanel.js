@@ -205,7 +205,7 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
 
           <a
             className="panel-external-link"
-            href={`https://open.spotify.com/search/${encodeURIComponent(node.name)}`}
+            href={`https://open.spotify.com/search/${encodeURIComponent(`"${node.name}"`)}`}
             target="_blank"
             rel="noopener noreferrer"
           >
