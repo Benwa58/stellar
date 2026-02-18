@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useArtistSearch } from '../hooks/useArtistSearch';
 import '../styles/search.css';
 
-function ArtistSearch({ onSelect, selectedIds }) {
+function ArtistSearch({ onSelect, selectedIds, artistCount = 0 }) {
   const { query, setQuery, results, isLoading, clearResults } =
     useArtistSearch();
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -67,7 +67,7 @@ function ArtistSearch({ onSelect, selectedIds }) {
           ref={inputRef}
           type="text"
           className="search-input"
-          placeholder="Search for an artist... (3 minimum)"
+          placeholder={artistCount === 0 ? "Search for an artist... (3 minimum)" : "Search for an artist..."}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsFocused(true)}
