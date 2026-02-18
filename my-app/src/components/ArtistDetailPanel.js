@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { findArtistTrack } from '../api/musicClient';
 import { getArtistInfo } from '../api/lastfmClient';
+import { useAudioPreview } from '../hooks/useAudioPreview';
 import '../styles/panel.css';
 
 function getBadgeInfo(node) {
@@ -14,6 +15,12 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
   const [topTrack, setTopTrack] = useState(null);
   const [loadingTrack, setLoadingTrack] = useState(false);
   const [listeners, setListeners] = useState(null);
+  const audio = useAudioPreview();
+
+  // Stop panel audio when node changes
+  useEffect(() => {
+    audio.pause();
+  }, [node]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!node) return;
@@ -167,6 +174,30 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
                   <span className="panel-track-album-name">{topTrack.albumName}</span>
                 </div>
               </div>
+              {topTrack.previewUrl && (
+                <button
+                  className="panel-play-btn"
+                  onClick={() => {
+                    if (audio.isPlaying && audio.currentTrack?.id === topTrack.id) {
+                      audio.pause();
+                    } else {
+                      audio.play(topTrack);
+                    }
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                    {audio.isPlaying && audio.currentTrack?.id === topTrack.id ? (
+                      <>
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </>
+                    ) : (
+                      <polygon points="5,3 19,12 5,21" />
+                    )}
+                  </svg>
+                  {audio.isPlaying && audio.currentTrack?.id === topTrack.id ? 'Pause Preview' : 'Play Preview'}
+                </button>
+              )}
             </div>
           ) : (
             <div className="panel-no-preview">No preview available</div>
