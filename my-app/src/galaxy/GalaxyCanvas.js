@@ -101,8 +101,25 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     animateTransform(stateRef, target);
   }, [size.width, size.height]);
 
-  // Expose resetView to parent via ref
-  useImperativeHandle(ref, () => ({ resetView }), [resetView]);
+  // Smoothly animate view to center on a specific node
+  const focusOnNode = useCallback((node) => {
+    if (!node || node.x == null || node.y == null || size.width === 0 || size.height === 0) return;
+    const scale = 1.5;
+    const target = {
+      x: size.width / 2 - node.x * scale,
+      y: size.height / 2 - node.y * scale,
+      scale,
+    };
+    animateTransform(stateRef, target, 500);
+  }, [size.width, size.height]);
+
+  // Return current positioned nodes
+  const getNodes = useCallback(() => {
+    return stateRef.current.nodes || [];
+  }, []);
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes }), [resetView, focusOnNode, getNodes]);
 
   // Build graph data when galaxyData changes
   useEffect(() => {

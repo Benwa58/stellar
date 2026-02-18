@@ -7,6 +7,7 @@ import GalaxyCanvas from '../galaxy/GalaxyCanvas';
 import ArtistDetailPanel from './ArtistDetailPanel';
 import GalaxyInfoModal from './GalaxyInfoModal';
 import SaveMapModal from './SaveMapModal';
+import GalaxyPlayerController from './GalaxyPlayerController';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
@@ -122,6 +123,8 @@ function GalaxyView() {
           </svg>
         )}
       </button>
+
+      <GalaxyPlayerController canvasRef={canvasRef} />
 
       {showInfo && <GalaxyInfoModal onClose={() => setShowInfo(false)} />}
       {showSaveModal && (

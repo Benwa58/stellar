@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-export function useAudioPreview() {
+export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
   const audioRef = useRef(null);
+  const onEndedRef = useRef(null);
+  onEndedRef.current = onEndedCallback;
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -25,6 +27,7 @@ export function useAudioPreview() {
     function onEnded() {
       setIsPlaying(false);
       setProgress(0);
+      if (onEndedRef.current) onEndedRef.current();
     }
 
     function onError() {

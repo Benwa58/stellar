@@ -296,6 +296,45 @@
   background: #818cf8;
 }
 
+/* Galaxy player start button */
+.galaxy-player-start-button {
+  position: absolute;
+  bottom: 20px;
+  left: 170px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(15, 15, 35, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md, 8px);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.galaxy-player-start-button:hover {
+  background: rgba(25, 25, 55, 0.85);
+  border-color: var(--color-accent, #6366f1);
+  color: var(--color-accent, #6366f1);
+}
+
+.galaxy-player-start-button:active {
+  transform: scale(0.95);
+}
+
+/* Shift toolbar buttons up when player bar is visible */
+.galaxy-view:has(.preview-player) .reset-zoom-button,
+.galaxy-view:has(.preview-player) .info-button,
+.galaxy-view:has(.preview-player) .save-map-button,
+.galaxy-view:has(.preview-player) .galaxy-player-start-button {
+  bottom: 84px;
+}
+
 @media (max-width: 480px) {
   .reset-zoom-button {
     bottom: 16px;
@@ -316,6 +355,20 @@
     left: 108px;
     width: 36px;
     height: 36px;
+  }
+
+  .galaxy-player-start-button {
+    bottom: 16px;
+    left: 154px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .galaxy-view:has(.preview-player) .reset-zoom-button,
+  .galaxy-view:has(.preview-player) .info-button,
+  .galaxy-view:has(.preview-player) .save-map-button,
+  .galaxy-view:has(.preview-player) .galaxy-player-start-button {
+    bottom: 80px;
   }
 
   .galaxy-info-modal {
