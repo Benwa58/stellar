@@ -116,6 +116,13 @@
   text-align: center;
 }
 
+.panel-listeners {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
 /* Score */
 .panel-score {
   width: 100%;
