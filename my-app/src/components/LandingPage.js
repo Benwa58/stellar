@@ -8,6 +8,7 @@ import Header from './Header';
 import ArtistSearch from './ArtistSearch';
 import ArtistChipList from './ArtistChipList';
 import GenerateButton from './GenerateButton';
+import SavedMapsSection from './SavedMapsSection';
 import '../styles/landing.css';
 
 function LandingPage() {
@@ -81,6 +82,8 @@ function LandingPage() {
             onClick={handleGenerate}
           />
         </div>
+
+        <SavedMapsSection />
       </div>
 
       <div className="landing-bg-stars" aria-hidden="true" />

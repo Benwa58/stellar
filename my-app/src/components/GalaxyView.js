@@ -6,6 +6,7 @@ import Header from './Header';
 import GalaxyCanvas from '../galaxy/GalaxyCanvas';
 import ArtistDetailPanel from './ArtistDetailPanel';
 import GalaxyInfoModal from './GalaxyInfoModal';
+import SaveMapModal from './SaveMapModal';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
@@ -13,6 +14,14 @@ function GalaxyView() {
   const dispatch = useDispatch();
   const canvasRef = useRef(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
+  const handleSaved = useCallback(() => {
+    setShowSaveModal(false);
+    setShowSaveConfirm(true);
+    setTimeout(() => setShowSaveConfirm(false), 2000);
+  }, []);
 
   const handleBack = useCallback(() => {
     dispatch({ type: GO_TO_INPUT });
@@ -96,7 +105,31 @@ function GalaxyView() {
         </svg>
       </button>
 
+      <button
+        className={`save-map-button ${showSaveConfirm ? 'saved' : ''}`}
+        onClick={() => setShowSaveModal(true)}
+        title={showSaveConfirm ? 'Saved!' : 'Save map'}
+      >
+        {showSaveConfirm ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+        )}
+      </button>
+
       {showInfo && <GalaxyInfoModal onClose={() => setShowInfo(false)} />}
+      {showSaveModal && (
+        <SaveMapModal
+          onClose={() => setShowSaveModal(false)}
+          onSaved={handleSaved}
+        />
+      )}
 
       {selectedNode && (
         <ArtistDetailPanel

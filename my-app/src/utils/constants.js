@@ -1,6 +1,10 @@
 export const MIN_SEED_ARTISTS = 3;
 export const MAX_RECOMMENDATIONS = 80;
 
+// Saved maps
+export const STORAGE_KEY = 'stellar_saved_maps';
+export const MAX_SAVED_MAPS = 20;
+
 export const FORCE_CONFIG = {
   linkDistanceSeedToSeed: 180,
   linkDistanceSeedToRec: 120,
