@@ -214,6 +214,10 @@
 }
 
 @media (max-width: 480px) {
+  .preview-player {
+    padding-bottom: 10px;
+  }
+
   .player-main {
     padding: 6px 12px 10px;
     gap: 6px;
