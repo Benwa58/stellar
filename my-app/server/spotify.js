@@ -206,9 +206,19 @@ router.post('/export-playlist', requireAuth, async (req, res) => {
     const spotifyApi = createSpotifyApi();
     spotifyApi.setAccessToken(spotifyAccessToken);
 
+    // Verify token works with a simple call before processing all artists
+    try {
+      await spotifyApi.getMe();
+    } catch (tokenErr) {
+      console.error('Spotify token verification failed:', tokenErr.message);
+      return res.status(401).json({ error: 'Spotify session expired. Please re-link your Spotify account.' });
+    }
+
     // Search for each artist and get top tracks
     const trackUris = [];
-    const BATCH_SIZE = 10;
+    let failedCount = 0;
+    let lastError = '';
+    const BATCH_SIZE = 5; // Smaller batches to avoid rate limiting
 
     for (let i = 0; i < artists.length; i += BATCH_SIZE) {
       const batch = artists.slice(i, i + BATCH_SIZE);
@@ -218,22 +228,35 @@ router.post('/export-playlist', requireAuth, async (req, res) => {
             // Search for artist
             const searchResult = await spotifyApi.searchArtists(artist.name, { limit: 1 });
             const spotifyArtist = searchResult.body.artists?.items?.[0];
-            if (!spotifyArtist) return [];
+            if (!spotifyArtist) {
+              failedCount++;
+              return [];
+            }
 
             // Get top tracks
             const topTracks = await spotifyApi.getArtistTopTracks(spotifyArtist.id, 'US');
             return topTracks.body.tracks.slice(0, numTracks).map((t) => t.uri);
           } catch (err) {
-            console.error(`Spotify search failed for ${artist.name}:`, err.message);
+            failedCount++;
+            lastError = err.message;
+            console.error(`Spotify search failed for ${artist.name}:`, err.statusCode || '', err.message);
             return [];
           }
         })
       );
       trackUris.push(...results.flat());
+
+      // Small delay between batches to avoid rate limiting
+      if (i + BATCH_SIZE < artists.length) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
     }
 
     if (trackUris.length === 0) {
-      return res.status(400).json({ error: 'No tracks found for any of the artists.' });
+      const detail = failedCount > 0
+        ? `All ${failedCount} artist lookups failed. Last error: ${lastError}`
+        : 'No tracks found for any of the artists.';
+      return res.status(400).json({ error: detail });
     }
 
     // Create playlist

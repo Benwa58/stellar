@@ -502,9 +502,11 @@
   transition: all var(--transition-fast, 150ms ease);
 }
 
+a.export-open-link:hover,
 .export-open-link:hover {
   background: #1ed760;
   border-color: #1ed760;
+  color: white;
   box-shadow: 0 0 16px rgba(29, 185, 84, 0.3);
 }
 

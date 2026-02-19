@@ -388,8 +388,8 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
     // Blue ring around the node
     ctx.beginPath();
     ctx.arc(node.x, node.y, node.radius + 3, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(96, 165, 250, 0.85)';
-    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
+    ctx.lineWidth = 2.2;
     ctx.stroke();
   }
 }
