@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const db = require('./db');
 
 const router = express.Router();
@@ -74,6 +75,31 @@ function sanitizeUser(user) {
   };
 }
 
+// --- Email notification on new signup ---
+
+function notifyNewSignup({ email, displayName }) {
+  const notifyEmail = process.env.NOTIFY_EMAIL;
+  const notifyPassword = process.env.NOTIFY_EMAIL_APP_PASSWORD;
+
+  if (!notifyEmail || !notifyPassword) return; // silently skip if not configured
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: notifyEmail, pass: notifyPassword },
+  });
+
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+
+  transporter.sendMail({
+    from: notifyEmail,
+    to: notifyEmail,
+    subject: `Stellar: New account created — ${displayName}`,
+    text: `New user signed up for Stellar:\n\nDisplay Name: ${displayName}\nEmail: ${email}\nTime: ${timestamp}`,
+  }).catch((err) => {
+    console.error('Signup notification email failed:', err.message);
+  });
+}
+
 // --- Auth middleware (exported for other routes) ---
 
 function requireAuth(req, res, next) {
@@ -131,6 +157,9 @@ router.post('/register', rateLimit, async (req, res) => {
     const refreshToken = generateRefreshToken();
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000).toISOString();
     db.saveRefreshToken(user.id, refreshToken, expiresAt);
+
+    // Fire-and-forget email notification
+    notifyNewSignup({ email: email.toLowerCase(), displayName: displayName.trim() });
 
     setAuthCookies(res, accessToken, refreshToken);
     res.status(201).json({ user: sanitizeUser(user) });
