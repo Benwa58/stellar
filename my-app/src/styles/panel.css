@@ -72,6 +72,13 @@
   font-weight: 600;
 }
 
+.panel-info-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
 .panel-name-row {
   display: flex;
   align-items: center;
@@ -362,7 +369,7 @@
     max-width: 100%;
     top: 0;
     bottom: auto;
-    max-height: 35vh;
+    max-height: 30vh;
     height: auto;
     border-left: none;
     border-top: none;
@@ -384,17 +391,163 @@
     }
   }
 
+  .panel-close {
+    top: 8px;
+    right: 8px;
+    padding: 6px;
+  }
+
+  /* Horizontal layout: image left, info right */
   .panel-content {
-    padding: 56px 20px 20px;
-    gap: 12px;
+    padding: 40px 16px 14px;
+    gap: 8px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 
   .panel-artist-image-wrapper {
-    width: 80px;
-    height: 80px;
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+  }
+
+  .panel-image-placeholder {
+    font-size: 1.4rem;
+  }
+
+  /* Name + badge + listeners grouped next to image */
+  .panel-name-row {
+    justify-content: flex-start;
+    gap: 6px;
   }
 
   .panel-artist-name {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
+    text-align: left;
+  }
+
+  .panel-type-badge {
+    font-size: 0.62rem;
+    padding: 2px 8px;
+  }
+
+  .panel-discovery-note {
+    font-size: 0.62rem;
+  }
+
+  .panel-listeners {
+    font-size: 0.68rem;
+  }
+
+  /* Info column sits beside the image */
+  .panel-info-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  /* Score, related, genres span full width below */
+  .panel-score {
+    gap: 6px;
+  }
+
+  .score-label,
+  .score-value {
+    font-size: 0.68rem;
+  }
+
+  .panel-related {
+    width: 100%;
+  }
+
+  .related-label {
+    font-size: 0.68rem;
+    margin-bottom: 3px;
+  }
+
+  .related-name-tag {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+  }
+
+  .panel-genres {
+    gap: 4px;
+    justify-content: flex-start;
+  }
+
+  .genre-tag {
+    font-size: 0.65rem;
+    padding: 2px 8px;
+  }
+
+  /* Actions: horizontal row */
+  .panel-actions {
+    width: 100%;
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .panel-audio-player {
+    flex: 1;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .panel-track-info {
+    gap: 8px;
+  }
+
+  .panel-track-album {
+    width: 36px;
+    height: 36px;
+  }
+
+  .panel-track-name {
+    font-size: 0.75rem;
+  }
+
+  .panel-track-album-name {
+    font-size: 0.65rem;
+  }
+
+  /* Larger, more prominent play button on mobile */
+  .panel-play-btn {
+    padding: 12px;
+    font-size: 0.85rem;
+    border-radius: var(--radius-md);
+  }
+
+  .panel-play-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .panel-external-link {
+    flex: 1;
+    padding: 12px 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .panel-add-seed-button {
+    flex: 1;
+    padding: 12px 8px;
+    font-size: 0.72rem;
+  }
+
+  .panel-add-seed-button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .panel-loading-track,
+  .panel-no-preview {
+    font-size: 0.72rem;
+    padding: 6px;
   }
 }

@@ -93,44 +93,46 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
           )}
         </div>
 
-        <div className="panel-name-row">
-          <h3 className="panel-artist-name">{node.name}</h3>
-          <FavoriteButton artistName={node.name} artistId={node.id} artistImage={node.image} />
-        </div>
-
-        <span className={`panel-type-badge ${badge.className}`}>
-          {badge.label}
-        </span>
-
-        {/* Bridge note: shows which seeds this artist connects */}
-        {node.discoveryMethod === 'bridge' && node.bridgeSeedNames && node.bridgeSeedNames.length > 0 && (
-          <span className="panel-discovery-note">
-            Bridges {node.bridgeSeedNames.join(' & ')}
-          </span>
-        )}
-
-        {/* Deep cut note: shows how this artist was discovered */}
-        {node.discoveryMethod === 'deep_cut' && node.discoveredViaName && (
-          <span className="panel-discovery-note">
-            Discovered via {node.discoveredViaName}
-          </span>
-        )}
-
-        {/* Chain bridge note: shows the path this artist is part of */}
-        {node.discoveryMethod === 'chain_bridge' && node.chainBridgeSeedNames && (
-          <span className="panel-discovery-note">
-            Chain bridge between {node.chainBridgeSeedNames.join(' & ')}
-            {node.chainPosition && node.chainLength && (
-              <> (step {node.chainPosition} of {node.chainLength})</>
-            )}
-          </span>
-        )}
-
-        {listeners > 0 && (
-          <div className="panel-listeners">
-            {listeners.toLocaleString()} listeners
+        <div className="panel-info-col">
+          <div className="panel-name-row">
+            <h3 className="panel-artist-name">{node.name}</h3>
+            <FavoriteButton artistName={node.name} artistId={node.id} artistImage={node.image} />
           </div>
-        )}
+
+          <span className={`panel-type-badge ${badge.className}`}>
+            {badge.label}
+          </span>
+
+          {/* Bridge note: shows which seeds this artist connects */}
+          {node.discoveryMethod === 'bridge' && node.bridgeSeedNames && node.bridgeSeedNames.length > 0 && (
+            <span className="panel-discovery-note">
+              Bridges {node.bridgeSeedNames.join(' & ')}
+            </span>
+          )}
+
+          {/* Deep cut note: shows how this artist was discovered */}
+          {node.discoveryMethod === 'deep_cut' && node.discoveredViaName && (
+            <span className="panel-discovery-note">
+              Discovered via {node.discoveredViaName}
+            </span>
+          )}
+
+          {/* Chain bridge note: shows the path this artist is part of */}
+          {node.discoveryMethod === 'chain_bridge' && node.chainBridgeSeedNames && (
+            <span className="panel-discovery-note">
+              Chain bridge between {node.chainBridgeSeedNames.join(' & ')}
+              {node.chainPosition && node.chainLength && (
+                <> (step {node.chainPosition} of {node.chainLength})</>
+              )}
+            </span>
+          )}
+
+          {listeners > 0 && (
+            <div className="panel-listeners">
+              {listeners.toLocaleString()} listeners
+            </div>
+          )}
+        </div>
 
         {!isSeed && scorePercent != null && (
           <div className="panel-score">
