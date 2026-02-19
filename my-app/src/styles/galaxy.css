@@ -195,11 +195,193 @@
   margin: 0;
 }
 
+/* Legend button */
+.legend-button {
+  position: absolute;
+  bottom: 20px;
+  left: 120px;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(15, 15, 35, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md, 8px);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.legend-button:hover {
+  background: rgba(25, 25, 55, 0.85);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.legend-button:active {
+  transform: scale(0.95);
+}
+
+.legend-button.active {
+  background: rgba(25, 25, 55, 0.9);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Legend floating card */
+.galaxy-legend-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 29;
+}
+
+.galaxy-legend-card {
+  position: absolute;
+  bottom: 70px;
+  left: 120px;
+  width: 260px;
+  background: rgba(12, 12, 32, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg, 20px);
+  padding: 16px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  animation: legendSlideUp 0.15s ease;
+  z-index: 30;
+}
+
+@keyframes legendSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.galaxy-legend-title {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #e8e8f0);
+  margin: 0 0 12px 0;
+  letter-spacing: -0.02em;
+}
+
+.galaxy-legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.galaxy-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.galaxy-legend-swatch {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.galaxy-legend-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #8888aa);
+  line-height: 1.3;
+}
+
+.galaxy-legend-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 10px 0;
+}
+
+.galaxy-legend-genre-title {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #e8e8f0);
+  margin: 0 0 8px 0;
+}
+
+.galaxy-legend-genre-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+
+.galaxy-legend-genre-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: var(--color-text-muted, #555577);
+  text-transform: capitalize;
+}
+
+.galaxy-legend-genre-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.galaxy-legend-spectrum {
+  height: 4px;
+  border-radius: 2px;
+  margin-top: 8px;
+}
+
+.galaxy-legend-spectrum-label {
+  font-size: 0.62rem;
+  color: var(--color-text-muted, #555577);
+  margin-top: 4px;
+  text-align: center;
+}
+
+.legend-swatch-breathing {
+  animation: legendBreathing 3s ease-in-out infinite;
+}
+
+.legend-swatch-rotating {
+  animation: legendRotate 8s linear infinite;
+}
+
+@keyframes legendBreathing {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+@keyframes legendRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Player-visible legend card shift */
+.galaxy-view:has(.preview-player) .galaxy-legend-card {
+  bottom: 134px;
+}
+
 /* Save map button */
 .save-map-button {
   position: absolute;
   bottom: 20px;
-  left: 120px;
+  left: 170px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -300,7 +482,7 @@
 .galaxy-player-start-button {
   position: absolute;
   bottom: 20px;
-  left: 170px;
+  left: 220px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -333,6 +515,7 @@
 /* Shift toolbar buttons up when player bar is visible */
 .galaxy-view:has(.preview-player) .reset-zoom-button,
 .galaxy-view:has(.preview-player) .info-button,
+.galaxy-view:has(.preview-player) .legend-button,
 .galaxy-view:has(.preview-player) .save-map-button,
 .galaxy-view:has(.preview-player) .galaxy-player-start-button {
   bottom: 84px;
@@ -353,22 +536,43 @@
     height: 36px;
   }
 
-  .save-map-button {
+  .legend-button {
     bottom: 16px;
     left: 108px;
     width: 36px;
     height: 36px;
   }
 
-  .galaxy-player-start-button {
+  .save-map-button {
     bottom: 16px;
     left: 154px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .galaxy-player-start-button {
+    bottom: 16px;
+    left: 200px;
     padding: 8px 20px;
     font-size: 0.82rem;
   }
 
+  .galaxy-legend-card {
+    bottom: 62px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+
+  .galaxy-view:has(.preview-player) .galaxy-legend-card {
+    bottom: 161px;
+  }
+
   .galaxy-view:has(.preview-player) .reset-zoom-button,
   .galaxy-view:has(.preview-player) .info-button,
+  .galaxy-view:has(.preview-player) .legend-button,
   .galaxy-view:has(.preview-player) .save-map-button,
   .galaxy-view:has(.preview-player) .galaxy-player-start-button {
     bottom: 115px;

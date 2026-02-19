@@ -8,6 +8,7 @@ import ArtistDetailPanel from './ArtistDetailPanel';
 import GalaxyInfoModal from './GalaxyInfoModal';
 import SaveMapModal from './SaveMapModal';
 import GalaxyPlayerController from './GalaxyPlayerController';
+import GalaxyLegend from './GalaxyLegend';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
@@ -17,6 +18,7 @@ function GalaxyView() {
   const [showInfo, setShowInfo] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
 
   const handleSaved = useCallback(() => {
     setShowSaveModal(false);
@@ -107,6 +109,19 @@ function GalaxyView() {
       </button>
 
       <button
+        className={`legend-button ${showLegend ? 'active' : ''}`}
+        onClick={() => setShowLegend((prev) => !prev)}
+        title="Legend"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <line x1="14" y1="6.5" x2="21" y2="6.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <line x1="14" y1="17.5" x2="21" y2="17.5" />
+        </svg>
+      </button>
+
+      <button
         className={`save-map-button ${showSaveConfirm ? 'saved' : ''}`}
         onClick={() => setShowSaveModal(true)}
         title={showSaveConfirm ? 'Saved!' : 'Save map'}
@@ -126,6 +141,7 @@ function GalaxyView() {
 
       <GalaxyPlayerController canvasRef={canvasRef} />
 
+      {showLegend && <GalaxyLegend onClose={() => setShowLegend(false)} />}
       {showInfo && <GalaxyInfoModal onClose={() => setShowInfo(false)} />}
       {showSaveModal && (
         <SaveMapModal
