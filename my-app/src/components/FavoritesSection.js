@@ -13,7 +13,7 @@ function FavoritesSection() {
   const handleAddSeed = (fav) => {
     dispatch({
       type: ADD_SEED_ARTIST,
-      artist: {
+      payload: {
         id: fav.artistId || `fav-${fav.artistName}`,
         name: fav.artistName,
         genres: [],

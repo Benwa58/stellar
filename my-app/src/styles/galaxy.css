@@ -235,7 +235,7 @@
 .export-playlist-button {
   position: absolute;
   bottom: 20px;
-  left: 220px;
+  left: 170px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -331,7 +331,7 @@
 .galaxy-player-start-button {
   position: absolute;
   bottom: 20px;
-  left: 170px;
+  left: 220px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -392,9 +392,16 @@
     height: 36px;
   }
 
-  .galaxy-player-start-button {
+  .export-playlist-button {
     bottom: 16px;
     left: 154px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .galaxy-player-start-button {
+    bottom: 16px;
+    left: 200px;
     padding: 8px 20px;
     font-size: 0.82rem;
   }
@@ -402,6 +409,7 @@
   .galaxy-view:has(.preview-player) .reset-zoom-button,
   .galaxy-view:has(.preview-player) .info-button,
   .galaxy-view:has(.preview-player) .save-map-button,
+  .galaxy-view:has(.preview-player) .export-playlist-button,
   .galaxy-view:has(.preview-player) .galaxy-player-start-button {
     bottom: 80px;
   }

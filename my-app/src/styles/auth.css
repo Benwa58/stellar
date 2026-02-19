@@ -494,10 +494,10 @@
   align-items: center;
   gap: 6px;
   padding: 10px 24px;
-  background: transparent;
+  background: #1DB954;
   border: 1px solid #1DB954;
   border-radius: var(--radius-full, 9999px);
-  color: #1DB954;
+  color: white;
   font-family: var(--font-display, 'Space Grotesk', sans-serif);
   font-size: 0.88rem;
   font-weight: 600;
@@ -506,7 +506,9 @@
 }
 
 .export-open-link:hover {
-  background: rgba(29, 185, 84, 0.1);
+  background: #1ed760;
+  border-color: #1ed760;
+  box-shadow: 0 0 16px rgba(29, 185, 84, 0.3);
 }
 
 .export-done-btn {

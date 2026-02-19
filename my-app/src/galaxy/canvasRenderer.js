@@ -385,24 +385,12 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
     if (node.x == null || node.y == null) continue;
     if (!favoriteNames.has(node.name)) continue;
 
-    const hx = node.x + node.radius * 0.7;
-    const hy = node.y - node.radius * 0.7;
-    const size = Math.max(3, Math.min(5, node.radius * 0.4));
-
-    ctx.save();
-    ctx.translate(hx, hy);
-    ctx.scale(size / 10, size / 10);
-
-    ctx.fillStyle = '#f43f5e';
-    ctx.globalAlpha = 0.9;
+    // Blue ring around the node
     ctx.beginPath();
-    ctx.moveTo(0, -3);
-    ctx.bezierCurveTo(-5, -8, -10, -2, 0, 5);
-    ctx.bezierCurveTo(10, -2, 5, -8, 0, -3);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    ctx.restore();
+    ctx.arc(node.x, node.y, node.radius + 3, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(96, 165, 250, 0.85)';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
   }
 }
 

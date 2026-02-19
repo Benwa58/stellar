@@ -10,8 +10,8 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.REACT_APP_SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || process.env.REACT_APP_SPOTIFY_CLIENT_SECRET;
-const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/api/auth/spotify/callback';
-const SCOPES = ['playlist-modify-private', 'playlist-modify-public'];
+const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/api/spotify/callback';
+const SCOPES = ['playlist-modify-private', 'playlist-modify-public', 'user-read-email', 'user-read-private'];
 const REFRESH_TOKEN_DAYS = 7;
 
 function createSpotifyApi() {
@@ -254,8 +254,12 @@ router.post('/export-playlist', requireAuth, async (req, res) => {
       trackCount: trackUris.length,
     });
   } catch (err) {
-    console.error('Export playlist error:', err);
-    res.status(500).json({ error: 'Failed to create playlist.' });
+    console.error('Export playlist error:', err.message || err);
+    const statusCode = err.statusCode || 500;
+    const message = err.statusCode === 401
+      ? 'Spotify session expired. Please re-link your Spotify account.'
+      : `Failed to create playlist: ${err.message || 'Unknown error'}`;
+    res.status(statusCode).json({ error: message });
   }
 });
 
