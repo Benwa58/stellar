@@ -117,3 +117,22 @@ export function removeFavorite(artistName) {
   });
 }
 
+// --- Dislikes API ---
+
+export function getDislikes() {
+  return authFetch('/api/dislikes');
+}
+
+export function addDislike(data) {
+  return authFetch('/api/dislikes', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function removeDislike(artistName) {
+  return authFetch(`/api/dislikes/${encodeURIComponent(artistName)}`, {
+    method: 'DELETE',
+  });
+}
+

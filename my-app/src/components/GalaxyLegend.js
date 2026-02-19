@@ -90,6 +90,22 @@ function GalaxyLegend({ onClose }) {
             </span>
             <span className="galaxy-legend-label">Favorites</span>
           </div>
+
+          {/* Dislikes */}
+          <div className="galaxy-legend-item">
+            <span className="galaxy-legend-swatch">
+              <svg width="18" height="18" viewBox="0 0 18 18">
+                <circle
+                  cx="9" cy="9" r="6.5"
+                  fill="none"
+                  stroke="rgba(239,68,68,0.5)"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                />
+              </svg>
+            </span>
+            <span className="galaxy-legend-label">Dislikes</span>
+          </div>
         </div>
 
         {/* Genre Colors */}

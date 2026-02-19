@@ -3,6 +3,7 @@ import { findArtistTrack } from '../api/musicClient';
 import { getArtistInfo } from '../api/lastfmClient';
 import { useAudioPreview } from '../hooks/useAudioPreview';
 import FavoriteButton from './FavoriteButton';
+import DislikeButton from './DislikeButton';
 import '../styles/panel.css';
 
 function getBadgeInfo(node) {
@@ -97,6 +98,7 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
           <div className="panel-name-row">
             <h3 className="panel-artist-name">{node.name}</h3>
             <FavoriteButton artistName={node.name} artistId={node.id} artistImage={node.image} />
+            <DislikeButton artistName={node.name} artistId={node.id} artistImage={node.image} />
           </div>
 
           <span className={`panel-type-badge ${badge.className}`}>

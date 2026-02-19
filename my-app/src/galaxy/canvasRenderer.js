@@ -20,7 +20,7 @@ export function createRenderer(canvas, getState) {
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
     const state = getState();
-    const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames } = state;
+    const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames, dislikeNames } = state;
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -56,6 +56,11 @@ export function createRenderer(canvas, getState) {
     // Favorite indicators
     if (favoriteNames && favoriteNames.size > 0) {
       drawFavoriteIndicators(ctx, nodes, favoriteNames);
+    }
+
+    // Dislike indicators
+    if (dislikeNames && dislikeNames.size > 0) {
+      drawDislikeIndicators(ctx, nodes, dislikeNames);
     }
 
     // Labels for hovered/selected
@@ -399,6 +404,24 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
     ctx.strokeStyle = grad;
     ctx.lineWidth = 2.5;
     ctx.stroke();
+  }
+}
+
+function drawDislikeIndicators(ctx, nodes, dislikeNames) {
+  if (!nodes) return;
+  for (const node of nodes) {
+    if (node.x == null || node.y == null) continue;
+    if (!dislikeNames.has(node.name)) continue;
+
+    // Broken (dashed) muted red ring around the node
+    const ringRadius = node.radius + 3;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]); // reset dash
   }
 }
 

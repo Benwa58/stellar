@@ -77,7 +77,7 @@ function animateTransform(stateRef, target, duration = 400) {
 const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   const { galaxyData, selectedNode: reduxSelectedNode } = useAppState();
   const dispatch = useDispatch();
-  const { favorites } = useAuth();
+  const { favorites, dislikes } = useAuth();
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -89,6 +89,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     hoveredNode: null,
     selectedNode: null,
     favoriteNames: new Set(),
+    dislikeNames: new Set(),
   });
   const simulationRef = useRef(null);
   const rendererRef = useRef(null);
@@ -138,10 +139,15 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     stateRef.current.selectedNode = match || null;
   }, [reduxSelectedNode]);
 
-  // Sync favorites to canvas state for rendering heart indicators
+  // Sync favorites to canvas state for rendering indicators
   useEffect(() => {
     stateRef.current.favoriteNames = new Set(favorites.map((f) => f.artistName));
   }, [favorites]);
+
+  // Sync dislikes to canvas state for rendering indicators
+  useEffect(() => {
+    stateRef.current.dislikeNames = new Set(dislikes.map((d) => d.artistName));
+  }, [dislikes]);
 
   // Build graph data when galaxyData changes
   useEffect(() => {

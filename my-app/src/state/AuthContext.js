@@ -8,6 +8,7 @@ const initialState = {
   user: null,
   isLoading: true,
   favorites: [],
+  dislikes: [],
   showAuthModal: false,
   authModalTab: 'login', // 'login' or 'register'
 };
@@ -17,7 +18,7 @@ function authReducer(state, action) {
     case 'SET_USER':
       return { ...state, user: action.user, isLoading: false };
     case 'CLEAR_USER':
-      return { ...state, user: null, isLoading: false, favorites: [] };
+      return { ...state, user: null, isLoading: false, favorites: [], dislikes: [] };
     case 'SET_AUTH_LOADING':
       return { ...state, isLoading: action.isLoading };
     case 'SET_FAVORITES':
@@ -32,6 +33,20 @@ function authReducer(state, action) {
         ...state,
         favorites: state.favorites.filter(
           (f) => f.artistName !== action.artistName
+        ),
+      };
+    case 'SET_DISLIKES':
+      return { ...state, dislikes: action.dislikes };
+    case 'ADD_DISLIKE':
+      return {
+        ...state,
+        dislikes: [action.dislike, ...state.dislikes],
+      };
+    case 'REMOVE_DISLIKE':
+      return {
+        ...state,
+        dislikes: state.dislikes.filter(
+          (d) => d.artistName !== action.artistName
         ),
       };
     case 'SHOW_AUTH_MODAL':
@@ -63,7 +78,7 @@ export function AuthProvider({ children }) {
       });
   }, []);
 
-  // Fetch favorites when user logs in
+  // Fetch favorites and dislikes when user logs in
   useEffect(() => {
     if (state.user) {
       authApi
@@ -72,6 +87,16 @@ export function AuthProvider({ children }) {
         .then((data) => {
           if (data.favorites) {
             dispatch({ type: 'SET_FAVORITES', favorites: data.favorites });
+          }
+        })
+        .catch(() => {});
+
+      authApi
+        .getDislikes()
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.dislikes) {
+            dispatch({ type: 'SET_DISLIKES', dislikes: data.dislikes });
           }
         })
         .catch(() => {});
@@ -159,7 +184,13 @@ export function useAuthActions() {
         });
       }
     } else {
-      // Optimistic add
+      // Optimistic add — also remove dislike (mutual exclusion)
+      const isDisliked = auth.dislikes.some((d) => d.artistName === artistName);
+      if (isDisliked) {
+        dispatch({ type: 'REMOVE_DISLIKE', artistName });
+        authApi.removeDislike(artistName).catch(() => {});
+      }
+
       const favorite = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
       dispatch({ type: 'ADD_FAVORITE', favorite });
       try {
@@ -169,7 +200,41 @@ export function useAuthActions() {
         dispatch({ type: 'REMOVE_FAVORITE', artistName });
       }
     }
-  }, [dispatch, auth.favorites]);
+  }, [dispatch, auth.favorites, auth.dislikes]);
+
+  const toggleDislike = useCallback(async (artistName, artistId, artistImage) => {
+    const isDisliked = auth.dislikes.some((d) => d.artistName === artistName);
+
+    if (isDisliked) {
+      // Optimistic remove
+      dispatch({ type: 'REMOVE_DISLIKE', artistName });
+      try {
+        await authApi.removeDislike(artistName);
+      } catch {
+        // Revert
+        dispatch({
+          type: 'ADD_DISLIKE',
+          dislike: { artistName, artistId, artistImage, addedAt: new Date().toISOString() },
+        });
+      }
+    } else {
+      // Optimistic add — also remove favorite (mutual exclusion)
+      const isFav = auth.favorites.some((f) => f.artistName === artistName);
+      if (isFav) {
+        dispatch({ type: 'REMOVE_FAVORITE', artistName });
+        authApi.removeFavorite(artistName).catch(() => {});
+      }
+
+      const dislike = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
+      dispatch({ type: 'ADD_DISLIKE', dislike });
+      try {
+        await authApi.addDislike({ artistName, artistId, artistImage });
+      } catch {
+        // Revert
+        dispatch({ type: 'REMOVE_DISLIKE', artistName });
+      }
+    }
+  }, [dispatch, auth.dislikes, auth.favorites]);
 
   const showAuthModal = useCallback((tab = 'login') => {
     dispatch({ type: 'SHOW_AUTH_MODAL', tab });
@@ -179,5 +244,5 @@ export function useAuthActions() {
     dispatch({ type: 'HIDE_AUTH_MODAL' });
   }, [dispatch]);
 
-  return { login, register, logout, toggleFavorite, showAuthModal, hideAuthModal };
+  return { login, register, logout, toggleFavorite, toggleDislike, showAuthModal, hideAuthModal };
 }

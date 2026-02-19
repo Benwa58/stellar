@@ -61,6 +61,17 @@ function initSchema() {
       UNIQUE(user_id, artist_name)
     );
     CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
+
+    CREATE TABLE IF NOT EXISTS dislikes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      artist_name TEXT NOT NULL,
+      artist_id TEXT,
+      artist_image TEXT,
+      added_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, artist_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_dislikes_user ON dislikes(user_id);
   `);
 }
 
@@ -177,6 +188,31 @@ function removeFavorite(userId, artistName) {
   return result.changes > 0;
 }
 
+// --- Dislikes helpers ---
+
+function getUserDislikes(userId) {
+  return getDb().prepare(
+    'SELECT * FROM dislikes WHERE user_id = ? ORDER BY added_at DESC'
+  ).all(userId);
+}
+
+function addDislike(userId, { artistName, artistId, artistImage }) {
+  try {
+    getDb().prepare(`
+      INSERT INTO dislikes (user_id, artist_name, artist_id, artist_image) VALUES (?, ?, ?, ?)
+    `).run(userId, artistName, artistId || null, artistImage || null);
+    return true;
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint')) return false; // already disliked
+    throw err;
+  }
+}
+
+function removeDislike(userId, artistName) {
+  const result = getDb().prepare('DELETE FROM dislikes WHERE user_id = ? AND artist_name = ?').run(userId, artistName);
+  return result.changes > 0;
+}
+
 module.exports = {
   getDb,
   createUser,
@@ -197,4 +233,7 @@ module.exports = {
   getUserFavorites,
   addFavorite,
   removeFavorite,
+  getUserDislikes,
+  addDislike,
+  removeDislike,
 };
