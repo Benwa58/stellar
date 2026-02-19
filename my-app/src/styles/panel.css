@@ -237,8 +237,8 @@
   gap: 8px;
   width: 100%;
   padding: 10px;
-  background: var(--color-accent);
-  color: white;
+  background: rgba(99, 102, 241, 0.55);
+  color: rgba(255, 255, 255, 0.9);
   border-radius: var(--radius-md);
   font-size: 0.85rem;
   font-weight: 600;
@@ -246,16 +246,17 @@
 }
 
 .panel-play-btn:hover {
-  background: var(--color-accent-hover);
+  background: rgba(99, 102, 241, 0.75);
 }
 
 .panel-external-link {
-  display: block;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.8rem;
-  color: white;
+  color: rgba(255, 255, 255, 0.9);
   padding: 10px;
-  background: #1DB954;
+  background: rgba(29, 185, 84, 0.55);
   border: none;
   border-radius: var(--radius-md);
   font-weight: 600;
@@ -265,7 +266,7 @@
 
 .panel-external-link:hover {
   color: white;
-  background: #1ed760;
+  background: rgba(29, 185, 84, 0.75);
 }
 
 .panel-add-seed-button {
