@@ -20,7 +20,7 @@ export function createRenderer(canvas, getState) {
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
     const state = getState();
-    const { nodes, links, particles, transform, hoveredNode, selectedNode } = state;
+    const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames } = state;
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -52,6 +52,11 @@ export function createRenderer(canvas, getState) {
 
     // Nodes
     drawNodes(ctx, nodes, hoveredNode, selectedNode, time);
+
+    // Favorite indicators
+    if (favoriteNames && favoriteNames.size > 0) {
+      drawFavoriteIndicators(ctx, nodes, favoriteNames);
+    }
 
     // Labels for hovered/selected
     if (hoveredNode && hoveredNode !== selectedNode) {
@@ -372,6 +377,33 @@ function drawNodeLabel(ctx, node) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(label, node.x, labelY + labelH / 2);
+}
+
+function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
+  if (!nodes) return;
+  for (const node of nodes) {
+    if (node.x == null || node.y == null) continue;
+    if (!favoriteNames.has(node.name)) continue;
+
+    const hx = node.x + node.radius * 0.7;
+    const hy = node.y - node.radius * 0.7;
+    const size = Math.max(3, Math.min(5, node.radius * 0.4));
+
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.scale(size / 10, size / 10);
+
+    ctx.fillStyle = '#f43f5e';
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(0, -3);
+    ctx.bezierCurveTo(-5, -8, -10, -2, 0, 5);
+    ctx.bezierCurveTo(10, -2, 5, -8, 0, -3);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
 }
 
 function roundRect(ctx, x, y, w, h, r) {

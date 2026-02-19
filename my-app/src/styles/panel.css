@@ -72,6 +72,13 @@
   font-weight: 600;
 }
 
+.panel-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .panel-artist-name {
   font-family: var(--font-display);
   font-size: 1.3rem;

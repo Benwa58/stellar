@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { findArtistTrack } from '../api/musicClient';
 import { getArtistInfo } from '../api/lastfmClient';
 import { useAudioPreview } from '../hooks/useAudioPreview';
+import FavoriteButton from './FavoriteButton';
 import '../styles/panel.css';
 
 function getBadgeInfo(node) {
@@ -92,7 +93,10 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
           )}
         </div>
 
-        <h3 className="panel-artist-name">{node.name}</h3>
+        <div className="panel-name-row">
+          <h3 className="panel-artist-name">{node.name}</h3>
+          <FavoriteButton artistName={node.name} artistId={node.id} artistImage={node.image} />
+        </div>
 
         <span className={`panel-type-badge ${badge.className}`}>
           {badge.label}

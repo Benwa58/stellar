@@ -1,0 +1,154 @@
+/* Favorite button (in detail panel) */
+.favorite-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: 50%;
+  color: var(--color-text-muted, #555577);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+  flex-shrink: 0;
+}
+
+.favorite-btn:hover {
+  border-color: #f43f5e;
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.favorite-btn.is-favorite {
+  border-color: #f43f5e;
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.1);
+}
+
+.favorite-btn.is-favorite:hover {
+  background: rgba(244, 63, 94, 0.15);
+}
+
+/* Favorites section on landing page */
+.favorites-section {
+  margin-top: 32px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.favorites-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #e8e8f0);
+  margin: 0 0 12px 0;
+}
+
+.favorites-title svg {
+  color: #f43f5e;
+}
+
+.favorites-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.favorites-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.favorites-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.favorites-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.favorite-card {
+  position: relative;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+.favorite-card-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--color-bg-surface, #12122a);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 12px);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+  min-width: 80px;
+}
+
+.favorite-card-main:hover {
+  border-color: var(--color-border-hover, rgba(255, 255, 255, 0.15));
+  background: var(--color-bg-elevated, #1a1a3e);
+}
+
+.favorite-card-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.favorite-card-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-muted, #555577);
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.favorite-card-name {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary, #8888aa);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.favorite-card-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-muted, #555577);
+  cursor: pointer;
+}
+
+.favorite-card:hover .favorite-card-remove {
+  display: flex;
+}
+
+.favorite-card-remove:hover {
+  color: var(--color-error, #ef4444);
+}

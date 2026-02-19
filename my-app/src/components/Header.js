@@ -1,3 +1,4 @@
+import AuthButton from './auth/AuthButton';
 import '../styles/landing.css';
 
 function Header({ showBack, onBack, artistCount }) {
@@ -17,6 +18,7 @@ function Header({ showBack, onBack, artistCount }) {
         {artistCount > 0 && (
           <span className="header-badge">{artistCount} artists</span>
         )}
+        <AuthButton />
       </div>
     </header>
   );

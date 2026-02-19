@@ -9,6 +9,8 @@ import ArtistSearch from './ArtistSearch';
 import ArtistChipList from './ArtistChipList';
 import GenerateButton from './GenerateButton';
 import SavedMapsSection from './SavedMapsSection';
+import FavoritesSection from './FavoritesSection';
+import ImportLocalMapsPrompt from './ImportLocalMapsPrompt';
 import '../styles/landing.css';
 
 function LandingPage() {
@@ -84,6 +86,8 @@ function LandingPage() {
         </div>
 
         <SavedMapsSection />
+        <FavoritesSection />
+        <ImportLocalMapsPrompt />
       </div>
 
       <div className="landing-bg-stars" aria-hidden="true" />

@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
+import { useAuth } from '../state/AuthContext';
 import { SELECT_NODE, HOVER_NODE } from '../state/actions';
 import { useCanvasSize } from '../hooks/useCanvasSize';
 import { buildGalaxyGraph } from './galaxyLayout';
@@ -76,6 +77,7 @@ function animateTransform(stateRef, target, duration = 400) {
 const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   const { galaxyData, selectedNode: reduxSelectedNode } = useAppState();
   const dispatch = useDispatch();
+  const { favorites } = useAuth();
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -86,6 +88,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     transform: { x: 0, y: 0, scale: 1 },
     hoveredNode: null,
     selectedNode: null,
+    favoriteNames: new Set(),
   });
   const simulationRef = useRef(null);
   const rendererRef = useRef(null);
@@ -134,6 +137,11 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     const match = nodes.find((n) => n.id === reduxSelectedNode.id);
     stateRef.current.selectedNode = match || null;
   }, [reduxSelectedNode]);
+
+  // Sync favorites to canvas state for rendering heart indicators
+  useEffect(() => {
+    stateRef.current.favoriteNames = new Set(favorites.map((f) => f.artistName));
+  }, [favorites]);
 
   // Build graph data when galaxyData changes
   useEffect(() => {

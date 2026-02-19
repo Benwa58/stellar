@@ -231,6 +231,37 @@
   border-color: rgba(74, 222, 128, 0.3);
 }
 
+/* Export playlist button */
+.export-playlist-button {
+  position: absolute;
+  bottom: 20px;
+  left: 220px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(15, 15, 35, 0.7);
+  border: 1px solid rgba(29, 185, 84, 0.25);
+  border-radius: var(--radius-md, 8px);
+  color: #1DB954;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.export-playlist-button:hover {
+  background: rgba(29, 185, 84, 0.1);
+  border-color: rgba(29, 185, 84, 0.5);
+  box-shadow: 0 0 12px rgba(29, 185, 84, 0.15);
+}
+
+.export-playlist-button:active {
+  transform: scale(0.95);
+}
+
 /* Save modal */
 .save-map-modal {
   width: 340px;
@@ -334,6 +365,7 @@
 .galaxy-view:has(.preview-player) .reset-zoom-button,
 .galaxy-view:has(.preview-player) .info-button,
 .galaxy-view:has(.preview-player) .save-map-button,
+.galaxy-view:has(.preview-player) .export-playlist-button,
 .galaxy-view:has(.preview-player) .galaxy-player-start-button {
   bottom: 84px;
 }

@@ -1,25 +1,54 @@
 import { useState } from 'react';
 import { useAppState } from '../state/AppContext';
+import { useAuth } from '../state/AuthContext';
 import { saveMap, generateMapName } from '../utils/savedMapsStorage';
+import { saveMapCloud } from '../api/authClient';
 import '../styles/galaxy.css';
 
 function SaveMapModal({ onClose, onSaved }) {
   const { seedArtists, galaxyData } = useAppState();
+  const { user } = useAuth();
   const defaultName = generateMapName(seedArtists);
   const [name, setName] = useState(defaultName);
   const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    const result = saveMap({
-      name: name.trim() || defaultName,
-      seedArtists,
-      galaxyData,
-    });
+  const handleSave = async () => {
+    const mapName = name.trim() || defaultName;
 
-    if (result.success) {
-      onSaved();
+    if (user) {
+      // Cloud save
+      setSaving(true);
+      try {
+        const res = await saveMapCloud({
+          name: mapName,
+          seedArtists,
+          galaxyData,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || 'Failed to save map.');
+        } else {
+          onSaved();
+        }
+      } catch {
+        setError('Failed to save map. Please try again.');
+      } finally {
+        setSaving(false);
+      }
     } else {
-      setError(result.error);
+      // localStorage save
+      const result = saveMap({
+        name: mapName,
+        seedArtists,
+        galaxyData,
+      });
+
+      if (result.success) {
+        onSaved();
+      } else {
+        setError(result.error);
+      }
     }
   };
 
@@ -57,12 +86,13 @@ function SaveMapModal({ onClose, onSaved }) {
 
         <div className="save-map-meta">
           {seedArtists.length} seed artists &middot; {galaxyData?.nodes?.length || 0} nodes
+          {user && <> &middot; Saved to your account</>}
         </div>
 
         {error && <div className="save-map-error">{error}</div>}
 
-        <button className="save-map-confirm" onClick={handleSave}>
-          Save Map
+        <button className="save-map-confirm" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Map'}
         </button>
       </div>
     </div>

@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDispatch } from '../state/AppContext';
+import { useAuth } from '../state/AuthContext';
 import { LOAD_SAVED_MAP } from '../state/actions';
 import { getSavedMaps, loadSavedMap, deleteSavedMap } from '../utils/savedMapsStorage';
+import { getMaps, getMap, deleteMapCloud } from '../api/authClient';
 import '../styles/savedMaps.css';
 
 function formatDate(isoString) {
@@ -19,16 +21,41 @@ function formatDate(isoString) {
 
 function SavedMapsSection() {
   const dispatch = useDispatch();
+  const { user } = useAuth();
   const [maps, setMaps] = useState([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
-    setMaps(getSavedMaps());
-  }, []);
+    if (user) {
+      // Load from cloud
+      getMaps()
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.maps) setMaps(data.maps);
+        })
+        .catch(() => {});
+    } else {
+      // Load from localStorage
+      setMaps(getSavedMaps());
+    }
+  }, [user]);
 
   const handleLoad = useCallback(
-    (id) => {
-      const mapData = loadSavedMap(id);
+    async (id) => {
+      let mapData;
+
+      if (user) {
+        // Load full map from cloud
+        try {
+          const res = await getMap(id);
+          mapData = await res.json();
+        } catch {
+          return;
+        }
+      } else {
+        mapData = loadSavedMap(id);
+      }
+
       if (!mapData) return;
       dispatch({
         type: LOAD_SAVED_MAP,
@@ -38,13 +65,21 @@ function SavedMapsSection() {
         },
       });
     },
-    [dispatch]
+    [dispatch, user]
   );
 
   const handleDelete = useCallback(
-    (id) => {
+    async (id) => {
       if (confirmDeleteId === id) {
-        deleteSavedMap(id);
+        if (user) {
+          try {
+            await deleteMapCloud(id);
+          } catch {
+            return;
+          }
+        } else {
+          deleteSavedMap(id);
+        }
         setMaps((prev) => prev.filter((m) => m.id !== id));
         setConfirmDeleteId(null);
       } else {
@@ -55,7 +90,7 @@ function SavedMapsSection() {
         );
       }
     },
-    [confirmDeleteId]
+    [confirmDeleteId, user]
   );
 
   if (maps.length === 0) return null;
