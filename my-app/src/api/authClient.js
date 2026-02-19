@@ -13,7 +13,7 @@ async function authFetch(path, options = {}) {
     },
   });
 
-  if (response.status === 401 && !path.includes('/api/auth/refresh') && !path.includes('/api/auth/login') && !path.includes('/api/auth/register')) {
+  if (response.status === 401 && !path.includes('/api/auth/refresh') && !path.includes('/api/auth/login') && !path.includes('/api/auth/register') && !path.includes('/api/auth/logout')) {
     // Try refresh
     if (!isRefreshing) {
       isRefreshing = true;

@@ -159,7 +159,11 @@ export function useAuthActions() {
   }, [dispatch]);
 
   const logout = useCallback(async () => {
-    await authApi.logout();
+    try {
+      await authApi.logout();
+    } catch {
+      // Clear user state even if server request fails
+    }
     dispatch({ type: 'CLEAR_USER' });
   }, [dispatch]);
 

@@ -41,7 +41,7 @@ function AccountMenu({ onClose }) {
   };
 
   return (
-    <div className="account-menu">
+    <>
       <div className="account-menu-header">
         <span className="account-menu-name">{user.displayName}</span>
         {user.email && <span className="account-menu-email">{user.email}</span>}
@@ -91,7 +91,7 @@ function AccountMenu({ onClose }) {
       <button className="account-menu-item account-menu-btn account-menu-logout" onClick={handleLogout}>
         Sign Out
       </button>
-    </div>
+    </>
   );
 }
 

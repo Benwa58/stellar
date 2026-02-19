@@ -292,9 +292,6 @@
 
 /* Account menu dropdown */
 .account-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
   min-width: 220px;
   background: rgba(12, 12, 32, 0.95);
   backdrop-filter: blur(20px);
@@ -302,7 +299,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-md, 12px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  z-index: 40;
+  z-index: 9999;
   overflow: hidden;
   animation: authFadeIn 0.15s ease;
 }
