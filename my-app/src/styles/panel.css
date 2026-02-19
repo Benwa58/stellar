@@ -246,18 +246,19 @@
   display: block;
   text-align: center;
   font-size: 0.8rem;
-  color: #1DB954;
-  padding: 8px;
-  border: 1px solid #1DB954;
+  color: white;
+  padding: 10px;
+  background: #1DB954;
+  border: none;
   border-radius: var(--radius-md);
+  font-weight: 600;
   transition: all var(--transition-fast);
   text-decoration: none;
 }
 
 .panel-external-link:hover {
-  color: #fff;
-  background: rgba(29, 185, 84, 0.15);
-  border-color: #1ed760;
+  color: white;
+  background: #1ed760;
 }
 
 .panel-add-seed-button {
