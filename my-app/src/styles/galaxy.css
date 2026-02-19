@@ -371,7 +371,7 @@
   .galaxy-view:has(.preview-player) .info-button,
   .galaxy-view:has(.preview-player) .save-map-button,
   .galaxy-view:has(.preview-player) .galaxy-player-start-button {
-    bottom: 80px;
+    bottom: 115px;
   }
 
   .galaxy-info-modal {

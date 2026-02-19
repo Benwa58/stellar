@@ -215,13 +215,13 @@
 
 @media (max-width: 480px) {
   .player-main {
-    padding: 4px 12px 6px;
-    gap: 4px;
+    padding: 4px 10px 6px;
+    gap: 2px;
     flex-wrap: wrap;
     justify-content: center;
   }
 
-  /* Track info spans full width on top row */
+  /* Track info + mode/position row spans full width on top */
   .player-right {
     order: -1;
     flex: 1 1 100%;
@@ -233,13 +233,27 @@
     height: 28px;
   }
 
-  /* Hide mode toggle + position on mobile — transport controls center naturally */
+  /* Show mode + position as a row below transport controls */
   .player-left {
-    display: none;
+    order: 3;
+    flex: 1 1 100%;
+    justify-content: center;
+    gap: 8px;
   }
 
+  .player-mode-btn {
+    padding: 2px 8px 2px 5px;
+    font-size: 0.62rem;
+  }
+
+  .player-position {
+    font-size: 0.62rem;
+  }
+
+  /* Show time labels but compact */
   .player-time {
-    display: none;
+    font-size: 0.6rem;
+    min-width: 26px;
   }
 
   .galaxy-view:has(.detail-panel) .preview-player {

@@ -385,11 +385,19 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
     if (node.x == null || node.y == null) continue;
     if (!favoriteNames.has(node.name)) continue;
 
-    // Blue ring around the node
+    // Dark blue gradient ring around the node
+    const ringRadius = node.radius + 3;
+    const grad = ctx.createLinearGradient(
+      node.x - ringRadius, node.y - ringRadius,
+      node.x + ringRadius, node.y + ringRadius
+    );
+    grad.addColorStop(0, 'rgba(30, 64, 175, 0.95)');   // deep blue
+    grad.addColorStop(0.5, 'rgba(59, 130, 246, 0.95)'); // mid blue
+    grad.addColorStop(1, 'rgba(30, 58, 138, 0.95)');    // navy blue
     ctx.beginPath();
-    ctx.arc(node.x, node.y, node.radius + 3, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
-    ctx.lineWidth = 2.2;
+    ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
   }
 }
