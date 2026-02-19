@@ -78,30 +78,6 @@ export function AuthProvider({ children }) {
     }
   }, [state.user]);
 
-  // Check for ?auth=success in URL (Spotify OAuth callback)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authResult = params.get('auth');
-
-    if (authResult === 'success') {
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-      // Re-fetch user (the cookie was set by the server)
-      authApi
-        .getMe()
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.user) {
-            dispatch({ type: 'SET_USER', user: data.user });
-          }
-        })
-        .catch(() => {});
-    } else if (authResult === 'error') {
-      window.history.replaceState({}, '', window.location.pathname);
-      dispatch({ type: 'SET_AUTH_LOADING', isLoading: false });
-    }
-  }, []);
-
   // Listen for auth:expired events from authClient
   useEffect(() => {
     function handleExpired() {

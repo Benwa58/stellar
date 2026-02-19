@@ -48,22 +48,21 @@ function setAuthCookies(res, accessToken, refreshToken) {
   res.cookie('stellar_access', accessToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
 
   res.cookie('stellar_refresh', refreshToken, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
-    path: '/api/auth',
+    sameSite: 'lax',
     maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
   });
 }
 
 function clearAuthCookies(res) {
   res.clearCookie('stellar_access');
-  res.clearCookie('stellar_refresh', { path: '/api/auth' });
+  res.clearCookie('stellar_refresh');
 }
 
 function sanitizeUser(user) {

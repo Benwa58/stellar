@@ -8,19 +8,15 @@ import ArtistDetailPanel from './ArtistDetailPanel';
 import GalaxyInfoModal from './GalaxyInfoModal';
 import SaveMapModal from './SaveMapModal';
 import GalaxyPlayerController from './GalaxyPlayerController';
-import ExportPlaylistButton from './ExportPlaylistButton';
-import ExportPlaylistModal from './ExportPlaylistModal';
-import { generateMapName } from '../utils/savedMapsStorage';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
-  const { selectedNode, seedArtists, galaxyData } = useAppState();
+  const { selectedNode, seedArtists } = useAppState();
   const dispatch = useDispatch();
   const canvasRef = useRef(null);
   const [showInfo, setShowInfo] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
 
   const handleSaved = useCallback(() => {
     setShowSaveModal(false);
@@ -128,8 +124,6 @@ function GalaxyView() {
         )}
       </button>
 
-      <ExportPlaylistButton onClick={() => setShowExportModal(true)} />
-
       <GalaxyPlayerController canvasRef={canvasRef} />
 
       {showInfo && <GalaxyInfoModal onClose={() => setShowInfo(false)} />}
@@ -139,14 +133,6 @@ function GalaxyView() {
           onSaved={handleSaved}
         />
       )}
-      {showExportModal && (
-        <ExportPlaylistModal
-          galaxyData={galaxyData}
-          mapName={generateMapName(seedArtists)}
-          onClose={() => setShowExportModal(false)}
-        />
-      )}
-
       {selectedNode && (
         <ArtistDetailPanel
           node={selectedNode}

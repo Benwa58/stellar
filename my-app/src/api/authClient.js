@@ -117,11 +117,3 @@ export function removeFavorite(artistName) {
   });
 }
 
-// --- Spotify API ---
-
-export function exportPlaylist(data) {
-  return authFetch('/api/spotify/export-playlist', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
