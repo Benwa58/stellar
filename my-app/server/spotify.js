@@ -214,32 +214,29 @@ router.post('/export-playlist', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'Spotify session expired. Please re-link your Spotify account.' });
     }
 
-    // Search for each artist and get top tracks
+    // Search for tracks by each artist (using search API since
+    // getArtistTopTracks was removed from Spotify's Web API in Feb 2026)
     const trackUris = [];
     let failedCount = 0;
     let lastError = '';
-    const BATCH_SIZE = 5; // Smaller batches to avoid rate limiting
+    const BATCH_SIZE = 5;
 
     for (let i = 0; i < artists.length; i += BATCH_SIZE) {
       const batch = artists.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(
         batch.map(async (artist) => {
           try {
-            // Search for artist
-            const searchResult = await spotifyApi.searchArtists(artist.name, { limit: 1 });
-            const spotifyArtist = searchResult.body.artists?.items?.[0];
-            if (!spotifyArtist) {
-              failedCount++;
-              return [];
-            }
-
-            // Get top tracks
-            const topTracks = await spotifyApi.getArtistTopTracks(spotifyArtist.id, 'US');
-            return topTracks.body.tracks.slice(0, numTracks).map((t) => t.uri);
+            // Search for tracks by this artist, sorted by popularity
+            const searchResult = await spotifyApi.searchTracks(
+              `artist:${artist.name}`,
+              { limit: numTracks }
+            );
+            const tracks = searchResult.body.tracks?.items || [];
+            return tracks.map((t) => t.uri);
           } catch (err) {
             failedCount++;
             lastError = err.message;
-            console.error(`Spotify search failed for ${artist.name}:`, err.statusCode || '', err.message);
+            console.error(`Spotify track search failed for ${artist.name}:`, err.statusCode || '', err.message);
             return [];
           }
         })
