@@ -523,42 +523,43 @@
 
 @media (max-width: 480px) {
   .reset-zoom-button {
-    bottom: 28px;
+    bottom: 38px;
     left: 16px;
     width: 36px;
     height: 36px;
   }
 
   .info-button {
-    bottom: 28px;
+    bottom: 38px;
     left: 62px;
     width: 36px;
     height: 36px;
   }
 
   .legend-button {
-    bottom: 28px;
+    bottom: 38px;
     left: 108px;
     width: 36px;
     height: 36px;
+    z-index: 20;
   }
 
   .save-map-button {
-    bottom: 28px;
+    bottom: 38px;
     left: 154px;
     width: 36px;
     height: 36px;
   }
 
   .galaxy-player-start-button {
-    bottom: 28px;
+    bottom: 38px;
     left: 200px;
     padding: 8px 20px;
     font-size: 0.82rem;
   }
 
   .galaxy-legend-card {
-    bottom: 74px;
+    bottom: 84px;
     left: 12px;
     right: 12px;
     width: auto;
@@ -567,7 +568,7 @@
   }
 
   .galaxy-view:has(.preview-player) .galaxy-legend-card {
-    bottom: 196px;
+    bottom: 206px;
   }
 
   .galaxy-view:has(.preview-player) .reset-zoom-button,
@@ -575,7 +576,7 @@
   .galaxy-view:has(.preview-player) .legend-button,
   .galaxy-view:has(.preview-player) .save-map-button,
   .galaxy-view:has(.preview-player) .galaxy-player-start-button {
-    bottom: 150px;
+    bottom: 160px;
   }
 
   .galaxy-info-modal {
