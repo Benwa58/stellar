@@ -75,7 +75,7 @@ function proxyToDeezer(reqPath) {
   });
 }
 
-app.get('/deezer/*', async (req, res) => {
+app.get('/deezer/*path', async (req, res) => {
   try {
     const parsed = url.parse(req.url);
     const deezerPath = parsed.path.replace(/^\/deezer/, '');
@@ -110,7 +110,7 @@ app.use(express.static(buildPath, {
 }));
 
 // --- SPA fallback ---
-app.get('*', (req, res) => {
+app.get('*path', (req, res) => {
   const indexPath = path.join(buildPath, 'index.html');
   res.set('Cache-Control', 'no-cache').sendFile(indexPath, (err) => {
     if (err) {
