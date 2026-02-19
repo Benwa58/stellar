@@ -1,7 +1,8 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'stellar.db');
+// In production, use the persistent disk mount; locally, use ./data/
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'stellar.db');
 
 let db;
 
