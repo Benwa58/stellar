@@ -567,7 +567,7 @@
   }
 
   .galaxy-view:has(.preview-player) .galaxy-legend-card {
-    bottom: 161px;
+    bottom: 181px;
   }
 
   .galaxy-view:has(.preview-player) .reset-zoom-button,
@@ -575,7 +575,7 @@
   .galaxy-view:has(.preview-player) .legend-button,
   .galaxy-view:has(.preview-player) .save-map-button,
   .galaxy-view:has(.preview-player) .galaxy-player-start-button {
-    bottom: 115px;
+    bottom: 135px;
   }
 
   .galaxy-info-modal {

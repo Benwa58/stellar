@@ -215,13 +215,13 @@
 
 @media (max-width: 480px) {
   .player-main {
-    padding: 4px 10px 6px;
-    gap: 2px;
+    padding: 6px 12px 10px;
+    gap: 6px;
     flex-wrap: wrap;
     justify-content: center;
   }
 
-  /* Track info + mode/position row spans full width on top */
+  /* Track info spans full width on top row */
   .player-right {
     order: -1;
     flex: 1 1 100%;
@@ -233,16 +233,17 @@
     height: 28px;
   }
 
-  /* Show mode + position as a row below transport controls */
+  /* Mode + position as a row below transport controls */
   .player-left {
     order: 3;
     flex: 1 1 100%;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
+    padding-top: 2px;
   }
 
   .player-mode-btn {
-    padding: 2px 8px 2px 5px;
+    padding: 3px 8px 3px 6px;
     font-size: 0.62rem;
   }
 
