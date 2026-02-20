@@ -276,31 +276,60 @@
 .export-share-url {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm, 6px);
-  margin-top: 8px;
 }
 
-.export-share-url-text {
-  font-size: 0.72rem;
-  color: var(--color-text-secondary, #8888aa);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.export-share-url-input {
   flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-family: inherit;
+  color: var(--color-text-secondary, #8888aa);
+  background: none;
+  border: none;
+  outline: none;
+  padding: 2px 0;
+  cursor: text;
 }
 
-.export-share-url a {
+.export-share-url-input::selection {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.export-share-url-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.export-share-url-copy:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.export-share-url-open {
   color: #818cf8;
   text-decoration: none;
   font-size: 0.72rem;
+  font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.export-share-url a:hover {
+.export-share-url-open:hover {
   text-decoration: underline;
 }
 

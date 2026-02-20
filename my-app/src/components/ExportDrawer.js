@@ -208,6 +208,35 @@ function ExportDrawer({ onClose, seedArtists }) {
             {sharing ? 'Creating link...' : 'Share Link'}
           </button>
 
+          {shareUrl && (
+            <div className="export-share-url">
+              <input
+                className="export-share-url-input"
+                type="text"
+                value={shareUrl}
+                readOnly
+                onClick={(e) => e.target.select()}
+              />
+              <button
+                className="export-share-url-copy"
+                onClick={async () => {
+                  try { await navigator.clipboard.writeText(shareUrl); } catch {}
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                title="Copy link"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
+              <a className="export-share-url-open" href={shareUrl} target="_blank" rel="noopener noreferrer">
+                Open
+              </a>
+            </div>
+          )}
+
           <button
             className="export-action-btn"
             onClick={handleExportCSV}
@@ -247,15 +276,6 @@ function ExportDrawer({ onClose, seedArtists }) {
               With Names
             </button>
           </div>
-
-          {shareUrl && (
-            <div className="export-share-url">
-              <span className="export-share-url-text">{shareUrl}</span>
-              <a href={shareUrl} target="_blank" rel="noopener noreferrer">
-                Open
-              </a>
-            </div>
-          )}
         </div>
 
         {/* Tracklist */}
