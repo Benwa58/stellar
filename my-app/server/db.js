@@ -72,6 +72,18 @@ function initSchema() {
       UNIQUE(user_id, artist_name)
     );
     CREATE INDEX IF NOT EXISTS idx_dislikes_user ON dislikes(user_id);
+
+    CREATE TABLE IF NOT EXISTS playlist_exports (
+      id TEXT PRIMARY KEY,
+      playlist_name TEXT NOT NULL,
+      track_list TEXT NOT NULL,
+      seed_artists TEXT,
+      node_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      visibility TEXT DEFAULT 'public'
+    );
+    CREATE INDEX IF NOT EXISTS idx_playlist_exports_created_by ON playlist_exports(created_by);
   `);
 }
 
@@ -213,6 +225,25 @@ function removeDislike(userId, artistName) {
   return result.changes > 0;
 }
 
+// --- Playlist export helpers ---
+
+function createPlaylistExport(id, { playlistName, trackList, seedArtists, nodeCount, createdBy, visibility }) {
+  getDb().prepare(`
+    INSERT INTO playlist_exports (id, playlist_name, track_list, seed_artists, node_count, created_by, visibility)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, playlistName, JSON.stringify(trackList), JSON.stringify(seedArtists || []), nodeCount || 0, createdBy || null, visibility || 'public');
+}
+
+function getPlaylistExport(id) {
+  return getDb().prepare('SELECT * FROM playlist_exports WHERE id = ?').get(id);
+}
+
+function getUserPlaylistExports(userId) {
+  return getDb().prepare(
+    'SELECT id, playlist_name, node_count, created_at FROM playlist_exports WHERE created_by = ? ORDER BY created_at DESC'
+  ).all(userId);
+}
+
 module.exports = {
   getDb,
   createUser,
@@ -236,4 +267,7 @@ module.exports = {
   getUserDislikes,
   addDislike,
   removeDislike,
+  createPlaylistExport,
+  getPlaylistExport,
+  getUserPlaylistExports,
 };

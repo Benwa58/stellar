@@ -9,6 +9,7 @@ import GalaxyInfoModal from './GalaxyInfoModal';
 import SaveMapModal from './SaveMapModal';
 import GalaxyPlayerController from './GalaxyPlayerController';
 import GalaxyLegend from './GalaxyLegend';
+import ExportDrawer from './ExportDrawer';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
@@ -19,6 +20,7 @@ function GalaxyView() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   const handleSaved = useCallback(() => {
     setShowSaveModal(false);
@@ -33,6 +35,15 @@ function GalaxyView() {
   const handleClosePanel = useCallback(() => {
     dispatch({ type: SELECT_NODE, payload: null });
   }, [dispatch]);
+
+  const handleOpenExport = useCallback(() => {
+    dispatch({ type: SELECT_NODE, payload: null }); // close detail panel
+    setShowExport(true);
+  }, [dispatch]);
+
+  const handleCloseExport = useCallback(() => {
+    setShowExport(false);
+  }, []);
 
   const handleAddSeed = useCallback(async (node) => {
     // Build the seed artist object from the node data
@@ -139,6 +150,19 @@ function GalaxyView() {
         )}
       </button>
 
+      <button
+        className="export-button"
+        onClick={handleOpenExport}
+        title="Export playlist"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+          <polyline points="16 6 12 2 8 6" />
+          <line x1="12" y1="2" x2="12" y2="15" />
+        </svg>
+        <span>Export</span>
+      </button>
+
       <GalaxyPlayerController canvasRef={canvasRef} />
 
       {showLegend && <GalaxyLegend onClose={() => setShowLegend(false)} />}
@@ -149,7 +173,13 @@ function GalaxyView() {
           onSaved={handleSaved}
         />
       )}
-      {selectedNode && (
+      {showExport && (
+        <ExportDrawer
+          onClose={handleCloseExport}
+          seedArtists={seedArtists}
+        />
+      )}
+      {selectedNode && !showExport && (
         <ArtistDetailPanel
           node={selectedNode}
           onClose={handleClosePanel}

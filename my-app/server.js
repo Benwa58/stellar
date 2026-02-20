@@ -97,6 +97,7 @@ app.use('/api/auth', require('./server/auth'));
 app.use('/api/maps', require('./server/maps'));
 app.use('/api/favorites', require('./server/favorites'));
 app.use('/api/dislikes', require('./server/dislikes'));
+app.use('/api/playlists', require('./server/playlists'));
 
 // --- Static files from React build ---
 app.use(express.static(buildPath, {

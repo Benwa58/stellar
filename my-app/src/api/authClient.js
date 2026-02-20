@@ -136,3 +136,19 @@ export function removeDislike(artistName) {
   });
 }
 
+// --- Shared Playlists API ---
+
+export function createSharedPlaylist(data) {
+  return authFetch('/api/playlists', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function getSharedPlaylist(id) {
+  return fetch(`/api/playlists/${id}`).then((res) => {
+    if (!res.ok) throw new Error('Playlist not found');
+    return res.json();
+  });
+}
+
