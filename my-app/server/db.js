@@ -84,6 +84,16 @@ function initSchema() {
       visibility TEXT DEFAULT 'public'
     );
     CREATE INDEX IF NOT EXISTS idx_playlist_exports_created_by ON playlist_exports(created_by);
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
   `);
 }
 
@@ -244,6 +254,30 @@ function getUserPlaylistExports(userId) {
   ).all(userId);
 }
 
+// --- Password reset token helpers ---
+
+function savePasswordResetToken(userId, token, expiresAt) {
+  getDb().prepare(`
+    INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)
+  `).run(userId, token, expiresAt);
+}
+
+function getPasswordResetToken(token) {
+  return getDb().prepare('SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0').get(token);
+}
+
+function markPasswordResetTokenUsed(token) {
+  getDb().prepare('UPDATE password_reset_tokens SET used = 1 WHERE token = ?').run(token);
+}
+
+function updateUserPassword(userId, passwordHash) {
+  getDb().prepare(`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`).run(passwordHash, userId);
+}
+
+function cleanupExpiredResetTokens() {
+  getDb().prepare("DELETE FROM password_reset_tokens WHERE expires_at < datetime('now')").run();
+}
+
 module.exports = {
   getDb,
   createUser,
@@ -270,4 +304,9 @@ module.exports = {
   createPlaylistExport,
   getPlaylistExport,
   getUserPlaylistExports,
+  savePasswordResetToken,
+  getPasswordResetToken,
+  markPasswordResetTokenUsed,
+  updateUserPassword,
+  cleanupExpiredResetTokens,
 };

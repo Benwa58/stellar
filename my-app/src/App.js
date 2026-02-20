@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage';
 import LoadingAnimation from './components/LoadingAnimation';
 import GalaxyView from './components/GalaxyView';
 import SharePage from './components/SharePage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import AuthModal from './components/auth/AuthModal';
 import './App.css';
 
@@ -19,9 +20,23 @@ function AppContent() {
     return match ? match[1] : null;
   });
 
+  // Password reset page routing
+  const [resetToken] = useState(() => {
+    if (window.location.pathname === '/reset-password') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('token') || null;
+    }
+    return null;
+  });
+
   // Render share page if URL matches /p/:id
   if (sharePageId) {
     return <SharePage playlistId={sharePageId} />;
+  }
+
+  // Render reset password page if URL matches /reset-password?token=...
+  if (resetToken) {
+    return <ResetPasswordPage token={resetToken} />;
   }
 
   return (

@@ -522,6 +522,56 @@ a.export-open-link:hover,
   color: var(--color-text-primary, #e8e8f0);
 }
 
+/* Forgot password link */
+.auth-forgot-link {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  color: var(--color-text-muted, #555577);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color var(--transition-fast, 150ms ease);
+}
+
+.auth-forgot-link:hover {
+  color: var(--color-accent, #6366f1);
+}
+
+/* Forgot password success message */
+.auth-forgot-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--color-success, #22c55e);
+}
+
+.auth-forgot-success p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-primary, #e8e8f0);
+}
+
+.auth-forgot-success-sub {
+  font-size: 0.78rem !important;
+  color: var(--color-text-muted, #555577) !important;
+}
+
+/* Reset password standalone page */
+.reset-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg, #070714);
+  padding: 20px;
+}
+
 /* Mobile */
 @media (max-width: 480px) {
   .auth-modal {

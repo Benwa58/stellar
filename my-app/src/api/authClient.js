@@ -145,6 +145,24 @@ export function createSharedPlaylist(data) {
   });
 }
 
+// --- Password Reset API (no auth needed) ---
+
+export function forgotPassword(email) {
+  return fetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(token, password) {
+  return fetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 export function getSharedPlaylist(id) {
   return fetch(`/api/playlists/${id}`).then((res) => {
     if (!res.ok) throw new Error('Playlist not found');

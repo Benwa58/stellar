@@ -100,6 +100,50 @@ function notifyNewSignup({ email, displayName }) {
   });
 }
 
+// --- Rate limiting for forgot-password (stricter: 3 per email per 15 min) ---
+const resetAttempts = new Map(); // email -> { count, resetAt }
+const RESET_MAX_ATTEMPTS = 3;
+const RESET_WINDOW_MS = 15 * 60 * 1000;
+
+// --- User-facing email transport (password resets) ---
+
+function sendPasswordResetEmail(toEmail, resetUrl) {
+  const resetEmail = process.env.RESET_EMAIL;
+  const resetPassword = process.env.RESET_EMAIL_APP_PASSWORD;
+
+  if (!resetEmail || !resetPassword) {
+    console.error('Password reset email not configured (RESET_EMAIL / RESET_EMAIL_APP_PASSWORD)');
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: resetEmail, pass: resetPassword },
+  });
+
+  transporter.sendMail({
+    from: `"Stellar Music" <${resetEmail}>`,
+    to: toEmail,
+    subject: 'Stellar: Reset your password',
+    text: [
+      'You requested a password reset for your Stellar account.',
+      '',
+      'Click the link below to set a new password (expires in 1 hour):',
+      resetUrl,
+      '',
+      'If you didn\'t request this, you can safely ignore this email.',
+    ].join('\n'),
+    html: [
+      '<p>You requested a password reset for your Stellar account.</p>',
+      '<p>Click the link below to set a new password (expires in 1 hour):</p>',
+      `<p><a href="${resetUrl}">${resetUrl}</a></p>`,
+      '<p style="color:#888;font-size:0.9em;">If you didn\'t request this, you can safely ignore this email.</p>',
+    ].join('\n'),
+  }).catch((err) => {
+    console.error('Password reset email failed:', err.message);
+  });
+}
+
 // --- Auth middleware (exported for other routes) ---
 
 function requireAuth(req, res, next) {
@@ -250,6 +294,100 @@ router.get('/me', requireAuth, (req, res) => {
     return res.status(401).json({ error: 'User not found' });
   }
   res.json({ user: sanitizeUser(user) });
+});
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', rateLimit, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Rate limit by email (stricter than general rate limit)
+    const now = Date.now();
+    const entry = resetAttempts.get(normalizedEmail);
+    if (entry && entry.resetAt > now) {
+      if (entry.count >= RESET_MAX_ATTEMPTS) {
+        // Still return success to prevent enumeration
+        return res.json({ ok: true, message: 'If an account with that email exists, a reset link has been sent.' });
+      }
+      entry.count++;
+    } else {
+      resetAttempts.set(normalizedEmail, { count: 1, resetAt: now + RESET_WINDOW_MS });
+    }
+
+    // Always return the same response (prevent user enumeration)
+    const successResponse = { ok: true, message: 'If an account with that email exists, a reset link has been sent.' };
+
+    const user = db.getUserByEmail(normalizedEmail);
+    if (!user) {
+      return res.json(successResponse);
+    }
+
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+    db.savePasswordResetToken(user.id, token, expiresAt);
+
+    // Build reset URL
+    const baseUrl = process.env.STELLAR_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+    // Fire-and-forget email
+    sendPasswordResetEmail(user.email, resetUrl);
+
+    // Cleanup expired tokens occasionally
+    db.cleanupExpiredResetTokens();
+
+    res.json(successResponse);
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', rateLimit, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password are required.' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    }
+
+    const resetToken = db.getPasswordResetToken(token);
+    if (!resetToken) {
+      return res.status(400).json({ error: 'Invalid or expired reset link.' });
+    }
+
+    // Check expiry
+    if (new Date(resetToken.expires_at) < new Date()) {
+      db.markPasswordResetTokenUsed(token);
+      return res.status(400).json({ error: 'This reset link has expired. Please request a new one.' });
+    }
+
+    // Hash new password and update
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    db.updateUserPassword(resetToken.user_id, passwordHash);
+
+    // Mark token as used
+    db.markPasswordResetTokenUsed(token);
+
+    // Invalidate all existing sessions
+    db.deleteUserRefreshTokens(resetToken.user_id);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
 });
 
 module.exports = router;

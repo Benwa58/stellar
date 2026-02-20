@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth, useAuthActions } from '../../state/AuthContext';
+import { forgotPassword } from '../../api/authClient';
 import '../../styles/auth.css';
 
 function AuthModal() {
@@ -12,6 +13,7 @@ function AuthModal() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   if (!showAuthModal) return null;
 
@@ -21,12 +23,20 @@ function AuthModal() {
     setLoading(true);
 
     try {
-      if (tab === 'register') {
+      if (tab === 'forgot') {
+        const res = await forgotPassword(email);
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Something went wrong.');
+        }
+        setForgotSent(true);
+      } else if (tab === 'register') {
         await register(email, password, displayName);
+        hideAuthModal();
       } else {
         await login(email, password);
+        hideAuthModal();
       }
-      hideAuthModal();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -37,7 +47,14 @@ function AuthModal() {
   const switchTab = (newTab) => {
     setTab(newTab);
     setError('');
+    setForgotSent(false);
   };
+
+  const modalTitle = tab === 'register'
+    ? 'Create Account'
+    : tab === 'forgot'
+      ? 'Reset Password'
+      : 'Welcome Back';
 
   return (
     <div className="auth-modal-overlay" onClick={hideAuthModal}>
@@ -49,81 +66,107 @@ function AuthModal() {
           </svg>
         </button>
 
-        <h2 className="auth-modal-title">
-          {tab === 'register' ? 'Create Account' : 'Welcome Back'}
-        </h2>
+        <h2 className="auth-modal-title">{modalTitle}</h2>
 
-        <div className="auth-tabs">
-          <button
-            className={`auth-tab ${tab === 'login' ? 'active' : ''}`}
-            onClick={() => switchTab('login')}
-          >
-            Sign In
-          </button>
-          <button
-            className={`auth-tab ${tab === 'register' ? 'active' : ''}`}
-            onClick={() => switchTab('register')}
-          >
-            Sign Up
-          </button>
-        </div>
+        {tab !== 'forgot' && (
+          <div className="auth-tabs">
+            <button
+              className={`auth-tab ${tab === 'login' ? 'active' : ''}`}
+              onClick={() => switchTab('login')}
+            >
+              Sign In
+            </button>
+            <button
+              className={`auth-tab ${tab === 'register' ? 'active' : ''}`}
+              onClick={() => switchTab('register')}
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          {tab === 'register' && (
+        {tab === 'forgot' && forgotSent ? (
+          <div className="auth-forgot-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="24" height="24">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <p>Check your email for a reset link.</p>
+            <p className="auth-forgot-success-sub">If an account exists with that email, you'll receive instructions to reset your password.</p>
+          </div>
+        ) : (
+          <form className="auth-form" onSubmit={handleSubmit}>
+            {tab === 'register' && (
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="auth-name">Display Name</label>
+                <input
+                  id="auth-name"
+                  className="auth-input"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Your name"
+                  maxLength={50}
+                  required
+                  autoComplete="name"
+                />
+              </div>
+            )}
+
             <div className="auth-field">
-              <label className="auth-label" htmlFor="auth-name">Display Name</label>
+              <label className="auth-label" htmlFor="auth-email">Email</label>
               <input
-                id="auth-name"
+                id="auth-email"
                 className="auth-input"
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your name"
-                maxLength={50}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 required
-                autoComplete="name"
+                autoComplete="email"
               />
             </div>
-          )}
 
-          <div className="auth-field">
-            <label className="auth-label" htmlFor="auth-email">Email</label>
-            <input
-              id="auth-email"
-              className="auth-input"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              autoComplete="email"
-            />
-          </div>
+            {tab !== 'forgot' && (
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="auth-password">Password</label>
+                <input
+                  id="auth-password"
+                  className="auth-input"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={tab === 'register' ? 'Min. 8 characters' : 'Your password'}
+                  minLength={tab === 'register' ? 8 : undefined}
+                  required
+                  autoComplete={tab === 'register' ? 'new-password' : 'current-password'}
+                />
+                {tab === 'login' && (
+                  <button type="button" className="auth-forgot-link" onClick={() => switchTab('forgot')}>
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+            )}
 
-          <div className="auth-field">
-            <label className="auth-label" htmlFor="auth-password">Password</label>
-            <input
-              id="auth-password"
-              className="auth-input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={tab === 'register' ? 'Min. 8 characters' : 'Your password'}
-              minLength={tab === 'register' ? 8 : undefined}
-              required
-              autoComplete={tab === 'register' ? 'new-password' : 'current-password'}
-            />
-          </div>
+            {error && <div className="auth-error">{error}</div>}
 
-          {error && <div className="auth-error">{error}</div>}
-
-          <button className="auth-submit-btn" type="submit" disabled={loading}>
-            {loading ? 'Please wait...' : tab === 'register' ? 'Create Account' : 'Sign In'}
-          </button>
-        </form>
+            <button className="auth-submit-btn" type="submit" disabled={loading}>
+              {loading
+                ? 'Please wait...'
+                : tab === 'forgot'
+                  ? 'Send Reset Link'
+                  : tab === 'register'
+                    ? 'Create Account'
+                    : 'Sign In'}
+            </button>
+          </form>
+        )}
 
         <p className="auth-footer">
-          {tab === 'register' ? (
+          {tab === 'forgot' ? (
+            <button className="auth-link" onClick={() => switchTab('login')}>Back to sign in</button>
+          ) : tab === 'register' ? (
             <>Already have an account? <button className="auth-link" onClick={() => switchTab('login')}>Sign in</button></>
           ) : (
             <>Don't have an account? <button className="auth-link" onClick={() => switchTab('register')}>Sign up</button></>
