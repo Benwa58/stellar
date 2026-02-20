@@ -1,6 +1,6 @@
 import { discoverRelatedArtists, discoverDeepCuts, discoverBridgeArtists, discoverChainBridge, enrichArtists, clearCache } from '../api/musicClient';
 import {
-  MAX_RECOMMENDATIONS,
+  getMaxRecommendations,
   HIDDEN_GEM_FAN_THRESHOLD,
   DEEP_CUT_INTERMEDIATE_COUNT,
   DEEP_CUT_LIMIT,
@@ -417,6 +417,8 @@ export async function generateRecommendations(seedArtists, onProgress) {
   onProgress({ phase: 'scoring', current: 0, total: 1, message: 'Analyzing connections...' });
 
   const seedCount = seedArtists.length;
+  const MAX_RECOMMENDATIONS = getMaxRecommendations(seedCount);
+  console.log(`Phase 6: maxRecommendations = ${MAX_RECOMMENDATIONS} (for ${seedCount} seeds)`);
 
   // Merge all candidates for scoring
   const allCandidates = new Map();

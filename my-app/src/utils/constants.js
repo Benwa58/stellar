@@ -1,5 +1,13 @@
 export const MIN_SEED_ARTISTS = 3;
-export const MAX_RECOMMENDATIONS = 80;
+export const MAX_RECOMMENDATIONS_BASE = 40;
+export const MAX_RECOMMENDATIONS_PER_SEED = 10;
+export const MAX_RECOMMENDATIONS_MIN = 80;
+export const MAX_RECOMMENDATIONS_CAP = 150;
+
+export function getMaxRecommendations(seedCount) {
+  const scaled = MAX_RECOMMENDATIONS_BASE + seedCount * MAX_RECOMMENDATIONS_PER_SEED;
+  return Math.max(MAX_RECOMMENDATIONS_MIN, Math.min(scaled, MAX_RECOMMENDATIONS_CAP));
+}
 
 // Saved maps
 export const STORAGE_KEY = 'stellar_saved_maps';
