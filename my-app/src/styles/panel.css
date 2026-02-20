@@ -607,17 +607,16 @@
     padding: 2px 8px;
   }
 
-  /* Actions: horizontal row */
+  /* Actions: keep column layout, circular buttons handle their own row */
   .panel-actions {
     width: 100%;
-    flex-direction: row;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     margin-top: 4px;
   }
 
   .panel-audio-player {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
     gap: 6px;
   }
 
