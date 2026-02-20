@@ -518,7 +518,7 @@
 .galaxy-player-start-button {
   position: absolute;
   bottom: 20px;
-  left: 320px;
+  left: 340px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -597,7 +597,7 @@
 
   .galaxy-player-start-button {
     bottom: 38px;
-    left: 296px;
+    left: 306px;
     padding: 8px 16px;
     font-size: 0.78rem;
   }
