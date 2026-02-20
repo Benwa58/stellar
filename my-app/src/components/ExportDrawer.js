@@ -19,6 +19,7 @@ function ExportDrawer({ onClose, seedArtists }) {
   const [linkFormat, setLinkFormat] = useState('with-names');
   const [excludeDislikes, setExcludeDislikes] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState(null);
   const [sharing, setSharing] = useState(false);
 
@@ -221,15 +222,21 @@ function ExportDrawer({ onClose, seedArtists }) {
                 className="export-share-url-copy"
                 onClick={async () => {
                   try { await navigator.clipboard.writeText(shareUrl); } catch {}
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
+                  setShareLinkCopied(true);
+                  setTimeout(() => setShareLinkCopied(false), 2000);
                 }}
                 title="Copy link"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
+                {shareLinkCopied ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" width="14" height="14">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
               </button>
               <a className="export-share-url-open" href={shareUrl} target="_blank" rel="noopener noreferrer">
                 Open
