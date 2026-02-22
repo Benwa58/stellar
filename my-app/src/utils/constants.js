@@ -18,7 +18,7 @@ export const FORCE_CONFIG = {
   linkDistanceSeedToRec: 120,
   linkDistanceRecToRec: 80,
   linkDistanceChain: 90,
-  linkDistanceDrift: 160,
+  linkDistanceDrift: 220,
   chargeSeed: -400,
   chargeRecommendation: -100,
   chargeDrift: -40,

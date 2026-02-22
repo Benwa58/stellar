@@ -43,6 +43,21 @@ function GalaxyInfoModal({ onClose }) {
         </div>
 
         <div className="galaxy-info-section">
+          <div className="galaxy-info-icon galaxy-info-icon-drift">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <circle cx="12" cy="12" r="8" strokeDasharray="3 3" />
+              <circle cx="12" cy="12" r="2" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="galaxy-info-heading">Drift</h4>
+            <p className="galaxy-info-text">
+              Ring-shaped nodes in the outer orbit are drift artists — genre-adjacent outliers discovered by exploring the broader musical landscape. Use "Expand Universe" to reveal them.
+            </p>
+          </div>
+        </div>
+
+        <div className="galaxy-info-section">
           <div className="galaxy-info-icon galaxy-info-icon-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
               <line x1="4" y1="12" x2="20" y2="12" />

@@ -97,33 +97,39 @@ export function createRenderer(canvas, getState) {
 }
 
 function drawBackground(ctx, w, h, expandT) {
-  const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
-  grad.addColorStop(0, GALAXY_COLORS.backgroundGradientInner);
-  grad.addColorStop(1, GALAXY_COLORS.backgroundGradientOuter);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
+  const maxDim = Math.max(w, h);
 
-  // Expanded mode: warm edge vignette + core color shift
   if (expandT > 0) {
     const ease = expandT * expandT * (3 - 2 * expandT); // smoothstep
-    const maxDim = Math.max(w, h);
 
-    // Warm vignette around the entire edge — unmistakable border glow
-    const edgeGrad = ctx.createRadialGradient(w / 2, h / 2, maxDim * 0.15, w / 2, h / 2, maxDim * 0.72);
-    edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    edgeGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0)');
-    edgeGrad.addColorStop(0.7, `rgba(60, 20, 12, ${0.3 * ease})`);
-    edgeGrad.addColorStop(0.88, `rgba(90, 30, 15, ${0.5 * ease})`);
-    edgeGrad.addColorStop(1, `rgba(110, 35, 18, ${0.6 * ease})`);
-    ctx.fillStyle = edgeGrad;
+    // Lerp the base gradient from cool blue to warm deep space
+    const innerR = Math.round(15 + 15 * ease);
+    const innerG = Math.round(15 - 5 * ease);
+    const innerB = Math.round(40 - 15 * ease);
+    const outerR = Math.round(5 + 18 * ease);
+    const outerG = Math.round(5 - 2 * ease);
+    const outerB = Math.round(15 - 8 * ease);
+
+    const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxDim * 0.7);
+    grad.addColorStop(0, `rgb(${innerR}, ${innerG}, ${innerB})`);
+    grad.addColorStop(1, `rgb(${outerR}, ${outerG}, ${outerB})`);
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
 
-    // Warm the core from cold blue to a slightly purple-warm tint
-    const coreGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxDim * 0.35);
-    coreGrad.addColorStop(0, `rgba(30, 15, 40, ${0.25 * ease})`);
-    coreGrad.addColorStop(0.6, `rgba(20, 10, 30, ${0.12 * ease})`);
-    coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = coreGrad;
+    // Warm vignette at the edges — visible amber/coral glow
+    const edgeGrad = ctx.createRadialGradient(w / 2, h / 2, maxDim * 0.2, w / 2, h / 2, maxDim * 0.75);
+    edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    edgeGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
+    edgeGrad.addColorStop(0.75, `rgba(120, 50, 20, ${0.12 * ease})`);
+    edgeGrad.addColorStop(0.9, `rgba(150, 60, 25, ${0.2 * ease})`);
+    edgeGrad.addColorStop(1, `rgba(180, 70, 30, ${0.28 * ease})`);
+    ctx.fillStyle = edgeGrad;
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxDim * 0.7);
+    grad.addColorStop(0, GALAXY_COLORS.backgroundGradientInner);
+    grad.addColorStop(1, GALAXY_COLORS.backgroundGradientOuter);
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
   }
 }

@@ -286,6 +286,11 @@
   color: #64dcc8;
 }
 
+.galaxy-info-icon-drift {
+  background: rgba(220, 130, 100, 0.15);
+  color: hsl(15, 65%, 60%);
+}
+
 .galaxy-info-icon-link {
   background: rgba(180, 140, 255, 0.15);
   color: #b48cff;
