@@ -107,6 +107,14 @@ function initSchema() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // --- Migrations for existing databases ---
+  // Add thumbnail column if it doesn't exist (added after initial release)
+  try {
+    db.prepare("SELECT thumbnail FROM shared_galaxies LIMIT 0").run();
+  } catch {
+    db.exec("ALTER TABLE shared_galaxies ADD COLUMN thumbnail BLOB");
+  }
 }
 
 // --- User helpers ---
