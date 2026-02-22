@@ -32,7 +32,7 @@ export function createRenderer(canvas, getState) {
     ctx.clearRect(0, 0, w, h);
 
     // Background
-    drawBackground(ctx, w, h, state.expandTransition);
+    drawBackground(ctx, w, h, state.expandTransition, state.driftOrbit, transform);
 
     // Apply camera transform
     ctx.save();
@@ -96,40 +96,37 @@ export function createRenderer(canvas, getState) {
   return { start, stop, setNebulaCanvas, setSettled };
 }
 
-function drawBackground(ctx, w, h, expandT) {
+function drawBackground(ctx, w, h, expandT, driftOrbit, transform) {
   const maxDim = Math.max(w, h);
 
-  if (expandT > 0) {
+  // Base gradient (always drawn)
+  const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxDim * 0.7);
+  grad.addColorStop(0, GALAXY_COLORS.backgroundGradientInner);
+  grad.addColorStop(1, GALAXY_COLORS.backgroundGradientOuter);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Expanded mode: warm glow starting at the drift orbit boundary
+  if (expandT > 0 && driftOrbit) {
     const ease = expandT * expandT * (3 - 2 * expandT); // smoothstep
 
-    // Lerp the base gradient from cool blue to warm deep space
-    const innerR = Math.round(15 + 15 * ease);
-    const innerG = Math.round(15 - 5 * ease);
-    const innerB = Math.round(40 - 15 * ease);
-    const outerR = Math.round(5 + 18 * ease);
-    const outerG = Math.round(5 - 2 * ease);
-    const outerB = Math.round(15 - 8 * ease);
+    // Convert drift orbit center from world space to screen space
+    const screenCx = driftOrbit.cx * transform.scale + transform.x;
+    const screenCy = driftOrbit.cy * transform.scale + transform.y;
+    const screenRadius = driftOrbit.radius * transform.scale;
 
-    const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxDim * 0.7);
-    grad.addColorStop(0, `rgb(${innerR}, ${innerG}, ${innerB})`);
-    grad.addColorStop(1, `rgb(${outerR}, ${outerG}, ${outerB})`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+    // The warm zone starts at the edge of the core galaxy (where hidden gems end)
+    // and radiates outward into drift territory
+    const innerR = screenRadius * 0.85;
+    const outerR = screenRadius * 2.2;
 
-    // Warm vignette at the edges — visible amber/coral glow
-    const edgeGrad = ctx.createRadialGradient(w / 2, h / 2, maxDim * 0.2, w / 2, h / 2, maxDim * 0.75);
-    edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    edgeGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
-    edgeGrad.addColorStop(0.75, `rgba(120, 50, 20, ${0.12 * ease})`);
-    edgeGrad.addColorStop(0.9, `rgba(150, 60, 25, ${0.2 * ease})`);
-    edgeGrad.addColorStop(1, `rgba(180, 70, 30, ${0.28 * ease})`);
-    ctx.fillStyle = edgeGrad;
-    ctx.fillRect(0, 0, w, h);
-  } else {
-    const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxDim * 0.7);
-    grad.addColorStop(0, GALAXY_COLORS.backgroundGradientInner);
-    grad.addColorStop(1, GALAXY_COLORS.backgroundGradientOuter);
-    ctx.fillStyle = grad;
+    const driftGrad = ctx.createRadialGradient(screenCx, screenCy, innerR, screenCx, screenCy, outerR);
+    driftGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    driftGrad.addColorStop(0.15, `rgba(50, 18, 10, ${0.08 * ease})`);
+    driftGrad.addColorStop(0.4, `rgba(100, 40, 18, ${0.14 * ease})`);
+    driftGrad.addColorStop(0.7, `rgba(140, 55, 22, ${0.18 * ease})`);
+    driftGrad.addColorStop(1, `rgba(160, 60, 25, ${0.22 * ease})`);
+    ctx.fillStyle = driftGrad;
     ctx.fillRect(0, 0, w, h);
   }
 }

@@ -92,6 +92,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     dislikeNames: new Set(),
     isExpanded: false,
     expandTransition: 0,
+    driftOrbit: null, // { cx, cy, radius } in world coords
   });
   const simulationRef = useRef(null);
   const rendererRef = useRef(null);
@@ -171,6 +172,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     // Merge into stateRef
     stateRef.current.nodes = [...existingNodes, ...graph.nodes];
     stateRef.current.links = [...existingLinks, ...graph.links];
+    stateRef.current.driftOrbit = { cx, cy, radius: maxDist };
 
     // Reheat simulation and update the drift radial force to target the outer orbit
     if (simulationRef.current) {
@@ -243,6 +245,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     stateRef.current.genreClusters = graph.genreClusters;
     stateRef.current.isExpanded = false;
     stateRef.current.expandTransition = 0;
+    stateRef.current.driftOrbit = null;
   }, [galaxyData, mergeNodes]);
 
   // Set up simulation and renderer when size is ready
