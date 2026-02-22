@@ -160,8 +160,8 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
       const dy = (n.y || 0) - cy;
       maxDist = Math.max(maxDist, Math.sqrt(dx * dx + dy * dy));
     }
-    // Position new drift nodes in a ring beyond the existing galaxy
-    const orbitRadius = Math.max(maxDist * 1.3, 350);
+    // Position new drift nodes in a ring well beyond the existing galaxy
+    const orbitRadius = Math.max(maxDist * 1.6, 400);
     for (const node of graph.nodes) {
       const angle = Math.random() * Math.PI * 2;
       const dist = orbitRadius + Math.random() * 100;

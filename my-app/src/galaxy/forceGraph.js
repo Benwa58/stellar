@@ -68,10 +68,10 @@ export function createSimulation(nodes, links, width, height) {
     .force(
       'driftRadial',
       forceRadial(
-        Math.min(width, height) * 0.42,
+        Math.min(width, height) * 0.55,
         width / 2,
         height / 2
-      ).strength((d) => (d.isDrift ? 0.4 : 0))
+      ).strength((d) => (d.isDrift ? 0.5 : 0))
     )
     .alphaDecay(FORCE_CONFIG.alphaDecay)
     .velocityDecay(FORCE_CONFIG.velocityDecay);

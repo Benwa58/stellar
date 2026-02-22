@@ -115,17 +115,18 @@ function drawBackground(ctx, w, h, expandT, driftOrbit, transform) {
     const screenCy = driftOrbit.cy * transform.scale + transform.y;
     const screenRadius = driftOrbit.radius * transform.scale;
 
-    // The warm zone starts at the edge of the core galaxy (where hidden gems end)
-    // and radiates outward into drift territory
-    const innerR = screenRadius * 0.85;
-    const outerR = screenRadius * 2.2;
+    // The warm zone starts just inside the core galaxy edge and radiates
+    // outward through the gap into drift territory
+    const innerR = screenRadius * 0.6;
+    const outerR = screenRadius * 2.5;
 
     const driftGrad = ctx.createRadialGradient(screenCx, screenCy, innerR, screenCx, screenCy, outerR);
     driftGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    driftGrad.addColorStop(0.15, `rgba(50, 18, 10, ${0.08 * ease})`);
-    driftGrad.addColorStop(0.4, `rgba(100, 40, 18, ${0.14 * ease})`);
-    driftGrad.addColorStop(0.7, `rgba(140, 55, 22, ${0.18 * ease})`);
-    driftGrad.addColorStop(1, `rgba(160, 60, 25, ${0.22 * ease})`);
+    driftGrad.addColorStop(0.1, `rgba(40, 14, 8, ${0.06 * ease})`);
+    driftGrad.addColorStop(0.3, `rgba(90, 35, 15, ${0.14 * ease})`);
+    driftGrad.addColorStop(0.55, `rgba(130, 50, 20, ${0.2 * ease})`);
+    driftGrad.addColorStop(0.8, `rgba(150, 58, 22, ${0.24 * ease})`);
+    driftGrad.addColorStop(1, `rgba(160, 60, 25, ${0.26 * ease})`);
     ctx.fillStyle = driftGrad;
     ctx.fillRect(0, 0, w, h);
   }
