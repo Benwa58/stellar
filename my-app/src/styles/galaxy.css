@@ -517,6 +517,57 @@
   background: #818cf8;
 }
 
+/* ===== Expand Universe ghost button ===== */
+
+.expand-universe-btn {
+  position: absolute;
+  top: 80px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full, 9999px);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.72rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.expand-universe-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.expand-universe-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/* Hide when drawers are open */
+.galaxy-view:has(.export-drawer) .expand-universe-btn,
+.galaxy-view:has(.share-galaxy-drawer) .expand-universe-btn {
+  display: none;
+}
+
+.expand-universe-spinner {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(220, 150, 120, 0.7);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ===== Responsive ===== */
 
 @media (max-width: 480px) {
@@ -560,6 +611,18 @@
 
   .galaxy-view:has(.preview-player) .galaxy-toolbar {
     bottom: 160px;
+  }
+
+  .expand-universe-btn {
+    top: auto;
+    bottom: 200px;
+    left: 16px;
+    font-size: 0.66rem;
+    padding: 5px 12px 5px 8px;
+  }
+
+  .galaxy-view:has(.preview-player) .expand-universe-btn {
+    bottom: 320px;
   }
 
   .galaxy-info-modal {

@@ -10,6 +10,7 @@ import '../styles/panel.css';
 
 function getBadgeInfo(node) {
   if (node.type === 'seed') return { label: 'Your Artist', className: 'badge-seed' };
+  if (node.isDrift || node.tier === 'drift') return { label: 'Drift', className: 'badge-drift' };
   if (node.discoveryMethod === 'chain_bridge') return { label: 'Chain Bridge', className: 'badge-chain' };
   if (node.tier === 'hidden_gem') return { label: 'Hidden Gem', className: 'badge-gem' };
   return { label: 'Top Pick', className: 'badge-rec' };
@@ -146,6 +147,13 @@ function ArtistDetailPanel({ node, onClose, onAddSeed }) {
               {node.chainPosition && node.chainLength && (
                 <> (step {node.chainPosition} of {node.chainLength})</>
               )}
+            </span>
+          )}
+
+          {/* Drift note: genre-adjacent outlier */}
+          {(node.isDrift || node.tier === 'drift') && node.relatedSeedNames && node.relatedSeedNames.length > 0 && (
+            <span className="panel-discovery-note">
+              Genre-adjacent to {node.relatedSeedNames.join(' & ')}
             </span>
           )}
 

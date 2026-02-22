@@ -18,8 +18,10 @@ export const FORCE_CONFIG = {
   linkDistanceSeedToRec: 120,
   linkDistanceRecToRec: 80,
   linkDistanceChain: 90,
+  linkDistanceDrift: 160,
   chargeSeed: -400,
   chargeRecommendation: -100,
+  chargeDrift: -40,
   centerStrength: 0.03,
   collisionPadding: 3,
   alphaDecay: 0.012,
@@ -33,6 +35,8 @@ export const NODE_SIZES = {
   recMax: 14,
   gemMin: 2.5,
   gemMax: 10,
+  driftMin: 2,
+  driftMax: 8,
 };
 
 export const GENRE_COLORS = {
@@ -75,6 +79,9 @@ export const GALAXY_COLORS = {
   chainLinkHighlight: 'rgba(200, 160, 255, 0.5)',
   chainNodeRing: 'rgba(200, 160, 255, 0.7)',
   hiddenGemRing: 'rgba(100, 220, 200, 0.7)',
+  driftNodeRing: 'rgba(220, 130, 100, 0.7)',
+  driftLinkColor: 'rgba(220, 150, 120, 0.12)',
+  driftLinkHighlight: 'rgba(220, 150, 120, 0.35)',
 };
 
 export const PARTICLE_CONFIG = {
@@ -103,3 +110,4 @@ export const CHAIN_BRIDGE_MAX_HOPS = 6;
 export const CHAIN_BRIDGE_BRANCH_LIMITS = [25, 20, 15, 12, 10, 8];
 export const HIDDEN_GEM_COLOR = { h: 175, s: 70, l: 55 };
 export const CHAIN_BRIDGE_COLOR = { h: 270, s: 60, l: 65 };
+export const DRIFT_COLOR = { h: 15, s: 65, l: 60 };

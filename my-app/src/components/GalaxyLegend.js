@@ -1,4 +1,4 @@
-import { GENRE_COLORS, HIDDEN_GEM_COLOR, CHAIN_BRIDGE_COLOR } from '../utils/constants';
+import { GENRE_COLORS, HIDDEN_GEM_COLOR, CHAIN_BRIDGE_COLOR, DRIFT_COLOR } from '../utils/constants';
 import { hslToRgba } from '../utils/colorUtils';
 
 const CURATED_GENRES = [
@@ -72,6 +72,22 @@ function GalaxyLegend({ onClose }) {
               </svg>
             </span>
             <span className="galaxy-legend-label">Chain Bridges</span>
+          </div>
+
+          {/* Drift */}
+          <div className="galaxy-legend-item">
+            <span className="galaxy-legend-swatch">
+              <svg width="18" height="18" viewBox="0 0 18 18">
+                <circle
+                  cx="9" cy="9" r="6"
+                  fill="none"
+                  stroke={hslToRgba(DRIFT_COLOR.h, DRIFT_COLOR.s, DRIFT_COLOR.l, 0.8)}
+                  strokeWidth="1.5"
+                />
+                <circle cx="9" cy="9" r="1.5" fill="rgba(255,255,255,0.3)" />
+              </svg>
+            </span>
+            <span className="galaxy-legend-label">Drift</span>
           </div>
 
           {/* Favorites */}

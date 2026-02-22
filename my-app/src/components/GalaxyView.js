@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
-import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR } from '../state/actions';
+import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES } from '../state/actions';
 import { generateRecommendations } from '../engine/recommendationEngine';
+import { expandUniverse } from '../engine/expandUniverse';
 import Header from './Header';
 import GalaxyCanvas from '../galaxy/GalaxyCanvas';
 import ArtistDetailPanel from './ArtistDetailPanel';
@@ -14,7 +15,7 @@ import ShareGalaxyDrawer from './ShareGalaxyDrawer';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
-  const { selectedNode, seedArtists } = useAppState();
+  const { selectedNode, seedArtists, galaxyData } = useAppState();
   const dispatch = useDispatch();
   const canvasRef = useRef(null);
   const [showTools, setShowTools] = useState(false);
@@ -24,6 +25,20 @@ function GalaxyView() {
   const [showLegend, setShowLegend] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [isExpanding, setIsExpanding] = useState(false);
+  const [hasExpanded, setHasExpanded] = useState(false);
+
+  // Reset expand state when galaxy data changes (new galaxy generation)
+  const galaxyGenRef = useRef(null);
+  useEffect(() => {
+    if (galaxyData && !galaxyData._driftMergeGen) {
+      // Only reset when it's a fresh galaxy, not a drift merge
+      if (galaxyGenRef.current !== galaxyData) {
+        galaxyGenRef.current = galaxyData;
+        setHasExpanded(false);
+      }
+    }
+  }, [galaxyData]);
 
   const handleSaved = useCallback(() => {
     setShowSaveModal(false);
@@ -58,6 +73,23 @@ function GalaxyView() {
   const handleCloseShare = useCallback(() => {
     setShowShare(false);
   }, []);
+
+  const handleExpandUniverse = useCallback(async () => {
+    if (isExpanding || hasExpanded || !galaxyData) return;
+    setIsExpanding(true);
+    try {
+      const existingNodes = canvasRef.current?.getNodes() || galaxyData.nodes;
+      const result = await expandUniverse(existingNodes, seedArtists, () => {});
+      if (result.nodes.length > 0) {
+        dispatch({ type: MERGE_DRIFT_NODES, payload: result });
+      }
+      setHasExpanded(true);
+    } catch (err) {
+      console.error('Expand Universe failed:', err);
+    } finally {
+      setIsExpanding(false);
+    }
+  }, [isExpanding, hasExpanded, galaxyData, seedArtists, dispatch]);
 
   const handleAddSeed = useCallback(async (node) => {
     const newSeed = {
@@ -103,6 +135,27 @@ function GalaxyView() {
       </div>
 
       <GalaxyCanvas ref={canvasRef} />
+
+      {/* Expand Universe — upper-left ghost button */}
+      {!hasExpanded && galaxyData && (
+        <button
+          className="expand-universe-btn"
+          onClick={handleExpandUniverse}
+          disabled={isExpanding}
+          title="Discover genre-adjacent outliers"
+        >
+          {isExpanding ? (
+            <span className="expand-universe-spinner" />
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+              <circle cx="12" cy="12" r="10" strokeDasharray="3 3" />
+              <line x1="12" y1="8" x2="12" y2="16" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+          )}
+          <span>Expand</span>
+        </button>
+      )}
 
       {/* Bottom-left toolbar */}
       <div className="galaxy-toolbar">

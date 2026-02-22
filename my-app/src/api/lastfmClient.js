@@ -145,3 +145,30 @@ export async function searchArtists(artistName, limit = 5) {
     return [];
   }
 }
+
+/**
+ * Get top artists for a given tag (genre).
+ * Uses tag.getTopArtists to find genre-adjacent artists for drift discovery.
+ */
+export async function getTopArtistsByTag(tag, limit = 50) {
+  try {
+    const data = await rateLimitedFetch('tag.getTopArtists', {
+      tag,
+      limit: String(limit),
+    });
+
+    const artists = data.topartists?.artist || [];
+    const list = Array.isArray(artists) ? artists : [artists];
+
+    return list
+      .filter((a) => a.name)
+      .map((a) => ({
+        name: a.name,
+        listeners: parseInt(a.stats?.listeners || a.listeners || '0', 10),
+        mbid: a.mbid || null,
+      }));
+  } catch (err) {
+    console.warn(`Last.fm getTopArtistsByTag failed for "${tag}":`, err.message);
+    return [];
+  }
+}

@@ -25,6 +25,10 @@ export function createSimulation(nodes, links, width, height) {
           if (d.isChainLink) {
             return FORCE_CONFIG.linkDistanceChain;
           }
+          // Drift links: push drift nodes to the outer orbit
+          if (d.isDriftLink) {
+            return FORCE_CONFIG.linkDistanceDrift;
+          }
           if (sourceIsSeed && targetIsSeed) {
             // Bridge links between seeds are wider
             return isBridgeLink
@@ -45,6 +49,8 @@ export function createSimulation(nodes, links, width, height) {
       'charge',
       forceManyBody().strength((d) => {
         if (d.type === 'seed') return FORCE_CONFIG.chargeSeed;
+        // Drift nodes push very weakly — outer orbit
+        if (d.isDrift) return FORCE_CONFIG.chargeDrift;
         // Hidden gems push less so they cluster on the periphery
         if (d.isHiddenGem) return FORCE_CONFIG.chargeRecommendation * 0.7;
         return FORCE_CONFIG.chargeRecommendation;

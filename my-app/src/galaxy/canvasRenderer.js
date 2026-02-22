@@ -132,6 +132,16 @@ function drawLinks(ctx, links, hoveredNode, selectedNode) {
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.25)`;
         ctx.lineWidth = 1.2;
       }
+    } else if (link.isDriftLink) {
+      // Drift links: short-dashed coral line
+      ctx.setLineDash([2, 4]);
+      if (isHighlighted) {
+        ctx.strokeStyle = GALAXY_COLORS.driftLinkHighlight;
+        ctx.lineWidth = 1.0;
+      } else {
+        ctx.strokeStyle = GALAXY_COLORS.driftLinkColor;
+        ctx.lineWidth = 0.5;
+      }
     } else if (link.isBridgeLink) {
       // Bridge links: dashed teal line
       ctx.setLineDash([4, 6]);
@@ -168,6 +178,8 @@ function drawNodes(ctx, nodes, hoveredNode, selectedNode, time) {
       drawSeedNode(ctx, node, isActive);
     } else if (node.isChainBridge) {
       drawChainBridgeNode(ctx, node, isActive, time);
+    } else if (node.isDrift) {
+      drawDriftNode(ctx, node, isActive, time);
     } else if (node.isHiddenGem) {
       drawHiddenGemNode(ctx, node, isActive, time);
     } else {
@@ -350,6 +362,42 @@ function drawHiddenGemNode(ctx, node, isActive, time) {
   }
 }
 
+function drawDriftNode(ctx, node, isActive, time) {
+  const { x, y, radius, color, brightness } = node;
+
+  // Subtle outer glow (very faint)
+  const glowRadius = radius * 2;
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+  glow.addColorStop(0, 'rgba(220, 130, 100, 0.1)');
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.beginPath();
+  ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  // Ring only (no filled body) — hollow circle for a fading signal feel
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = color || 'rgba(220, 130, 100, 0.7)';
+  ctx.lineWidth = Math.max(1, radius * 0.25);
+  ctx.stroke();
+
+  // Faint center dot
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255, 255, 255, ${(brightness || 0.4) * 0.3})`;
+  ctx.fill();
+
+  // Active ring
+  if (isActive) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = GALAXY_COLORS.driftNodeRing;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+}
+
 function drawNodeLabel(ctx, node) {
   if (!node || node.x == null) return;
 
@@ -371,9 +419,11 @@ function drawNodeLabel(ctx, node) {
   // Border
   ctx.strokeStyle = node.isChainBridge
     ? 'rgba(200, 160, 255, 0.3)'
-    : node.isHiddenGem
-      ? 'rgba(100, 220, 200, 0.25)'
-      : 'rgba(255, 255, 255, 0.15)';
+    : node.isDrift
+      ? 'rgba(220, 150, 120, 0.25)'
+      : node.isHiddenGem
+        ? 'rgba(100, 220, 200, 0.25)'
+        : 'rgba(255, 255, 255, 0.15)';
   ctx.lineWidth = 0.5;
   ctx.stroke();
 

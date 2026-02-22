@@ -15,3 +15,4 @@ export const RESET = 'RESET';
 export const GO_TO_INPUT = 'GO_TO_INPUT';
 export const ADD_SEED_AND_REGENERATE = 'ADD_SEED_AND_REGENERATE';
 export const LOAD_SAVED_MAP = 'LOAD_SAVED_MAP';
+export const MERGE_DRIFT_NODES = 'MERGE_DRIFT_NODES';

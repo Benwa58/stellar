@@ -141,8 +141,36 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     return canvas.toDataURL('image/png');
   }, []);
 
+  // Merge new nodes into the existing simulation without tearing down
+  const mergeNodes = useCallback((newNodes, newLinks) => {
+    const graph = buildGalaxyGraph({ nodes: newNodes, links: newLinks, genreClusters: [] });
+    const existingNodes = stateRef.current.nodes || [];
+    const existingLinks = stateRef.current.links || [];
+
+    // Position new nodes at the periphery (outside existing bounds)
+    const cx = existingNodes.reduce((s, n) => s + (n.x || 0), 0) / (existingNodes.length || 1);
+    const cy = existingNodes.reduce((s, n) => s + (n.y || 0), 0) / (existingNodes.length || 1);
+    for (const node of graph.nodes) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 300 + Math.random() * 200;
+      node.x = cx + Math.cos(angle) * dist;
+      node.y = cy + Math.sin(angle) * dist;
+    }
+
+    // Merge into stateRef
+    stateRef.current.nodes = [...existingNodes, ...graph.nodes];
+    stateRef.current.links = [...existingLinks, ...graph.links];
+
+    // Reheat simulation with merged data
+    if (simulationRef.current) {
+      simulationRef.current.nodes(stateRef.current.nodes);
+      simulationRef.current.force('link').links(stateRef.current.links);
+      simulationRef.current.alpha(0.3).restart();
+    }
+  }, []);
+
   // Expose methods to parent via ref
-  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage }), [resetView, focusOnNode, getNodes, captureImage]);
+  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage, mergeNodes }), [resetView, focusOnNode, getNodes, captureImage, mergeNodes]);
 
   // Sync Redux selectedNode to canvas stateRef so the renderer highlights it.
   // The player dispatches SELECT_NODE with a copy, so we match by ID to find
@@ -168,14 +196,35 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     stateRef.current.dislikeNames = new Set(dislikes.map((d) => d.artistName));
   }, [dislikes]);
 
+  // Track drift merge generation to detect incremental merges
+  const driftGenRef = useRef(0);
+
   // Build graph data when galaxyData changes
   useEffect(() => {
     if (!galaxyData) return;
+
+    // If this is a drift merge (incremental), handle it separately
+    if (galaxyData._driftMergeGen && galaxyData._driftMergeGen > driftGenRef.current) {
+      driftGenRef.current = galaxyData._driftMergeGen;
+      // Extract only new drift nodes/links to merge
+      const existingIds = new Set((stateRef.current.nodes || []).map((n) => n.id));
+      const newNodes = galaxyData.nodes.filter((n) => !existingIds.has(n.id));
+      const newLinks = galaxyData.links.filter((l) => {
+        const srcId = typeof l.source === 'string' ? l.source : l.source?.id;
+        const tgtId = typeof l.target === 'string' ? l.target : l.target?.id;
+        return newNodes.some((n) => n.id === srcId || n.id === tgtId);
+      });
+      if (newNodes.length > 0) {
+        mergeNodes(newNodes, newLinks);
+      }
+      return;
+    }
+
     const graph = buildGalaxyGraph(galaxyData);
     stateRef.current.nodes = graph.nodes;
     stateRef.current.links = graph.links;
     stateRef.current.genreClusters = graph.genreClusters;
-  }, [galaxyData]);
+  }, [galaxyData, mergeNodes]);
 
   // Set up simulation and renderer when size is ready
   useEffect(() => {

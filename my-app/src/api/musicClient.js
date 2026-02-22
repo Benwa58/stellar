@@ -631,3 +631,6 @@ export function clearCache() {
   similarCache.clear();
   deezer.clearCache();
 }
+
+// Re-export for drift discovery (Expand Universe)
+export { getTopArtistsByTag } from './lastfmClient';

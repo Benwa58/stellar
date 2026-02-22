@@ -1,4 +1,4 @@
-import { NODE_SIZES, HIDDEN_GEM_COLOR, CHAIN_BRIDGE_COLOR } from '../utils/constants';
+import { NODE_SIZES, HIDDEN_GEM_COLOR, CHAIN_BRIDGE_COLOR, DRIFT_COLOR } from '../utils/constants';
 import { getGenreColorString, getGenreColor, hslToRgba } from '../utils/colorUtils';
 
 export function buildGalaxyGraph(galaxyData) {
@@ -20,22 +20,37 @@ export function buildGalaxyGraph(galaxyData) {
     const rawScore = Math.max(0, Math.min(1, node.compositeScore || 0));
     const scoreNorm = Math.pow(rawScore, 0.7);
 
+    const isDrift = node.tier === 'drift' || node.isDrift;
     const isHiddenGem = node.tier === 'hidden_gem';
     const isChainBridge = node.discoveryMethod === 'chain_bridge' || node.isChainBridge;
 
     // Size scales with match strength within each tier
-    const sizeMin = isHiddenGem ? NODE_SIZES.gemMin : NODE_SIZES.recMin;
-    const sizeMax = isHiddenGem ? NODE_SIZES.gemMax : NODE_SIZES.recMax;
+    let sizeMin, sizeMax;
+    if (isDrift) {
+      sizeMin = NODE_SIZES.driftMin;
+      sizeMax = NODE_SIZES.driftMax;
+    } else if (isHiddenGem) {
+      sizeMin = NODE_SIZES.gemMin;
+      sizeMax = NODE_SIZES.gemMax;
+    } else {
+      sizeMin = NODE_SIZES.recMin;
+      sizeMax = NODE_SIZES.recMax;
+    }
     const radius = sizeMin + scoreNorm * (sizeMax - sizeMin);
 
     const brightness = 0.4 + scoreNorm * 0.6;
 
-    // Chain bridge nodes get a distinct purple/violet color
-    // Hidden gems get teal, top picks get genre-based color
+    // Each tier gets a distinct color:
+    // Chain bridges = purple, Drift = coral, Hidden gems = teal, Top picks = genre-based
     let color, glowColor, genreHsl;
     if (isChainBridge) {
       const { h, s, l } = CHAIN_BRIDGE_COLOR;
       genreHsl = CHAIN_BRIDGE_COLOR;
+      color = hslToRgba(h, s, l, brightness);
+      glowColor = hslToRgba(h, s, l, brightness * 0.3);
+    } else if (isDrift) {
+      const { h, s, l } = DRIFT_COLOR;
+      genreHsl = DRIFT_COLOR;
       color = hslToRgba(h, s, l, brightness);
       glowColor = hslToRgba(h, s, l, brightness * 0.3);
     } else if (isHiddenGem) {
@@ -56,7 +71,8 @@ export function buildGalaxyGraph(galaxyData) {
       glowColor,
       genreHsl,
       brightness,
-      isHiddenGem: isHiddenGem && !isChainBridge, // chain bridges get their own renderer
+      isDrift,
+      isHiddenGem: isHiddenGem && !isChainBridge && !isDrift, // chain bridges and drift get their own renderer
       isBridge: node.discoveryMethod === 'bridge',
       isChainBridge,
     };
@@ -70,6 +86,7 @@ export function buildGalaxyGraph(galaxyData) {
     isBridgeLink: link.isBridgeLink || false,
     isDeepCutLink: link.isDeepCutLink || false,
     isChainLink: link.isChainLink || false,
+    isDriftLink: link.isDriftLink || false,
     chainPosition: link.chainPosition,
     chainLength: link.chainLength,
   }));

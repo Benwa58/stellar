@@ -138,6 +138,22 @@ export function appReducer(state, action) {
       };
     }
 
+    case actions.MERGE_DRIFT_NODES: {
+      const { nodes: driftNodes, links: driftLinks } = action.payload;
+      const existingData = state.galaxyData;
+      if (!existingData) return state;
+      return {
+        ...state,
+        galaxyData: {
+          ...existingData,
+          nodes: [...existingData.nodes, ...driftNodes],
+          links: [...existingData.links, ...driftLinks],
+          genreClusters: clusterByGenre([...existingData.nodes, ...driftNodes]),
+          _driftMergeGen: (existingData._driftMergeGen || 0) + 1,
+        },
+      };
+    }
+
     case actions.RESET:
       return { ...initialState };
 
