@@ -22,9 +22,9 @@ export function createRenderer(canvas, getState) {
     const state = getState();
     const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames, dislikeNames, isExpanded } = state;
 
-    // Smoothly animate expand transition (0 → 1 over ~2s)
+    // Smoothly animate expand transition (0 → 1 over ~1.2s)
     if (isExpanded && state.expandTransition < 1) {
-      state.expandTransition = Math.min(1, state.expandTransition + 0.008);
+      state.expandTransition = Math.min(1, state.expandTransition + 0.014);
     }
 
     ctx.save();
@@ -53,10 +53,10 @@ export function createRenderer(canvas, getState) {
     }
 
     // Links
-    drawLinks(ctx, links, hoveredNode, selectedNode);
+    drawLinks(ctx, links, hoveredNode, selectedNode, state.expandTransition);
 
     // Nodes
-    drawNodes(ctx, nodes, hoveredNode, selectedNode, time);
+    drawNodes(ctx, nodes, hoveredNode, selectedNode, time, state.expandTransition);
 
     // Favorite indicators
     if (favoriteNames && favoriteNames.size > 0) {
@@ -70,10 +70,14 @@ export function createRenderer(canvas, getState) {
 
     // Labels for hovered/selected
     if (hoveredNode && hoveredNode !== selectedNode) {
+      if (hoveredNode.isDrift && state.expandTransition < 1) ctx.globalAlpha = state.expandTransition;
       drawNodeLabel(ctx, hoveredNode);
+      if (hoveredNode.isDrift && state.expandTransition < 1) ctx.globalAlpha = 1;
     }
     if (selectedNode) {
+      if (selectedNode.isDrift && state.expandTransition < 1) ctx.globalAlpha = state.expandTransition;
       drawNodeLabel(ctx, selectedNode);
+      if (selectedNode.isDrift && state.expandTransition < 1) ctx.globalAlpha = 1;
     }
 
     ctx.restore();
@@ -132,13 +136,19 @@ function drawBackground(ctx, w, h, expandT, driftOrbit, transform) {
   }
 }
 
-function drawLinks(ctx, links, hoveredNode, selectedNode) {
+function drawLinks(ctx, links, hoveredNode, selectedNode, expandT) {
   if (!links) return;
 
   for (const link of links) {
     const source = link.source;
     const target = link.target;
     if (!source || !target || source.x == null || target.x == null) continue;
+
+    // Fade in drift links with expand transition
+    if (link.isDriftLink && expandT < 1) {
+      if (expandT <= 0) continue; // skip entirely before expand starts
+      ctx.globalAlpha = expandT;
+    }
 
     const isHighlighted =
       source === hoveredNode ||
@@ -196,10 +206,15 @@ function drawLinks(ctx, links, hoveredNode, selectedNode) {
     }
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // Reset alpha after drift links
+    if (link.isDriftLink && expandT < 1) {
+      ctx.globalAlpha = 1;
+    }
   }
 }
 
-function drawNodes(ctx, nodes, hoveredNode, selectedNode, time) {
+function drawNodes(ctx, nodes, hoveredNode, selectedNode, time, expandT) {
   if (!nodes) return;
 
   for (const node of nodes) {
@@ -212,7 +227,13 @@ function drawNodes(ctx, nodes, hoveredNode, selectedNode, time) {
     } else if (node.isChainBridge) {
       drawChainBridgeNode(ctx, node, isActive, time);
     } else if (node.isDrift) {
+      // Fade in drift nodes with expand transition
+      if (expandT < 1) {
+        if (expandT <= 0) continue;
+        ctx.globalAlpha = expandT;
+      }
       drawDriftNode(ctx, node, isActive, time);
+      if (expandT < 1) ctx.globalAlpha = 1;
     } else if (node.isHiddenGem) {
       drawHiddenGemNode(ctx, node, isActive, time);
     } else {

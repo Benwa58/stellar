@@ -68,7 +68,7 @@ export function createSimulation(nodes, links, width, height) {
     .force(
       'driftRadial',
       forceRadial(
-        Math.min(width, height) * 0.55,
+        Math.max(width, height) * 0.45,
         width / 2,
         height / 2
       ).strength((d) => (d.isDrift ? 0.5 : 0))
