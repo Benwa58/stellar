@@ -29,6 +29,9 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
     if (nodes.length === 0) return;
     setSharing(true);
     try {
+      // Capture image for link preview thumbnail
+      const thumbnailDataUrlForShare = canvasRef.current?.captureImage({ watermark: true });
+
       const res = await createGalaxyShare({
         mapName: mapName.trim() || 'Galaxy Map',
         seedArtists: (seedArtists || []).map((a) => ({
@@ -41,6 +44,7 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
         galaxyData: { nodes, links },
         nodeCount: nodes.length,
         linkCount: links.length,
+        thumbnail: thumbnailDataUrlForShare || null,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Share failed');

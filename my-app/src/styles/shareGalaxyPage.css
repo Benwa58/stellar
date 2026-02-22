@@ -164,7 +164,10 @@
   z-index: 20;
 }
 
-.share-galaxy-page-cta-btn {
+.share-galaxy-page-cta-btn,
+.share-galaxy-page-cta-btn:visited,
+.share-galaxy-page-cta-btn:hover,
+.share-galaxy-page-cta-btn:active {
   display: inline-flex;
   align-items: center;
   gap: 8px;

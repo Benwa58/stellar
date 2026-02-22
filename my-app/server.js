@@ -111,9 +111,53 @@ app.use(express.static(buildPath, {
   },
 }));
 
-// --- SPA fallback ---
+// --- SPA fallback (with OG meta injection for shared galaxies) ---
+const fs = require('fs');
+const db = require('./server/db');
+
 app.get('*path', (req, res) => {
   const indexPath = path.join(buildPath, 'index.html');
+
+  // Check if this is a shared galaxy page — inject OG meta tags for link previews
+  const galaxyMatch = req.path.match(/^\/galaxy\/([a-f0-9-]+)$/);
+  if (galaxyMatch) {
+    try {
+      const share = db.getSharedGalaxy(galaxyMatch[1]);
+      if (share) {
+        let html = fs.readFileSync(indexPath, 'utf8');
+        const origin = `${req.protocol}://${req.get('host')}`;
+        const shareUrl = `${origin}/galaxy/${share.id}`;
+        const imageUrl = `${origin}/api/galaxy-shares/${share.id}/image`;
+        const seedArtists = JSON.parse(share.seed_artists);
+        const description = `A galaxy of ${share.node_count} artists and ${share.link_count} connections${seedArtists.length ? ' — from ' + seedArtists.map(a => a.name).join(', ') : ''}. Explore it on Stellar.`;
+
+        const ogTags = `
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="${share.map_name.replace(/"/g, '&quot;')} — Stellar" />
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}" />
+    <meta property="og:image" content="${imageUrl}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="${shareUrl}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${share.map_name.replace(/"/g, '&quot;')} — Stellar" />
+    <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}" />
+    <meta name="twitter:image" content="${imageUrl}" />`;
+
+        html = html.replace('</head>', `${ogTags}\n  </head>`);
+        html = html.replace(
+          /<title>.*?<\/title>/,
+          `<title>${share.map_name.replace(/</g, '&lt;')} — Stellar</title>`
+        );
+
+        return res.set('Cache-Control', 'no-cache').type('html').send(html);
+      }
+    } catch (err) {
+      console.error('OG meta injection error:', err.message);
+      // Fall through to normal SPA serving
+    }
+  }
+
   res.set('Cache-Control', 'no-cache').sendFile(indexPath, (err) => {
     if (err) {
       res.status(404).send('Not found. Run "npm run build" first.');

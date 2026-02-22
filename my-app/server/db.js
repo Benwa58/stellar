@@ -101,6 +101,7 @@ function initSchema() {
       map_name TEXT NOT NULL,
       seed_artists TEXT NOT NULL,
       galaxy_data TEXT NOT NULL,
+      thumbnail BLOB,
       node_count INTEGER NOT NULL DEFAULT 0,
       link_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
@@ -291,11 +292,15 @@ function cleanupExpiredResetTokens() {
 
 // --- Shared galaxy helpers ---
 
-function createSharedGalaxy(id, { mapName, seedArtists, galaxyData, nodeCount, linkCount, ownerUserId }) {
+function createSharedGalaxy(id, { mapName, seedArtists, galaxyData, nodeCount, linkCount, ownerUserId, thumbnail }) {
   getDb().prepare(`
-    INSERT INTO shared_galaxies (id, owner_user_id, map_name, seed_artists, galaxy_data, node_count, link_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, ownerUserId || null, mapName, JSON.stringify(seedArtists), JSON.stringify(galaxyData), nodeCount || 0, linkCount || 0);
+    INSERT INTO shared_galaxies (id, owner_user_id, map_name, seed_artists, galaxy_data, thumbnail, node_count, link_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, ownerUserId || null, mapName, JSON.stringify(seedArtists), JSON.stringify(galaxyData), thumbnail || null, nodeCount || 0, linkCount || 0);
+}
+
+function getSharedGalaxyThumbnail(id) {
+  return getDb().prepare('SELECT thumbnail FROM shared_galaxies WHERE id = ?').get(id);
 }
 
 function getSharedGalaxy(id) {
@@ -335,4 +340,5 @@ module.exports = {
   cleanupExpiredResetTokens,
   createSharedGalaxy,
   getSharedGalaxy,
+  getSharedGalaxyThumbnail,
 };

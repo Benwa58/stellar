@@ -8,7 +8,7 @@ const router = express.Router();
 // POST /api/galaxy-shares — create a shared galaxy map
 router.post('/', optionalAuth, (req, res) => {
   try {
-    const { mapName, seedArtists, galaxyData, nodeCount, linkCount } = req.body;
+    const { mapName, seedArtists, galaxyData, nodeCount, linkCount, thumbnail } = req.body;
 
     if (!mapName || typeof mapName !== 'string' || !mapName.trim()) {
       return res.status(400).json({ error: 'Map name is required.' });
@@ -26,6 +26,13 @@ router.post('/', optionalAuth, (req, res) => {
       return res.status(400).json({ error: 'Maximum 2000 links per shared galaxy.' });
     }
 
+    // Decode base64 thumbnail to buffer if provided
+    let thumbnailBuf = null;
+    if (thumbnail && typeof thumbnail === 'string') {
+      const base64Data = thumbnail.replace(/^data:image\/\w+;base64,/, '');
+      thumbnailBuf = Buffer.from(base64Data, 'base64');
+    }
+
     const id = crypto.randomUUID();
     db.createSharedGalaxy(id, {
       mapName: mapName.trim(),
@@ -34,6 +41,7 @@ router.post('/', optionalAuth, (req, res) => {
       nodeCount: nodeCount || galaxyData.nodes.length,
       linkCount: linkCount || galaxyData.links.length,
       ownerUserId: req.userId,
+      thumbnail: thumbnailBuf,
     });
 
     res.status(201).json({ id, url: `/galaxy/${id}` });
@@ -63,6 +71,22 @@ router.get('/:id', (req, res) => {
   } catch (err) {
     console.error('Get galaxy share error:', err);
     res.status(500).json({ error: 'Failed to retrieve shared galaxy.' });
+  }
+});
+
+// GET /api/galaxy-shares/:id/image — serve the thumbnail as PNG (for OG/link previews)
+router.get('/:id/image', (req, res) => {
+  try {
+    const row = db.getSharedGalaxyThumbnail(req.params.id);
+    if (!row || !row.thumbnail) {
+      return res.status(404).send('No image available');
+    }
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(row.thumbnail);
+  } catch (err) {
+    console.error('Get galaxy thumbnail error:', err);
+    res.status(500).send('Failed to load image');
   }
 });
 
