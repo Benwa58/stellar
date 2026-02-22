@@ -167,6 +167,22 @@
   margin-left: auto;
 }
 
+.export-autoplay-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.export-autoplay-hint {
+  font-size: 0.62rem;
+  color: var(--color-text-muted, #555577);
+  margin-left: auto;
+  font-style: italic;
+}
+
 /* Action buttons section */
 .export-actions {
   padding: 14px 20px;

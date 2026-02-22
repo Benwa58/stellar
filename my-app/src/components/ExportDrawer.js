@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useAppState } from '../state/AppContext';
 import { useAuth, useAuthActions } from '../state/AuthContext';
 import { useAudioPreview } from '../hooks/useAudioPreview';
@@ -22,6 +22,8 @@ function ExportDrawer({ onClose, seedArtists }) {
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState(null);
   const [sharing, setSharing] = useState(false);
+  const [autoplay, setAutoplay] = useState(true);
+  const autoplayStartedRef = useRef(false);
 
   // Filter nodes based on dislike toggle
   const allNodes = useMemo(() => galaxyData?.nodes || [], [galaxyData]);
@@ -40,9 +42,6 @@ function ExportDrawer({ onClose, seedArtists }) {
   // Batch-fetch tracks for filtered nodes
   const { tracks, progress, isLoading } = useExportTracks(filteredNodes);
 
-  // Independent audio preview for the drawer
-  const audio = useAudioPreview({});
-
   const trackList = useMemo(() => {
     const list = [];
     for (const node of filteredNodes) {
@@ -51,6 +50,35 @@ function ExportDrawer({ onClose, seedArtists }) {
     }
     return list;
   }, [filteredNodes, tracks]);
+
+  // Refs so the onEnded callback reads fresh values without re-creating audio
+  const trackListRef = useRef(trackList);
+  trackListRef.current = trackList;
+  const autoplayRef = useRef(autoplay);
+  autoplayRef.current = autoplay;
+
+  // Autoplay: when a track ends, play the next one with a preview
+  const handleTrackEnded = useCallback(() => {
+    if (!autoplayRef.current || !autoplayStartedRef.current) return;
+    const list = trackListRef.current;
+    const currentId = audioInstanceRef.current?.currentTrack?.id;
+    const currentIdx = list.findIndex((t) => t.id === currentId);
+    if (currentIdx === -1) return;
+
+    // Find the next track with a preview, starting after current
+    for (let i = currentIdx + 1; i < list.length; i++) {
+      if (list[i].previewUrl) {
+        audioInstanceRef.current?.play(list[i]);
+        return;
+      }
+    }
+    // Reached end of playlist, stop
+  }, []);
+
+  // Independent audio preview for the drawer
+  const audio = useAudioPreview({ onEnded: handleTrackEnded });
+  const audioInstanceRef = useRef(audio);
+  audioInstanceRef.current = audio;
 
   // Copy Spotify links
   const handleCopyLinks = useCallback(async () => {
@@ -124,13 +152,14 @@ function ExportDrawer({ onClose, seedArtists }) {
     }
   }, [user, showAuthModal, trackList, playlistName, seedArtists, allNodes.length]);
 
-  // Preview toggle
+  // Preview toggle — starts autoplay chain on first manual play
   const handlePreviewToggle = useCallback(
     (track) => {
       if (audio.isPlaying && audio.currentTrack?.id === track.id) {
         audio.pause();
       } else {
         audio.play(track);
+        autoplayStartedRef.current = true;
       }
     },
     [audio]
@@ -191,6 +220,19 @@ function ExportDrawer({ onClose, seedArtists }) {
             )}
           </div>
         )}
+
+        {/* Autoplay toggle */}
+        <div className="export-autoplay-filter">
+          <button
+            className={`export-dislike-toggle ${autoplay ? 'active' : ''}`}
+            onClick={() => setAutoplay((v) => !v)}
+            aria-label="Toggle autoplay"
+          />
+          <span className="export-dislike-label">Autoplay</span>
+          <span className="export-autoplay-hint">
+            {autoplay ? 'Plays next after preview ends' : 'Off'}
+          </span>
+        </div>
 
         {/* Actions */}
         <div className="export-actions">
