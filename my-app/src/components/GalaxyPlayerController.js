@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppState, useDispatch } from '../state/AppContext';
 import { SELECT_NODE } from '../state/actions';
 import { useAudioPreview } from '../hooks/useAudioPreview';
@@ -243,6 +244,10 @@ function GalaxyPlayerController({ canvasRef }) {
 
   const playlist = getPlaylist();
 
+  // Portal target: render the player bar into .galaxy-view so it isn't
+  // trapped inside the .galaxy-toolbar (which is position: absolute).
+  const galaxyView = document.querySelector('.galaxy-view');
+
   return (
     <>
       {!isActive && (
@@ -258,7 +263,7 @@ function GalaxyPlayerController({ canvasRef }) {
         </button>
       )}
 
-      {isActive && (
+      {isActive && galaxyView && createPortal(
         <PreviewPlayer
           currentTrack={currentNodeTrack}
           isPlaying={isPlaying}
@@ -272,7 +277,8 @@ function GalaxyPlayerController({ canvasRef }) {
           onModeToggle={handleModeToggle}
           currentIndex={currentIndex}
           totalCount={playlist.length}
-        />
+        />,
+        galaxyView
       )}
     </>
   );
