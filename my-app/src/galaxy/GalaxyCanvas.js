@@ -149,12 +149,21 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     const existingNodes = stateRef.current.nodes || [];
     const existingLinks = stateRef.current.links || [];
 
-    // Position new nodes at the periphery (outside existing bounds)
+    // Compute centroid and max extent of existing non-drift nodes
     const cx = existingNodes.reduce((s, n) => s + (n.x || 0), 0) / (existingNodes.length || 1);
     const cy = existingNodes.reduce((s, n) => s + (n.y || 0), 0) / (existingNodes.length || 1);
+    let maxDist = 0;
+    for (const n of existingNodes) {
+      if (n.isDrift) continue;
+      const dx = (n.x || 0) - cx;
+      const dy = (n.y || 0) - cy;
+      maxDist = Math.max(maxDist, Math.sqrt(dx * dx + dy * dy));
+    }
+    // Position new drift nodes in a ring beyond the existing galaxy
+    const orbitRadius = Math.max(maxDist * 1.3, 350);
     for (const node of graph.nodes) {
       const angle = Math.random() * Math.PI * 2;
-      const dist = 300 + Math.random() * 200;
+      const dist = orbitRadius + Math.random() * 100;
       node.x = cx + Math.cos(angle) * dist;
       node.y = cy + Math.sin(angle) * dist;
     }
@@ -163,11 +172,16 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     stateRef.current.nodes = [...existingNodes, ...graph.nodes];
     stateRef.current.links = [...existingLinks, ...graph.links];
 
-    // Reheat simulation with merged data
+    // Reheat simulation and update the drift radial force to target the outer orbit
     if (simulationRef.current) {
       simulationRef.current.nodes(stateRef.current.nodes);
       simulationRef.current.force('link').links(stateRef.current.links);
-      simulationRef.current.alpha(0.3).restart();
+      // Update the radial force target to match actual galaxy extent
+      const driftRadial = simulationRef.current.force('driftRadial');
+      if (driftRadial) {
+        driftRadial.radius(orbitRadius).x(cx).y(cy);
+      }
+      simulationRef.current.alpha(0.35).restart();
     }
   }, []);
 

@@ -103,22 +103,25 @@ function drawBackground(ctx, w, h, expandT) {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  // Expanded mode: warm edge haze + faint peripheral glow
+  // Expanded mode: warm edge vignette + core color shift
   if (expandT > 0) {
     const ease = expandT * expandT * (3 - 2 * expandT); // smoothstep
+    const maxDim = Math.max(w, h);
 
-    // Warm coral haze around the edges — like the universe frontier opened up
-    const edgeGrad = ctx.createRadialGradient(w / 2, h / 2, Math.max(w, h) * 0.25, w / 2, h / 2, Math.max(w, h) * 0.75);
+    // Warm vignette around the entire edge — unmistakable border glow
+    const edgeGrad = ctx.createRadialGradient(w / 2, h / 2, maxDim * 0.15, w / 2, h / 2, maxDim * 0.72);
     edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    edgeGrad.addColorStop(0.6, 'rgba(0, 0, 0, 0)');
-    edgeGrad.addColorStop(0.85, `rgba(50, 20, 15, ${0.25 * ease})`);
-    edgeGrad.addColorStop(1, `rgba(80, 30, 20, ${0.35 * ease})`);
+    edgeGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0)');
+    edgeGrad.addColorStop(0.7, `rgba(60, 20, 12, ${0.3 * ease})`);
+    edgeGrad.addColorStop(0.88, `rgba(90, 30, 15, ${0.5 * ease})`);
+    edgeGrad.addColorStop(1, `rgba(110, 35, 18, ${0.6 * ease})`);
     ctx.fillStyle = edgeGrad;
     ctx.fillRect(0, 0, w, h);
 
-    // Shift the inner core slightly warmer too
-    const coreGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.3);
-    coreGrad.addColorStop(0, `rgba(25, 15, 35, ${0.15 * ease})`);
+    // Warm the core from cold blue to a slightly purple-warm tint
+    const coreGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, maxDim * 0.35);
+    coreGrad.addColorStop(0, `rgba(30, 15, 40, ${0.25 * ease})`);
+    coreGrad.addColorStop(0.6, `rgba(20, 10, 30, ${0.12 * ease})`);
     coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = coreGrad;
     ctx.fillRect(0, 0, w, h);

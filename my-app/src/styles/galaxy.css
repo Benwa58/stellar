@@ -614,15 +614,10 @@
   }
 
   .expand-universe-btn {
-    top: auto;
-    bottom: 200px;
+    top: 64px;
     left: 16px;
     font-size: 0.66rem;
     padding: 5px 12px 5px 8px;
-  }
-
-  .galaxy-view:has(.preview-player) .expand-universe-btn {
-    bottom: 320px;
   }
 
   .galaxy-info-modal {

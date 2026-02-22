@@ -6,6 +6,7 @@ import {
   forceCollide,
   forceX,
   forceY,
+  forceRadial,
 } from 'd3-force';
 import { FORCE_CONFIG } from '../utils/constants';
 
@@ -63,6 +64,15 @@ export function createSimulation(nodes, links, width, height) {
     )
     .force('x', forceX(width / 2).strength(0.02))
     .force('y', forceY(height / 2).strength(0.02))
+    // Push drift nodes to the outer orbit — they should always sit outside seeds/recs/gems
+    .force(
+      'driftRadial',
+      forceRadial(
+        Math.min(width, height) * 0.38,
+        width / 2,
+        height / 2
+      ).strength((d) => (d.isDrift ? 0.15 : 0))
+    )
     .alphaDecay(FORCE_CONFIG.alphaDecay)
     .velocityDecay(FORCE_CONFIG.velocityDecay);
 
