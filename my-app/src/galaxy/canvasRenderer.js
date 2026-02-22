@@ -20,14 +20,19 @@ export function createRenderer(canvas, getState) {
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
     const state = getState();
-    const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames, dislikeNames } = state;
+    const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames, dislikeNames, isExpanded } = state;
+
+    // Smoothly animate expand transition (0 → 1 over ~2s)
+    if (isExpanded && state.expandTransition < 1) {
+      state.expandTransition = Math.min(1, state.expandTransition + 0.008);
+    }
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
     // Background
-    drawBackground(ctx, w, h);
+    drawBackground(ctx, w, h, state.expandTransition);
 
     // Apply camera transform
     ctx.save();
@@ -91,12 +96,33 @@ export function createRenderer(canvas, getState) {
   return { start, stop, setNebulaCanvas, setSettled };
 }
 
-function drawBackground(ctx, w, h) {
+function drawBackground(ctx, w, h, expandT) {
   const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
   grad.addColorStop(0, GALAXY_COLORS.backgroundGradientInner);
   grad.addColorStop(1, GALAXY_COLORS.backgroundGradientOuter);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
+
+  // Expanded mode: warm edge haze + faint peripheral glow
+  if (expandT > 0) {
+    const ease = expandT * expandT * (3 - 2 * expandT); // smoothstep
+
+    // Warm coral haze around the edges — like the universe frontier opened up
+    const edgeGrad = ctx.createRadialGradient(w / 2, h / 2, Math.max(w, h) * 0.25, w / 2, h / 2, Math.max(w, h) * 0.75);
+    edgeGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    edgeGrad.addColorStop(0.6, 'rgba(0, 0, 0, 0)');
+    edgeGrad.addColorStop(0.85, `rgba(50, 20, 15, ${0.25 * ease})`);
+    edgeGrad.addColorStop(1, `rgba(80, 30, 20, ${0.35 * ease})`);
+    ctx.fillStyle = edgeGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Shift the inner core slightly warmer too
+    const coreGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.3);
+    coreGrad.addColorStop(0, `rgba(25, 15, 35, ${0.15 * ease})`);
+    coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = coreGrad;
+    ctx.fillRect(0, 0, w, h);
+  }
 }
 
 function drawLinks(ctx, links, hoveredNode, selectedNode) {

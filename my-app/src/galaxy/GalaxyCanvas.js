@@ -90,6 +90,8 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     selectedNode: null,
     favoriteNames: new Set(),
     dislikeNames: new Set(),
+    isExpanded: false,
+    expandTransition: 0,
   });
   const simulationRef = useRef(null);
   const rendererRef = useRef(null);
@@ -216,6 +218,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
       });
       if (newNodes.length > 0) {
         mergeNodes(newNodes, newLinks);
+        stateRef.current.isExpanded = true;
       }
       return;
     }
@@ -224,6 +227,8 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     stateRef.current.nodes = graph.nodes;
     stateRef.current.links = graph.links;
     stateRef.current.genreClusters = graph.genreClusters;
+    stateRef.current.isExpanded = false;
+    stateRef.current.expandTransition = 0;
   }, [galaxyData, mergeNodes]);
 
   // Set up simulation and renderer when size is ready
