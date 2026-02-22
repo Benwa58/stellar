@@ -100,12 +100,8 @@
 }
 
 .toolbar-tools-trigger {
-  gap: 6px;
-  padding: 0 14px;
+  padding: 0;
   border-radius: var(--radius-md, 8px);
-  font-family: var(--font-display, 'Space Grotesk', sans-serif);
-  font-size: 0.8rem;
-  font-weight: 600;
 }
 
 .toolbar-tools-trigger.active {
@@ -547,11 +543,6 @@
     padding: 8px 16px;
     font-size: 0.78rem;
     height: 36px;
-  }
-
-  .toolbar-tools-trigger {
-    font-size: 0.72rem;
-    padding: 0 10px;
   }
 
   .galaxy-legend-card {

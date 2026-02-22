@@ -14,6 +14,7 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
   const [copiedImage, setCopiedImage] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [thumbnailDataUrl, setThumbnailDataUrl] = useState(null);
+  const [error, setError] = useState(null);
 
   const nodes = useMemo(() => galaxyData?.nodes || [], [galaxyData]);
   const links = useMemo(() => galaxyData?.links || [], [galaxyData]);
@@ -24,13 +25,40 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
     if (dataUrl) setThumbnailDataUrl(dataUrl);
   }, [canvasRef]);
 
+  // Compress canvas to a smaller JPEG thumbnail for OG images
+  const compressThumbnail = useCallback(() => {
+    const canvas = canvasRef.current?.captureImage ? canvasRef.current : null;
+    if (!canvas) return null;
+    const sourceCanvas = document.querySelector('canvas');
+    if (!sourceCanvas) return null;
+    try {
+      const maxW = 1200;
+      const maxH = 630;
+      const scale = Math.min(maxW / sourceCanvas.width, maxH / sourceCanvas.height, 1);
+      const offscreen = document.createElement('canvas');
+      offscreen.width = Math.round(sourceCanvas.width * scale);
+      offscreen.height = Math.round(sourceCanvas.height * scale);
+      const ctx = offscreen.getContext('2d');
+      ctx.drawImage(sourceCanvas, 0, 0, offscreen.width, offscreen.height);
+      // Add watermark
+      ctx.font = "600 14px 'Space Grotesk', sans-serif";
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.textAlign = 'right';
+      ctx.fillText('Stellar', offscreen.width - 16, offscreen.height - 12);
+      return offscreen.toDataURL('image/jpeg', 0.7);
+    } catch {
+      return null;
+    }
+  }, [canvasRef]);
+
   // Create share link
   const handleCreateShare = useCallback(async () => {
     if (nodes.length === 0) return;
     setSharing(true);
+    setError(null);
     try {
-      // Capture image for link preview thumbnail
-      const thumbnailDataUrlForShare = canvasRef.current?.captureImage({ watermark: true });
+      // Compress thumbnail for OG link previews
+      const compressedThumb = compressThumbnail();
 
       const res = await createGalaxyShare({
         mapName: mapName.trim() || 'Galaxy Map',
@@ -44,7 +72,7 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
         galaxyData: { nodes, links },
         nodeCount: nodes.length,
         linkCount: links.length,
-        thumbnail: thumbnailDataUrlForShare || null,
+        thumbnail: compressedThumb,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Share failed');
@@ -58,10 +86,11 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
       setTimeout(() => setCopied(false), 3000);
     } catch (err) {
       console.warn('Share failed:', err.message);
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setSharing(false);
     }
-  }, [nodes, links, mapName, seedArtists]);
+  }, [nodes, links, mapName, seedArtists, compressThumbnail]);
 
   // Copy share link
   const handleCopyLink = useCallback(async () => {
@@ -152,6 +181,11 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
           <div className="share-galaxy-preview">
             <img src={thumbnailDataUrl} alt="Galaxy preview" />
           </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="share-galaxy-error">{error}</div>
         )}
 
         {/* Actions */}
