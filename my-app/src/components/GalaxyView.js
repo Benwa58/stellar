@@ -10,17 +10,20 @@ import SaveMapModal from './SaveMapModal';
 import GalaxyPlayerController from './GalaxyPlayerController';
 import GalaxyLegend from './GalaxyLegend';
 import ExportDrawer from './ExportDrawer';
+import ShareGalaxyDrawer from './ShareGalaxyDrawer';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
   const { selectedNode, seedArtists } = useAppState();
   const dispatch = useDispatch();
   const canvasRef = useRef(null);
+  const [showTools, setShowTools] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   const handleSaved = useCallback(() => {
     setShowSaveModal(false);
@@ -37,7 +40,8 @@ function GalaxyView() {
   }, [dispatch]);
 
   const handleOpenExport = useCallback(() => {
-    dispatch({ type: SELECT_NODE, payload: null }); // close detail panel
+    dispatch({ type: SELECT_NODE, payload: null });
+    setShowShare(false);
     setShowExport(true);
   }, [dispatch]);
 
@@ -45,8 +49,17 @@ function GalaxyView() {
     setShowExport(false);
   }, []);
 
+  const handleOpenShare = useCallback(() => {
+    dispatch({ type: SELECT_NODE, payload: null });
+    setShowExport(false);
+    setShowShare(true);
+  }, [dispatch]);
+
+  const handleCloseShare = useCallback(() => {
+    setShowShare(false);
+  }, []);
+
   const handleAddSeed = useCallback(async (node) => {
-    // Build the seed artist object from the node data
     const newSeed = {
       id: node.id,
       name: node.name,
@@ -56,15 +69,12 @@ function GalaxyView() {
       externalUrl: node.externalUrl,
     };
 
-    // Compute updated seeds before dispatch (state won't update synchronously)
     const updatedSeeds = seedArtists.some((a) => a.id === node.id)
       ? seedArtists
       : [...seedArtists, newSeed];
 
-    // This adds the seed and transitions to loading phase
     dispatch({ type: ADD_SEED_AND_REGENERATE, payload: newSeed });
 
-    // Regenerate with the expanded seed list
     try {
       const galaxyData = await generateRecommendations(
         updatedSeeds,
@@ -94,76 +104,108 @@ function GalaxyView() {
 
       <GalaxyCanvas ref={canvasRef} />
 
-      <button
-        className="reset-zoom-button"
-        onClick={() => canvasRef.current?.resetView()}
-        title="Reset zoom"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-          <path d="M15 3h6v6" />
-          <path d="M9 21H3v-6" />
-          <path d="M21 3l-7 7" />
-          <path d="M3 21l7-7" />
-        </svg>
-      </button>
+      {/* Bottom-left toolbar */}
+      <div className="galaxy-toolbar">
+        {/* Tools — expandable */}
+        <div className="toolbar-tools-wrapper">
+          <button
+            className={`toolbar-btn toolbar-tools-trigger ${showTools ? 'active' : ''}`}
+            onClick={() => setShowTools((prev) => !prev)}
+            title="Tools"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <span>Tools</span>
+          </button>
+          {showTools && (
+            <>
+              <div className="toolbar-tools-backdrop" onClick={() => setShowTools(false)} />
+              <div className="toolbar-tools-menu">
+                <button onClick={() => { canvasRef.current?.resetView(); setShowTools(false); }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <path d="M15 3h6v6" />
+                    <path d="M9 21H3v-6" />
+                    <path d="M21 3l-7 7" />
+                    <path d="M3 21l7-7" />
+                  </svg>
+                  <span>Reset Zoom</span>
+                </button>
+                <button onClick={() => { setShowInfo(true); setShowTools(false); }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <span>Info</span>
+                </button>
+                <button onClick={() => { setShowLegend((prev) => !prev); setShowTools(false); }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <line x1="14" y1="6.5" x2="21" y2="6.5" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <line x1="14" y1="17.5" x2="21" y2="17.5" />
+                  </svg>
+                  <span>Legend</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
-      <button
-        className="info-button"
-        onClick={() => setShowInfo(true)}
-        title="How it works"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-      </button>
+        {/* Save */}
+        <button
+          className={`toolbar-btn toolbar-icon ${showSaveConfirm ? 'saved' : ''}`}
+          onClick={() => setShowSaveModal(true)}
+          title={showSaveConfirm ? 'Saved!' : 'Save map'}
+        >
+          {showSaveConfirm ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+          )}
+        </button>
 
-      <button
-        className={`legend-button ${showLegend ? 'active' : ''}`}
-        onClick={() => setShowLegend((prev) => !prev)}
-        title="Legend"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <line x1="14" y1="6.5" x2="21" y2="6.5" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <line x1="14" y1="17.5" x2="21" y2="17.5" />
-        </svg>
-      </button>
-
-      <button
-        className={`save-map-button ${showSaveConfirm ? 'saved' : ''}`}
-        onClick={() => setShowSaveModal(true)}
-        title={showSaveConfirm ? 'Saved!' : 'Save map'}
-      >
-        {showSaveConfirm ? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-            <polyline points="20 6 9 17 4 12" />
+        {/* Share */}
+        <button
+          className="toolbar-btn toolbar-pill"
+          onClick={handleOpenShare}
+          title="Share galaxy"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
           </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
+          <span>Share</span>
+        </button>
+
+        {/* Playlist */}
+        <button
+          className="toolbar-btn toolbar-pill"
+          onClick={handleOpenExport}
+          title="Playlist"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
           </svg>
-        )}
-      </button>
+          <span>Playlist</span>
+        </button>
 
-      <button
-        className="export-button"
-        onClick={handleOpenExport}
-        title="Playlist"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-          <polyline points="16 6 12 2 8 6" />
-          <line x1="12" y1="2" x2="12" y2="15" />
-        </svg>
-        <span>Playlist</span>
-      </button>
-
-      <GalaxyPlayerController canvasRef={canvasRef} />
+        {/* Explore */}
+        <GalaxyPlayerController canvasRef={canvasRef} />
+      </div>
 
       {showLegend && <GalaxyLegend onClose={() => setShowLegend(false)} />}
       {showInfo && <GalaxyInfoModal onClose={() => setShowInfo(false)} />}
@@ -173,13 +215,20 @@ function GalaxyView() {
           onSaved={handleSaved}
         />
       )}
+      {showShare && (
+        <ShareGalaxyDrawer
+          onClose={handleCloseShare}
+          canvasRef={canvasRef}
+          seedArtists={seedArtists}
+        />
+      )}
       {showExport && (
         <ExportDrawer
           onClose={handleCloseExport}
           seedArtists={seedArtists}
         />
       )}
-      {selectedNode && !showExport && (
+      {selectedNode && !showExport && !showShare && (
         <ArtistDetailPanel
           node={selectedNode}
           onClose={handleClosePanel}

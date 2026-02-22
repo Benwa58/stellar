@@ -170,3 +170,19 @@ export function getSharedPlaylist(id) {
   });
 }
 
+// --- Shared Galaxy Maps API ---
+
+export function createGalaxyShare(data) {
+  return authFetch('/api/galaxy-shares', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function getGalaxyShare(id) {
+  return fetch(`/api/galaxy-shares/${id}`).then((res) => {
+    if (!res.ok) throw new Error('Galaxy not found');
+    return res.json();
+  });
+}
+

@@ -1,0 +1,217 @@
+/* Share Galaxy Page — public galaxy view at /galaxy/:id */
+
+.share-galaxy-page {
+  width: 100%;
+  height: 100vh;
+  background: var(--color-bg, #0a0a1a);
+  color: var(--color-text-primary, #e8e8f0);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Loading */
+.share-galaxy-page-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--color-text-secondary, #8888aa);
+  font-size: 0.85rem;
+}
+
+.share-galaxy-page-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--color-accent, #6366f1);
+  border-radius: 50%;
+  animation: shareGalaxyPageSpin 0.8s linear infinite;
+}
+
+@keyframes shareGalaxyPageSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error */
+.share-galaxy-page-error {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.share-galaxy-page-error h2 {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.share-galaxy-page-error p {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #8888aa);
+  margin: 0 0 24px 0;
+}
+
+/* Header */
+.share-galaxy-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  z-index: 20;
+  position: relative;
+}
+
+.share-galaxy-page-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #e8e8f0);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.share-galaxy-page-cta-link {
+  font-size: 0.78rem;
+  color: #818cf8;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.share-galaxy-page-cta-link:hover {
+  color: #a5b4fc;
+}
+
+/* Hero */
+.share-galaxy-page-hero {
+  padding: 20px 24px 16px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 10, 26, 0.95) 0%,
+    rgba(10, 10, 26, 0.6) 80%,
+    transparent 100%
+  );
+}
+
+.share-galaxy-page-title {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.03em;
+}
+
+.share-galaxy-page-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary, #8888aa);
+  flex-wrap: wrap;
+}
+
+.share-galaxy-page-meta-sep {
+  color: var(--color-text-muted, #555577);
+}
+
+.share-galaxy-page-meta-seeds {
+  color: var(--color-text-muted, #555577);
+}
+
+.share-galaxy-page-badge {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #818cf8;
+}
+
+/* Canvas container */
+.share-galaxy-page-canvas {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  margin-top: -20px;
+}
+
+/* Footer CTA */
+.share-galaxy-page-footer {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+}
+
+.share-galaxy-page-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: var(--color-accent, #6366f1);
+  color: white;
+  border: none;
+  border-radius: var(--radius-full, 9999px);
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35), 0 0 40px rgba(99, 102, 241, 0.15);
+  transition: all 0.2s ease;
+}
+
+.share-galaxy-page-cta-btn:hover {
+  background: var(--color-accent-hover, #818cf8);
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.5), 0 0 50px rgba(99, 102, 241, 0.2);
+  transform: scale(1.03);
+}
+
+.share-galaxy-page-cta-btn:active {
+  transform: scale(0.97);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .share-galaxy-page-header {
+    padding: 10px 16px;
+  }
+
+  .share-galaxy-page-hero {
+    padding: 16px 16px 12px;
+  }
+
+  .share-galaxy-page-title {
+    font-size: 1.1rem;
+  }
+
+  .share-galaxy-page-footer {
+    bottom: 16px;
+  }
+
+  .share-galaxy-page-cta-btn {
+    padding: 10px 24px;
+    font-size: 0.82rem;
+  }
+}

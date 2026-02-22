@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage';
 import LoadingAnimation from './components/LoadingAnimation';
 import GalaxyView from './components/GalaxyView';
 import SharePage from './components/SharePage';
+import ShareGalaxyPage from './components/ShareGalaxyPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import AuthModal from './components/auth/AuthModal';
 import './App.css';
@@ -17,6 +18,12 @@ function AppContent() {
   // Simple path-based routing for share pages
   const [sharePageId] = useState(() => {
     const match = window.location.pathname.match(/^\/p\/([a-f0-9-]+)$/);
+    return match ? match[1] : null;
+  });
+
+  // Galaxy share page routing
+  const [galaxyShareId] = useState(() => {
+    const match = window.location.pathname.match(/^\/galaxy\/([a-f0-9-]+)$/);
     return match ? match[1] : null;
   });
 
@@ -32,6 +39,11 @@ function AppContent() {
   // Render share page if URL matches /p/:id
   if (sharePageId) {
     return <SharePage playlistId={sharePageId} />;
+  }
+
+  // Render galaxy share page if URL matches /galaxy/:id
+  if (galaxyShareId) {
+    return <ShareGalaxyPage galaxyId={galaxyShareId} />;
   }
 
   // Render reset password page if URL matches /reset-password?token=...

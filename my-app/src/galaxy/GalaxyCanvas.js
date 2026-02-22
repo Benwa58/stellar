@@ -122,8 +122,27 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     return stateRef.current.nodes || [];
   }, []);
 
+  // Capture canvas as a PNG data URL with optional watermark
+  const captureImage = useCallback((options = {}) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    if (options.watermark) {
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      ctx.save();
+      ctx.font = `600 ${14 * dpr}px 'Space Grotesk', sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.textAlign = 'right';
+      ctx.fillText('Stellar', canvas.width - 16 * dpr, canvas.height - 12 * dpr);
+      ctx.restore();
+    }
+
+    return canvas.toDataURL('image/png');
+  }, []);
+
   // Expose methods to parent via ref
-  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes }), [resetView, focusOnNode, getNodes]);
+  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage }), [resetView, focusOnNode, getNodes, captureImage]);
 
   // Sync Redux selectedNode to canvas stateRef so the renderer highlights it.
   // The player dispatches SELECT_NODE with a copy, so we match by ID to find

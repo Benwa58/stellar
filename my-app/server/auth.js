@@ -161,6 +161,18 @@ function requireAuth(req, res, next) {
   }
 }
 
+function optionalAuth(req, res, next) {
+  const token = req.cookies.stellar_access;
+  if (!token) { req.userId = null; return next(); }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.userId = payload.userId;
+  } catch {
+    req.userId = null;
+  }
+  next();
+}
+
 // --- Routes ---
 
 // POST /api/auth/register
@@ -392,3 +404,4 @@ router.post('/reset-password', rateLimit, async (req, res) => {
 
 module.exports = router;
 module.exports.requireAuth = requireAuth;
+module.exports.optionalAuth = optionalAuth;

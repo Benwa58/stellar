@@ -94,6 +94,17 @@ function initSchema() {
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
+
+    CREATE TABLE IF NOT EXISTS shared_galaxies (
+      id TEXT PRIMARY KEY,
+      owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      map_name TEXT NOT NULL,
+      seed_artists TEXT NOT NULL,
+      galaxy_data TEXT NOT NULL,
+      node_count INTEGER NOT NULL DEFAULT 0,
+      link_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -278,6 +289,19 @@ function cleanupExpiredResetTokens() {
   getDb().prepare("DELETE FROM password_reset_tokens WHERE expires_at < datetime('now')").run();
 }
 
+// --- Shared galaxy helpers ---
+
+function createSharedGalaxy(id, { mapName, seedArtists, galaxyData, nodeCount, linkCount, ownerUserId }) {
+  getDb().prepare(`
+    INSERT INTO shared_galaxies (id, owner_user_id, map_name, seed_artists, galaxy_data, node_count, link_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, ownerUserId || null, mapName, JSON.stringify(seedArtists), JSON.stringify(galaxyData), nodeCount || 0, linkCount || 0);
+}
+
+function getSharedGalaxy(id) {
+  return getDb().prepare('SELECT * FROM shared_galaxies WHERE id = ?').get(id);
+}
+
 module.exports = {
   getDb,
   createUser,
@@ -309,4 +333,6 @@ module.exports = {
   markPasswordResetTokenUsed,
   updateUserPassword,
   cleanupExpiredResetTokens,
+  createSharedGalaxy,
+  getSharedGalaxy,
 };

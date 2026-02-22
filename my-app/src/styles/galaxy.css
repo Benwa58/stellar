@@ -25,46 +25,23 @@
   pointer-events: auto;
 }
 
-.reset-zoom-button {
+/* ===== Bottom toolbar — flexbox row ===== */
+
+.galaxy-toolbar {
   position: absolute;
   bottom: 20px;
   left: 20px;
   z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(15, 15, 35, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-md, 8px);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
+  gap: 10px;
 }
 
-.reset-zoom-button:hover {
-  background: rgba(25, 25, 55, 0.85);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.reset-zoom-button:active {
-  transform: scale(0.95);
-}
-
-/* Info button */
-.info-button {
-  position: absolute;
-  bottom: 20px;
-  left: 70px;
-  z-index: 20;
+/* Shared base button style */
+.toolbar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
   height: 40px;
   background: rgba(15, 15, 35, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -76,17 +53,154 @@
   transition: all 0.2s ease;
 }
 
-.info-button:hover {
+.toolbar-btn:hover {
   background: rgba(25, 25, 55, 0.85);
   border-color: rgba(255, 255, 255, 0.25);
   color: rgba(255, 255, 255, 0.9);
 }
 
-.info-button:active {
+.toolbar-btn:active {
   transform: scale(0.95);
 }
 
-/* Info modal overlay */
+/* Icon-only variant (Save) */
+.toolbar-icon {
+  width: 40px;
+}
+
+.toolbar-icon.saved {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+/* Pill variant (Share, Playlist) */
+.toolbar-pill {
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(15, 15, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.toolbar-pill:hover {
+  background: rgba(25, 25, 55, 0.9);
+  color: white;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+/* ===== Tools expandable ===== */
+
+.toolbar-tools-wrapper {
+  position: relative;
+}
+
+.toolbar-tools-trigger {
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: var(--radius-md, 8px);
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.toolbar-tools-trigger.active {
+  background: rgba(25, 25, 55, 0.9);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.toolbar-tools-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 29;
+}
+
+.toolbar-tools-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: rgba(12, 12, 32, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md, 12px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  animation: legendSlideUp 0.15s ease;
+  z-index: 31;
+}
+
+.toolbar-tools-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.toolbar-tools-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+/* Galaxy player start button — accent CTA, flows in toolbar */
+.galaxy-player-start-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 10px 24px;
+  background: var(--color-accent, #6366f1);
+  border: none;
+  border-radius: var(--radius-full, 9999px);
+  color: white;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35), 0 0 40px rgba(99, 102, 241, 0.15);
+  transition: all 0.2s ease;
+}
+
+.galaxy-player-start-button:hover {
+  background: var(--color-accent-hover, #818cf8);
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.5), 0 0 50px rgba(99, 102, 241, 0.2);
+  transform: scale(1.03);
+}
+
+.galaxy-player-start-button:active {
+  transform: scale(0.97);
+}
+
+/* Shift toolbar up when player bar is visible */
+.galaxy-view:has(.preview-player) .galaxy-toolbar {
+  bottom: 84px;
+}
+
+/* ===== Info modal ===== */
+
 .galaxy-info-overlay {
   position: fixed;
   top: 0;
@@ -195,44 +309,8 @@
   margin: 0;
 }
 
-/* Legend button */
-.legend-button {
-  position: absolute;
-  bottom: 20px;
-  left: 120px;
-  z-index: 31;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(15, 15, 35, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-md, 8px);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-}
+/* ===== Legend floating card ===== */
 
-.legend-button:hover {
-  background: rgba(25, 25, 55, 0.85);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.legend-button:active {
-  transform: scale(0.95);
-}
-
-.legend-button.active {
-  background: rgba(25, 25, 55, 0.9);
-  border-color: rgba(99, 102, 241, 0.4);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* Legend floating card */
 .galaxy-legend-backdrop {
   position: fixed;
   top: 0;
@@ -245,7 +323,7 @@
 .galaxy-legend-card {
   position: absolute;
   bottom: 70px;
-  left: 120px;
+  left: 20px;
   width: 260px;
   background: rgba(12, 12, 32, 0.95);
   backdrop-filter: blur(20px);
@@ -377,43 +455,8 @@
   bottom: 134px;
 }
 
-/* Save map button */
-.save-map-button {
-  position: absolute;
-  bottom: 20px;
-  left: 170px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(15, 15, 35, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-md, 8px);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-}
+/* ===== Save modal ===== */
 
-.save-map-button:hover {
-  background: rgba(25, 25, 55, 0.85);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.save-map-button:active {
-  transform: scale(0.95);
-}
-
-.save-map-button.saved {
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.3);
-}
-
-/* Save modal */
 .save-map-modal {
   width: 340px;
 }
@@ -478,128 +521,37 @@
   background: #818cf8;
 }
 
-/* Playlist button — pill-shaped, glass style */
-.export-button {
-  position: absolute;
-  bottom: 20px;
-  left: 220px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 20px;
-  background: rgba(15, 15, 35, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-full, 9999px);
-  color: rgba(255, 255, 255, 0.8);
-  font-family: var(--font-display, 'Space Grotesk', sans-serif);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: all 0.2s ease;
-}
-
-.export-button:hover {
-  background: rgba(25, 25, 55, 0.9);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: white;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
-}
-
-.export-button:active {
-  transform: scale(0.97);
-}
-
-/* Galaxy player start button — prominent CTA */
-.galaxy-player-start-button {
-  position: absolute;
-  bottom: 20px;
-  left: 356px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 24px;
-  background: var(--color-accent, #6366f1);
-  border: none;
-  border-radius: var(--radius-full, 9999px);
-  color: white;
-  font-family: var(--font-display, 'Space Grotesk', sans-serif);
-  font-size: 0.88rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35), 0 0 40px rgba(99, 102, 241, 0.15);
-  transition: all 0.2s ease;
-}
-
-.galaxy-player-start-button:hover {
-  background: var(--color-accent-hover, #818cf8);
-  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.5), 0 0 50px rgba(99, 102, 241, 0.2);
-  transform: scale(1.03);
-}
-
-.galaxy-player-start-button:active {
-  transform: scale(0.97);
-}
-
-/* Shift toolbar buttons up when player bar is visible */
-.galaxy-view:has(.preview-player) .reset-zoom-button,
-.galaxy-view:has(.preview-player) .info-button,
-.galaxy-view:has(.preview-player) .legend-button,
-.galaxy-view:has(.preview-player) .save-map-button,
-.galaxy-view:has(.preview-player) .export-button,
-.galaxy-view:has(.preview-player) .galaxy-player-start-button {
-  bottom: 84px;
-}
+/* ===== Responsive ===== */
 
 @media (max-width: 480px) {
-  .reset-zoom-button {
+  .galaxy-toolbar {
     bottom: 38px;
     left: 16px;
-    width: 36px;
+    gap: 8px;
+  }
+
+  .toolbar-btn {
     height: 36px;
   }
 
-  .info-button {
-    bottom: 38px;
-    left: 62px;
+  .toolbar-icon {
     width: 36px;
-    height: 36px;
   }
 
-  .legend-button {
-    bottom: 38px;
-    left: 108px;
-    width: 36px;
-    height: 36px;
-    z-index: 20;
-  }
-
-  .save-map-button {
-    bottom: 38px;
-    left: 154px;
-    width: 36px;
-    height: 36px;
-  }
-
-  .export-button {
-    bottom: 38px;
-    left: 200px;
+  .toolbar-pill {
     padding: 8px 16px;
     font-size: 0.78rem;
   }
 
   .galaxy-player-start-button {
-    bottom: 38px;
-    left: 320px;
     padding: 8px 16px;
     font-size: 0.78rem;
+    height: 36px;
+  }
+
+  .toolbar-tools-trigger {
+    font-size: 0.72rem;
+    padding: 0 10px;
   }
 
   .galaxy-legend-card {
@@ -615,12 +567,7 @@
     bottom: 206px;
   }
 
-  .galaxy-view:has(.preview-player) .reset-zoom-button,
-  .galaxy-view:has(.preview-player) .info-button,
-  .galaxy-view:has(.preview-player) .legend-button,
-  .galaxy-view:has(.preview-player) .save-map-button,
-  .galaxy-view:has(.preview-player) .export-button,
-  .galaxy-view:has(.preview-player) .galaxy-player-start-button {
+  .galaxy-view:has(.preview-player) .galaxy-toolbar {
     bottom: 160px;
   }
 
