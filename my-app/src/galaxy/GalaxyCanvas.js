@@ -151,20 +151,20 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     const existingLinks = stateRef.current.links || [];
 
     // Compute centroid and max extent of existing non-drift nodes
-    const cx = existingNodes.reduce((s, n) => s + (n.x || 0), 0) / (existingNodes.length || 1);
-    const cy = existingNodes.reduce((s, n) => s + (n.y || 0), 0) / (existingNodes.length || 1);
+    const coreNodes = existingNodes.filter((n) => !n.isDrift);
+    const cx = coreNodes.reduce((s, n) => s + (n.x || 0), 0) / (coreNodes.length || 1);
+    const cy = coreNodes.reduce((s, n) => s + (n.y || 0), 0) / (coreNodes.length || 1);
     let maxDist = 0;
-    for (const n of existingNodes) {
-      if (n.isDrift) continue;
+    for (const n of coreNodes) {
       const dx = (n.x || 0) - cx;
       const dy = (n.y || 0) - cy;
       maxDist = Math.max(maxDist, Math.sqrt(dx * dx + dy * dy));
     }
     // Position new drift nodes in a ring well beyond the existing galaxy
-    const orbitRadius = Math.max(maxDist * 1.6, 400);
+    const orbitRadius = Math.max(maxDist * 1.8, 400);
     for (const node of graph.nodes) {
       const angle = Math.random() * Math.PI * 2;
-      const dist = orbitRadius + Math.random() * 100;
+      const dist = orbitRadius + Math.random() * 120;
       node.x = cx + Math.cos(angle) * dist;
       node.y = cy + Math.sin(angle) * dist;
     }
@@ -174,15 +174,11 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     stateRef.current.links = [...existingLinks, ...graph.links];
     stateRef.current.driftOrbit = { cx, cy, radius: maxDist };
 
-    // Reheat simulation and update the drift radial force to target the outer orbit
+    // Reheat simulation — the adaptive tick handler in forceGraph.js will
+    // continuously update the drift radial target as the galaxy settles.
     if (simulationRef.current) {
       simulationRef.current.nodes(stateRef.current.nodes);
       simulationRef.current.force('link').links(stateRef.current.links);
-      // Update the radial force target to match actual galaxy extent
-      const driftRadial = simulationRef.current.force('driftRadial');
-      if (driftRadial) {
-        driftRadial.radius(orbitRadius).x(cx).y(cy);
-      }
       simulationRef.current.alpha(0.35).restart();
     }
   }, []);
