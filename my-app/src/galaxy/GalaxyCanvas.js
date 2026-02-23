@@ -187,8 +187,22 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     }
   }, []);
 
+  // Zoom relative to viewport center by a multiplier
+  const zoomBy = useCallback((factor) => {
+    const t = stateRef.current.transform;
+    const cx = size.width / 2;
+    const cy = size.height / 2;
+    const newScale = clamp(t.scale * factor, 0.2, 5);
+    const ratio = newScale / t.scale;
+    stateRef.current.transform = {
+      x: cx - (cx - t.x) * ratio,
+      y: cy - (cy - t.y) * ratio,
+      scale: newScale,
+    };
+  }, [size.width, size.height]);
+
   // Expose methods to parent via ref
-  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage, mergeNodes }), [resetView, focusOnNode, getNodes, captureImage, mergeNodes]);
+  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage, mergeNodes, zoomBy }), [resetView, focusOnNode, getNodes, captureImage, mergeNodes, zoomBy]);
 
   // Sync Redux selectedNode to canvas stateRef so the renderer highlights it.
   // The player dispatches SELECT_NODE with a copy, so we match by ID to find

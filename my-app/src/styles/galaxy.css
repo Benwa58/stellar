@@ -522,6 +522,55 @@
   background: #818cf8;
 }
 
+/* ===== Zoom controls — stacked above toolbar ===== */
+
+.zoom-controls {
+  position: absolute;
+  bottom: 70px;
+  left: 20px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 15, 35, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md, 8px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+.zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.zoom-btn:active {
+  transform: scale(0.9);
+}
+
+.zoom-btn + .zoom-btn {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Shift zoom controls up when player bar is visible */
+.galaxy-view:has(.preview-player) .zoom-controls {
+  bottom: 134px;
+}
+
 /* ===== Expand Universe ghost button ===== */
 
 .expand-universe-btn {
@@ -616,6 +665,20 @@
 
   .galaxy-view:has(.preview-player) .galaxy-toolbar {
     bottom: 160px;
+  }
+
+  .zoom-controls {
+    bottom: 84px;
+    left: 16px;
+  }
+
+  .zoom-btn {
+    width: 30px;
+    height: 26px;
+  }
+
+  .galaxy-view:has(.preview-player) .zoom-controls {
+    bottom: 206px;
   }
 
   .expand-universe-btn {

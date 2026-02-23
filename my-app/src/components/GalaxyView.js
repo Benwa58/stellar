@@ -157,6 +157,29 @@ function GalaxyView() {
         </button>
       )}
 
+      {/* Zoom controls — stacked above toolbar */}
+      <div className="zoom-controls">
+        <button
+          className="zoom-btn"
+          onClick={() => canvasRef.current?.zoomBy(1.4)}
+          title="Zoom in"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+            <line x1="12" y1="8" x2="12" y2="16" />
+            <line x1="8" y1="12" x2="16" y2="12" />
+          </svg>
+        </button>
+        <button
+          className="zoom-btn"
+          onClick={() => canvasRef.current?.zoomBy(0.7)}
+          title="Zoom out"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+            <line x1="8" y1="12" x2="16" y2="12" />
+          </svg>
+        </button>
+      </div>
+
       {/* Bottom-left toolbar */}
       <div className="galaxy-toolbar">
         {/* Tools — expandable */}
