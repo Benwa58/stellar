@@ -177,7 +177,7 @@ function ExportDrawer({ onClose, seedArtists }) {
       <div className="export-drawer-content">
         {/* Header */}
         <div className="export-drawer-header">
-          <h3 className="export-drawer-title">Export Playlist</h3>
+          <h3 className="export-drawer-title">Share Playlist</h3>
           <input
             className="export-playlist-name-input"
             type="text"

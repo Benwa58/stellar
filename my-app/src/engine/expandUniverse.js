@@ -7,8 +7,8 @@
  */
 import { getTopArtistsByTag, enrichArtists } from '../api/musicClient';
 
-const DRIFT_TAGS_TO_QUERY = 8;
-const DRIFT_ARTISTS_PER_TAG = 30;
+const DRIFT_TAGS_TO_QUERY = 10;
+const DRIFT_ARTISTS_PER_TAG = 40;
 
 /**
  * Discover drift nodes for an existing galaxy.
@@ -37,10 +37,17 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
     }
   }
 
-  // Pick top N most common tags
-  const topTags = Array.from(tagFreq.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, DRIFT_TAGS_TO_QUERY)
+  // Pick mid-frequency tags — not the most common (which yield superstars)
+  // but not the rarest (which have too few results). This targets the
+  // genre-adjacent fringe rather than the mainstream core.
+  const sortedTags = Array.from(tagFreq.entries())
+    .filter(([, count]) => count >= 2) // skip tags that appear only once
+    .sort((a, b) => b[1] - a[1]);
+
+  // Skip the top 3 most common tags (too broad), take the next slice
+  const skipTop = Math.min(3, Math.floor(sortedTags.length * 0.2));
+  const topTags = sortedTags
+    .slice(skipTop, skipTop + DRIFT_TAGS_TO_QUERY)
     .map(([tag]) => tag);
 
   if (topTags.length === 0) {
@@ -95,7 +102,10 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
   }
 
   // Phase 3: Score and select top candidates
-  // Score = tag overlap (how many of the top tags they appear in) + listener midrange bonus
+  // Drift should feel *adjacent* — artists from the fringe of the genre map,
+  // not the mainstream core. We prefer artists who:
+  // - appear in 1-2 of our queried tags (niche edge, not genre-spanning superstars)
+  // - have moderate-to-low listener counts (not household names)
   const allListeners = Array.from(candidateMap.values())
     .map((c) => c.listeners)
     .filter((l) => l > 0)
@@ -105,27 +115,38 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
     : 50000;
 
   const scored = Array.from(candidateMap.values()).map((candidate) => {
-    // Tag overlap score (0-1): how many of the top tags this artist appears in
-    const tagScore = candidate.tagCount / topTags.length;
+    // Adjacency score: artists in 1-2 tags are more "adjacent" than those
+    // appearing in many tags (who are likely mainstream genre-spanning acts)
+    let adjacencyScore;
+    if (candidate.tagCount === 1) {
+      adjacencyScore = 0.7; // single-tag match = interesting outlier
+    } else if (candidate.tagCount === 2) {
+      adjacencyScore = 1.0; // sweet spot: connects two genre areas
+    } else if (candidate.tagCount === 3) {
+      adjacencyScore = 0.6; // still ok
+    } else {
+      adjacencyScore = 0.3; // too many tags = likely a superstar
+    }
 
-    // Listener midrange bonus: prefer artists in the mid-popularity range
-    // (not superstars, not unknowns)
+    // Listener score: strongly favor less popular artists
+    // Drift should surface artists you're less likely to already know
     let listenerScore = 0;
     if (candidate.listeners > 0) {
       const ratio = candidate.listeners / medianListeners;
-      // Peak at 0.3-3x median, drops off for very popular or very obscure
-      if (ratio >= 0.3 && ratio <= 3) {
-        listenerScore = 0.8;
-      } else if (ratio > 3 && ratio <= 10) {
-        listenerScore = 0.5;
-      } else if (ratio > 0.1 && ratio < 0.3) {
-        listenerScore = 0.6;
+      if (ratio <= 0.15) {
+        listenerScore = 0.5; // very obscure — decent but may lack content
+      } else if (ratio <= 0.5) {
+        listenerScore = 1.0; // sweet spot: under the radar
+      } else if (ratio <= 1.5) {
+        listenerScore = 0.7; // around median — acceptable
+      } else if (ratio <= 5) {
+        listenerScore = 0.3; // popular — less interesting for drift
       } else {
-        listenerScore = 0.3;
+        listenerScore = 0.1; // superstar — penalize heavily
       }
     }
 
-    const score = tagScore * 0.7 + listenerScore * 0.3;
+    const score = adjacencyScore * 0.5 + listenerScore * 0.5;
 
     return { ...candidate, score };
   });
