@@ -622,6 +622,73 @@
   to { transform: rotate(360deg); }
 }
 
+/* ===== Regenerate Map — floating CTA when seeds are queued ===== */
+
+.regenerate-queue-btn {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--color-accent, #6366f1);
+  border: none;
+  border-radius: var(--radius-full, 9999px);
+  color: white;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.4), 0 0 50px rgba(99, 102, 241, 0.15);
+  transition: all 0.2s ease;
+  animation: regenSlideUp 0.25s ease;
+  white-space: nowrap;
+}
+
+@keyframes regenSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.regenerate-queue-btn:hover {
+  background: var(--color-accent-hover, #818cf8);
+  box-shadow: 0 4px 28px rgba(99, 102, 241, 0.55), 0 0 60px rgba(99, 102, 241, 0.2);
+  transform: translateX(-50%) scale(1.03);
+}
+
+.regenerate-queue-btn:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+.regenerate-queue-count {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.75;
+  padding-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Shift up when player bar is visible */
+.galaxy-view:has(.preview-player) .regenerate-queue-btn {
+  bottom: 134px;
+}
+
+/* Hide when drawers are open */
+.galaxy-view:has(.export-drawer) .regenerate-queue-btn,
+.galaxy-view:has(.share-galaxy-drawer) .regenerate-queue-btn {
+  display: none;
+}
+
 /* ===== Responsive ===== */
 
 @media (max-width: 480px) {
@@ -678,6 +745,16 @@
   }
 
   .galaxy-view:has(.preview-player) .zoom-controls {
+    bottom: 206px;
+  }
+
+  .regenerate-queue-btn {
+    bottom: 84px;
+    font-size: 0.78rem;
+    padding: 8px 18px;
+  }
+
+  .galaxy-view:has(.preview-player) .regenerate-queue-btn {
     bottom: 206px;
   }
 

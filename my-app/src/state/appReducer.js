@@ -17,6 +17,8 @@ export const initialState = {
   isPlaying: false,
 
   error: null,
+
+  pendingSeedQueue: [],
 };
 
 export function appReducer(state, action) {
@@ -99,13 +101,17 @@ export function appReducer(state, action) {
       };
 
     case actions.ADD_SEED_AND_REGENERATE: {
-      const exists = state.seedArtists.some((a) => a.id === action.payload.id);
-      const updatedSeeds = exists
-        ? state.seedArtists
-        : [...state.seedArtists, action.payload];
+      const newSeeds = Array.isArray(action.payload) ? action.payload : [action.payload];
+      const updatedSeeds = [...state.seedArtists];
+      for (const seed of newSeeds) {
+        if (!updatedSeeds.some((s) => s.id === seed.id)) {
+          updatedSeeds.push(seed);
+        }
+      }
       return {
         ...state,
         seedArtists: updatedSeeds,
+        pendingSeedQueue: [],
         phase: 'loading',
         loadingProgress: { phase: '', current: 0, total: 0, message: 'Initializing...' },
         galaxyData: null,
@@ -153,6 +159,26 @@ export function appReducer(state, action) {
         },
       };
     }
+
+    case actions.QUEUE_SEED: {
+      const artist = action.payload;
+      const alreadySeed = state.seedArtists.some((s) => s.id === artist.id);
+      const alreadyQueued = state.pendingSeedQueue.some((s) => s.id === artist.id);
+      if (alreadySeed || alreadyQueued) return state;
+      return {
+        ...state,
+        pendingSeedQueue: [...state.pendingSeedQueue, artist],
+      };
+    }
+
+    case actions.UNQUEUE_SEED:
+      return {
+        ...state,
+        pendingSeedQueue: state.pendingSeedQueue.filter((s) => s.id !== action.payload),
+      };
+
+    case actions.CLEAR_SEED_QUEUE:
+      return { ...state, pendingSeedQueue: [] };
 
     case actions.RESET:
       return { ...initialState };

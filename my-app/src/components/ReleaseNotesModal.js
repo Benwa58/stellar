@@ -3,6 +3,17 @@ import '../styles/landing.css';
 
 const RELEASES = [
   {
+    version: '1.6',
+    date: 'February 2026',
+    title: 'Batch Seed Selection',
+    items: [
+      'Queue multiple artists as new seeds without reloading the map — click "+" to queue, click again to unqueue.',
+      'A "Regenerate Map" button appears with a count of queued artists, triggering a single reload for all new seeds at once.',
+      'Zoom controls added to the bottom-left for quick +/- zooming.',
+      'Release notes now accessible from the galaxy view header.',
+    ],
+  },
+  {
     version: '1.5',
     date: 'February 2026',
     title: 'Expand Universe',

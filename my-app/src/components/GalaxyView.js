@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
-import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES } from '../state/actions';
+import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES, QUEUE_SEED, UNQUEUE_SEED } from '../state/actions';
 import { generateRecommendations } from '../engine/recommendationEngine';
 import { expandUniverse } from '../engine/expandUniverse';
 import Header from './Header';
@@ -15,7 +15,7 @@ import ShareGalaxyDrawer from './ShareGalaxyDrawer';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
-  const { selectedNode, seedArtists, galaxyData } = useAppState();
+  const { selectedNode, seedArtists, galaxyData, pendingSeedQueue } = useAppState();
   const dispatch = useDispatch();
   const canvasRef = useRef(null);
   const [showTools, setShowTools] = useState(false);
@@ -91,8 +91,8 @@ function GalaxyView() {
     }
   }, [isExpanding, hasExpanded, galaxyData, seedArtists, dispatch]);
 
-  const handleAddSeed = useCallback(async (node) => {
-    const newSeed = {
+  const handleQueueSeed = useCallback((node) => {
+    const seed = {
       id: node.id,
       name: node.name,
       image: node.image,
@@ -100,16 +100,21 @@ function GalaxyView() {
       genres: node.genres || [],
       externalUrl: node.externalUrl,
     };
+    dispatch({ type: QUEUE_SEED, payload: seed });
+  }, [dispatch]);
 
-    const updatedSeeds = seedArtists.some((a) => a.id === node.id)
-      ? seedArtists
-      : [...seedArtists, newSeed];
+  const handleUnqueueSeed = useCallback((id) => {
+    dispatch({ type: UNQUEUE_SEED, payload: id });
+  }, [dispatch]);
 
-    dispatch({ type: ADD_SEED_AND_REGENERATE, payload: newSeed });
+  const handleRegenerateWithQueue = useCallback(async () => {
+    if (pendingSeedQueue.length === 0) return;
+    const allSeeds = [...seedArtists, ...pendingSeedQueue];
+    dispatch({ type: ADD_SEED_AND_REGENERATE, payload: pendingSeedQueue });
 
     try {
       const galaxyData = await generateRecommendations(
-        updatedSeeds,
+        allSeeds,
         (progress) => {
           dispatch({ type: SET_LOADING_PROGRESS, payload: progress });
         }
@@ -122,7 +127,7 @@ function GalaxyView() {
         payload: err.message || 'Failed to regenerate. Please try again.',
       });
     }
-  }, [seedArtists, dispatch]);
+  }, [seedArtists, pendingSeedQueue, dispatch]);
 
   return (
     <div className="galaxy-view">
@@ -304,11 +309,28 @@ function GalaxyView() {
           seedArtists={seedArtists}
         />
       )}
+      {/* Regenerate Map — floating CTA when seeds are queued */}
+      {pendingSeedQueue.length > 0 && (
+        <button className="regenerate-queue-btn" onClick={handleRegenerateWithQueue}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+            <path d="M23 4v6h-6" />
+            <path d="M1 20v-6h6" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          <span>Regenerate Map</span>
+          <span className="regenerate-queue-count">
+            {pendingSeedQueue.length} artist{pendingSeedQueue.length !== 1 ? 's' : ''}
+          </span>
+        </button>
+      )}
+
       {selectedNode && !showExport && !showShare && (
         <ArtistDetailPanel
           node={selectedNode}
           onClose={handleClosePanel}
-          onAddSeed={handleAddSeed}
+          onQueueSeed={handleQueueSeed}
+          onUnqueueSeed={handleUnqueueSeed}
+          pendingSeeds={pendingSeedQueue}
         />
       )}
     </div>

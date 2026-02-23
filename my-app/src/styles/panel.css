@@ -291,6 +291,18 @@
   box-shadow: 0 0 12px rgba(255, 215, 0, 0.15);
 }
 
+.panel-action-seed.queued {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #818cf8;
+}
+
+.panel-action-seed.queued:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: none;
+}
+
 /* More Songs button */
 .panel-more-songs-btn {
   display: flex;
