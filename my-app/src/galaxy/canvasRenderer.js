@@ -126,11 +126,11 @@ function drawBackground(ctx, w, h, expandT, driftOrbit, transform) {
 
     const driftGrad = ctx.createRadialGradient(screenCx, screenCy, innerR, screenCx, screenCy, outerR);
     driftGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    driftGrad.addColorStop(0.1, `rgba(40, 14, 8, ${0.06 * ease})`);
-    driftGrad.addColorStop(0.3, `rgba(90, 35, 15, ${0.14 * ease})`);
-    driftGrad.addColorStop(0.55, `rgba(130, 50, 20, ${0.2 * ease})`);
-    driftGrad.addColorStop(0.8, `rgba(150, 58, 22, ${0.24 * ease})`);
-    driftGrad.addColorStop(1, `rgba(160, 60, 25, ${0.26 * ease})`);
+    driftGrad.addColorStop(0.15, `rgba(40, 14, 8, ${0.04 * ease})`);
+    driftGrad.addColorStop(0.35, `rgba(80, 30, 12, ${0.08 * ease})`);
+    driftGrad.addColorStop(0.55, `rgba(100, 40, 16, ${0.1 * ease})`);
+    driftGrad.addColorStop(0.75, `rgba(90, 35, 14, ${0.07 * ease})`);
+    driftGrad.addColorStop(1, `rgba(60, 22, 10, ${0.03 * ease})`);
     ctx.fillStyle = driftGrad;
     ctx.fillRect(0, 0, w, h);
   }
