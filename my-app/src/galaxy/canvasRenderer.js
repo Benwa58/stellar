@@ -22,9 +22,11 @@ export function createRenderer(canvas, getState) {
     const state = getState();
     const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames, dislikeNames, knownNames, discoveredNames, isExpanded } = state;
 
-    // Smoothly animate expand transition (0 → 1 over ~1.2s)
+    // Smoothly animate expand transition (0 → 1 over ~1.2s) or contract (1 → 0)
     if (isExpanded && state.expandTransition < 1) {
       state.expandTransition = Math.min(1, state.expandTransition + 0.014);
+    } else if (!isExpanded && state.expandTransition > 0) {
+      state.expandTransition = Math.max(0, state.expandTransition - 0.018);
     }
 
     ctx.save();

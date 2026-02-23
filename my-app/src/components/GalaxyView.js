@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
-import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES, QUEUE_SEED, UNQUEUE_SEED } from '../state/actions';
+import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES, REMOVE_DRIFT_NODES, QUEUE_SEED, UNQUEUE_SEED } from '../state/actions';
 import { generateRecommendations } from '../engine/recommendationEngine';
 import { expandUniverse } from '../engine/expandUniverse';
 import Header from './Header';
@@ -31,6 +31,7 @@ function GalaxyView() {
   const [showReleaseNotes, setShowReleaseNotes] = useState(false);
   const [isExpanding, setIsExpanding] = useState(false);
   const [hasExpanded, setHasExpanded] = useState(false);
+  const [isContracting, setIsContracting] = useState(false);
 
   // Compute unknown artists count — non-seed nodes not in known, favorites, dislikes, or discovered
   const unknownCount = useMemo(() => {
@@ -113,6 +114,19 @@ function GalaxyView() {
     }
   }, [isExpanding, hasExpanded, galaxyData, seedArtists, dispatch]);
 
+  const handleContractUniverse = useCallback(() => {
+    if (isContracting || !hasExpanded) return;
+    setIsContracting(true);
+    // Trigger canvas fade-out animation, then clean up state
+    canvasRef.current?.contractUniverse();
+    // Wait for the fade to finish (~1s) before updating Redux and resetting flags
+    setTimeout(() => {
+      dispatch({ type: REMOVE_DRIFT_NODES });
+      setHasExpanded(false);
+      setIsContracting(false);
+    }, 1100);
+  }, [isContracting, hasExpanded, dispatch]);
+
   const handleQueueSeed = useCallback((node) => {
     const seed = {
       id: node.id,
@@ -163,7 +177,7 @@ function GalaxyView() {
 
       <GalaxyCanvas ref={canvasRef} />
 
-      {/* Expand Universe — upper-left ghost button */}
+      {/* Expand / Contract Universe — upper-left ghost button */}
       {!hasExpanded && galaxyData && (
         <button
           className="expand-universe-btn"
@@ -181,6 +195,24 @@ function GalaxyView() {
             </svg>
           )}
           <span>Expand Universe</span>
+        </button>
+      )}
+      {hasExpanded && galaxyData && (
+        <button
+          className="expand-universe-btn contract-universe-btn"
+          onClick={handleContractUniverse}
+          disabled={isContracting}
+          title="Hide drift nodes and return to core galaxy"
+        >
+          {isContracting ? (
+            <span className="expand-universe-spinner" />
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+              <circle cx="12" cy="12" r="10" strokeDasharray="3 3" />
+              <line x1="12" y1="9" x2="12" y2="15" />
+            </svg>
+          )}
+          <span>Contract Universe</span>
         </button>
       )}
 

@@ -185,6 +185,43 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     }
   }, []);
 
+  // Contract universe — fade out drift nodes, then remove them
+  const contractUniverse = useCallback(() => {
+    // Start fade-out by marking as not expanded
+    stateRef.current.isExpanded = false;
+
+    // Wait for fade-out animation to complete (~1s at 0.018/frame ≈ 56 frames)
+    // then strip drift nodes from the simulation
+    const checkFade = () => {
+      if (stateRef.current.expandTransition > 0) {
+        requestAnimationFrame(checkFade);
+        return;
+      }
+
+      // Remove drift nodes and links from stateRef
+      const coreNodes = (stateRef.current.nodes || []).filter((n) => !n.isDrift);
+      const coreLinks = (stateRef.current.links || []).filter((l) => !l.isDriftLink);
+      stateRef.current.nodes = coreNodes;
+      stateRef.current.links = coreLinks;
+      stateRef.current.driftOrbit = null;
+      stateRef.current.expandTransition = 0;
+
+      // Update the simulation with core-only data
+      if (simulationRef.current) {
+        simulationRef.current.nodes(coreNodes);
+        simulationRef.current.force('link').links(coreLinks);
+        simulationRef.current.alpha(0.15).restart();
+      }
+
+      // Auto-fit camera to core nodes
+      if (size.width > 0 && size.height > 0) {
+        const target = computeFitTransform(coreNodes, size.width, size.height);
+        animateTransform(stateRef, target, 600);
+      }
+    };
+    requestAnimationFrame(checkFade);
+  }, [size.width, size.height]);
+
   // Zoom relative to viewport center by a multiplier
   const zoomBy = useCallback((factor) => {
     const t = stateRef.current.transform;
@@ -200,7 +237,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   }, [size.width, size.height]);
 
   // Expose methods to parent via ref
-  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage, mergeNodes, zoomBy }), [resetView, focusOnNode, getNodes, captureImage, mergeNodes, zoomBy]);
+  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage, mergeNodes, contractUniverse, zoomBy }), [resetView, focusOnNode, getNodes, captureImage, mergeNodes, contractUniverse, zoomBy]);
 
   // Sync Redux selectedNode to canvas stateRef so the renderer highlights it.
   // The player dispatches SELECT_NODE with a copy, so we match by ID to find

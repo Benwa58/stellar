@@ -160,6 +160,23 @@ export function appReducer(state, action) {
       };
     }
 
+    case actions.REMOVE_DRIFT_NODES: {
+      const existingData = state.galaxyData;
+      if (!existingData) return state;
+      const coreNodes = existingData.nodes.filter((n) => !n.isDrift);
+      const coreLinks = existingData.links.filter((l) => !l.isDriftLink);
+      return {
+        ...state,
+        galaxyData: {
+          ...existingData,
+          nodes: coreNodes,
+          links: coreLinks,
+          genreClusters: clusterByGenre(coreNodes),
+          _driftContractGen: (existingData._driftContractGen || 0) + 1,
+        },
+      };
+    }
+
     case actions.QUEUE_SEED: {
       const artist = action.payload;
       const alreadySeed = state.seedArtists.some((s) => s.id === artist.id);

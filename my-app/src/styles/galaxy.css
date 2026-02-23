@@ -642,6 +642,22 @@
   opacity: 0.6;
 }
 
+/* Contract Universe — fade-in with slight slide */
+.contract-universe-btn {
+  animation: contractBtnFadeIn 0.5s ease both;
+}
+
+@keyframes contractBtnFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* Hide when drawers are open */
 .galaxy-view:has(.export-drawer) .expand-universe-btn,
 .galaxy-view:has(.share-galaxy-drawer) .expand-universe-btn {
