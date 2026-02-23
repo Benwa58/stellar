@@ -35,8 +35,8 @@ export const NODE_SIZES = {
   recMax: 14,
   gemMin: 2.5,
   gemMax: 10,
-  driftMin: 2.5,
-  driftMax: 10,
+  driftMin: 2,
+  driftMax: 7,
 };
 
 export const GENRE_COLORS = {
