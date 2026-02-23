@@ -131,6 +131,7 @@ function GalaxyView() {
           showBack
           onBack={handleBack}
           artistCount={seedArtists.length}
+          showReleaseNotes
         />
       </div>
 
