@@ -59,6 +59,129 @@
   border: 1px solid var(--color-border);
 }
 
+/* Header Icon Button (release notes, etc.) */
+.header-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Release Notes Modal */
+.release-notes-modal {
+  position: relative;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  background: rgba(12, 12, 32, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg, 20px);
+  padding: 28px 24px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+.release-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.release-notes-entry {
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.release-notes-entry:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.release-notes-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.release-notes-version {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-accent, #818cf8);
+  background: rgba(99, 102, 241, 0.12);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.02em;
+}
+
+.release-notes-date {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.release-notes-entry-title {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #e8e8f0);
+  margin: 0 0 8px 0;
+  letter-spacing: -0.01em;
+}
+
+.release-notes-items {
+  margin: 0;
+  padding: 0 0 0 16px;
+  list-style: none;
+}
+
+.release-notes-items li {
+  position: relative;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.55;
+  margin-bottom: 5px;
+  padding-left: 8px;
+}
+
+.release-notes-items li::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 7px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.release-notes-items li:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 480px) {
+  .release-notes-modal {
+    width: calc(100vw - 32px);
+    padding: 20px 18px;
+  }
+}
+
 /* Content */
 .landing-content {
   flex: 1;
