@@ -114,7 +114,18 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
     ? allListeners[Math.floor(allListeners.length / 2)]
     : 50000;
 
-  const scored = Array.from(candidateMap.values()).map((candidate) => {
+  // Hard ceiling: completely exclude artists above 2× the median listener count.
+  // tag.getTopArtists skews toward well-known names — this hard filter ensures
+  // drift nodes are genuinely under-the-radar discoveries, not household names.
+  const maxListeners = medianListeners * 2;
+  const filtered = Array.from(candidateMap.values()).filter((c) => {
+    if (c.listeners <= 0) return true; // keep unknowns (no data)
+    return c.listeners <= maxListeners;
+  });
+
+  console.log(`Expand Universe: ${candidateMap.size} candidates → ${filtered.length} after listener ceiling (max ${maxListeners.toLocaleString()})`);
+
+  const scored = filtered.map((candidate) => {
     // Adjacency score: artists in 1-2 tags are more "adjacent" than those
     // appearing in many tags (who are likely mainstream genre-spanning acts)
     let adjacencyScore;
