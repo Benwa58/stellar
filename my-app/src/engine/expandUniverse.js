@@ -9,6 +9,7 @@ import { getTopArtistsByTag, enrichArtists } from '../api/musicClient';
 
 const DRIFT_TAGS_TO_QUERY = 10;
 const DRIFT_ARTISTS_PER_TAG = 40;
+const DRIFT_MAX_FANS = 500000; // Hard ceiling: exclude artists above 500K Deezer fans
 
 /**
  * Discover drift nodes for an existing galaxy.
@@ -60,7 +61,7 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
   // Phase 2: Fetch top artists for each tag
   onProgress({ phase: 'drift', current: 1, total: 3, message: `Exploring ${topTags.length} genres...` });
 
-  const candidateMap = new Map(); // name_lower → { name, tagCount, listeners, tags }
+  const candidateMap = new Map(); // name_lower → { name, tagCount, tags }
 
   for (const tag of topTags) {
     try {
@@ -76,15 +77,10 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
           const existing = candidateMap.get(nameLower);
           existing.tagCount++;
           existing.tags.push(tag);
-          // Keep the higher listener count
-          if (artist.listeners > existing.listeners) {
-            existing.listeners = artist.listeners;
-          }
         } else {
           candidateMap.set(nameLower, {
             name: artist.name,
             tagCount: 1,
-            listeners: artist.listeners,
             tags: [tag],
             mbid: artist.mbid,
           });
@@ -101,82 +97,77 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
     return { nodes: [], links: [] };
   }
 
-  // Phase 3: Score and select top candidates
-  // Drift should feel *adjacent* — artists from the fringe of the genre map,
-  // not the mainstream core. We prefer artists who:
-  // - appear in 1-2 of our queried tags (niche edge, not genre-spanning superstars)
-  // - have moderate-to-low listener counts (not household names)
-  const allListeners = Array.from(candidateMap.values())
-    .map((c) => c.listeners)
-    .filter((l) => l > 0)
-    .sort((a, b) => a - b);
-  const medianListeners = allListeners.length > 0
-    ? allListeners[Math.floor(allListeners.length / 2)]
-    : 50000;
-
-  // Hard ceiling: completely exclude artists above 500K listeners.
-  // tag.getTopArtists skews toward well-known names — an absolute cap ensures
-  // drift nodes are genuinely under-the-radar discoveries, not household names.
-  const DRIFT_MAX_LISTENERS = 500000;
-  const filtered = Array.from(candidateMap.values()).filter((c) => {
-    if (c.listeners <= 0) return true; // keep unknowns (no data)
-    return c.listeners <= DRIFT_MAX_LISTENERS;
-  });
-
-  console.log(`Expand Universe: ${candidateMap.size} candidates → ${filtered.length} after listener ceiling (max ${DRIFT_MAX_LISTENERS.toLocaleString()})`);
-
-  const scored = filtered.map((candidate) => {
-    // Adjacency score: artists in 1-2 tags are more "adjacent" than those
-    // appearing in many tags (who are likely mainstream genre-spanning acts)
+  // Phase 3: Pre-score by adjacency, take a shortlist, enrich with Deezer for
+  // real popularity data, then apply the hard fan ceiling and final scoring.
+  //
+  // Last.fm's tag.getTopArtists does NOT return listener counts, so we must
+  // enrich via Deezer to get nbFan before we can filter by popularity.
+  // We take 3× the target to have enough headroom after filtering.
+  const presorted = Array.from(candidateMap.values()).map((candidate) => {
     let adjacencyScore;
     if (candidate.tagCount === 1) {
-      adjacencyScore = 0.7; // single-tag match = interesting outlier
+      adjacencyScore = 0.7;
     } else if (candidate.tagCount === 2) {
-      adjacencyScore = 1.0; // sweet spot: connects two genre areas
+      adjacencyScore = 1.0;
     } else if (candidate.tagCount === 3) {
-      adjacencyScore = 0.6; // still ok
+      adjacencyScore = 0.6;
     } else {
-      adjacencyScore = 0.3; // too many tags = likely a superstar
+      adjacencyScore = 0.3;
     }
-
-    // Listener score: strongly favor less popular artists
-    // Drift should surface artists you're less likely to already know
-    let listenerScore = 0;
-    if (candidate.listeners > 0) {
-      const ratio = candidate.listeners / medianListeners;
-      if (ratio <= 0.15) {
-        listenerScore = 0.5; // very obscure — decent but may lack content
-      } else if (ratio <= 0.5) {
-        listenerScore = 1.0; // sweet spot: under the radar
-      } else if (ratio <= 1.5) {
-        listenerScore = 0.7; // around median — acceptable
-      } else if (ratio <= 5) {
-        listenerScore = 0.3; // popular — less interesting for drift
-      } else {
-        listenerScore = 0.1; // superstar — penalize heavily
-      }
-    }
-
-    const score = adjacencyScore * 0.5 + listenerScore * 0.5;
-
-    return { ...candidate, score };
+    return { ...candidate, adjacencyScore };
   });
 
-  // Sort by score, take top targetCount
+  presorted.sort((a, b) => b.adjacencyScore - a.adjacencyScore || a.tagCount - b.tagCount);
+  const shortlist = presorted.slice(0, targetCount * 3);
+
+  console.log(`Expand Universe: shortlisted ${shortlist.length} candidates for enrichment`);
+
+  // Enrich shortlist with Deezer data (images, nbFan, genres)
+  onProgress({ phase: 'drift', current: 2, total: 3, message: `Loading ${shortlist.length} drift artists...` });
+
+  let enrichedData = new Map();
+  try {
+    enrichedData = await enrichArtists(shortlist.map((c) => c.name));
+  } catch (err) {
+    console.warn('Expand Universe: enrichment failed:', err.message);
+  }
+
+  // Apply hard fan ceiling using actual Deezer nbFan data and compute final scores
+  const scored = [];
+  for (const candidate of shortlist) {
+    const enriched = enrichedData.get(candidate.name.toLowerCase().trim());
+    const nbFan = enriched?.nbFan || 0;
+
+    // Hard ceiling: exclude artists above 500K Deezer fans
+    if (nbFan > DRIFT_MAX_FANS) {
+      continue;
+    }
+
+    // Compute popularity score from Deezer fan count
+    let popularityScore;
+    if (nbFan <= 0) {
+      popularityScore = 0.5; // unknown — decent but risky
+    } else if (nbFan <= 50000) {
+      popularityScore = 1.0; // sweet spot: under the radar
+    } else if (nbFan <= 150000) {
+      popularityScore = 0.7; // moderate — acceptable
+    } else if (nbFan <= 300000) {
+      popularityScore = 0.4; // popular — less interesting for drift
+    } else {
+      popularityScore = 0.2; // well-known — strongly penalized
+    }
+
+    const score = candidate.adjacencyScore * 0.5 + popularityScore * 0.5;
+    scored.push({ ...candidate, nbFan, score, enriched });
+  }
+
+  console.log(`Expand Universe: ${shortlist.length} → ${scored.length} after fan ceiling (max ${DRIFT_MAX_FANS.toLocaleString()} fans)`);
+
+  // Sort by final score, take top targetCount
   scored.sort((a, b) => b.score - a.score || b.tagCount - a.tagCount);
   const selected = scored.slice(0, targetCount);
 
   console.log(`Expand Universe: selected ${selected.length} drift candidates (target: ${targetCount})`);
-
-  // Phase 4: Enrich with Deezer images + Last.fm tags
-  onProgress({ phase: 'drift', current: 2, total: 3, message: `Loading ${selected.length} drift artists...` });
-
-  let enrichedData = new Map();
-  try {
-    enrichedData = await enrichArtists(selected.map((c) => c.name));
-  } catch (err) {
-    console.warn('Expand Universe: enrichment failed:', err.message);
-  }
 
   // Build seed genre maps for link assignment
   const seedGenreSets = seedArtists.map((seed) => ({
@@ -189,7 +180,7 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
   const driftLinks = [];
 
   for (const candidate of selected) {
-    const enriched = enrichedData.get(candidate.name.toLowerCase().trim());
+    const enriched = candidate.enriched;
     const genres = enriched?.genres || candidate.tags || [];
 
     const node = {
@@ -198,7 +189,7 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
       name: candidate.name,
       genres,
       popularity: 0,
-      nbFan: enriched?.nbFan || candidate.listeners || 0,
+      nbFan: candidate.nbFan,
       image: enriched?.image || null,
       imageLarge: enriched?.imageLarge || null,
       externalUrl: enriched?.externalUrl || '',
