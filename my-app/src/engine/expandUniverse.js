@@ -24,32 +24,61 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
   const seedNames = new Set(seedArtists.map((s) => s.name.toLowerCase().trim()));
   const targetCount = Math.max(10, Math.round(existingNodes.length * 0.25));
 
-  // Phase 1: Collect genre tags from all existing nodes
+  // Phase 1: Collect genre tags PER SEED so each seed contributes equally.
+  // This prevents a dominant seed from flooding the tag pool.
   onProgress({ phase: 'drift', current: 0, total: 3, message: 'Analyzing genre landscape...' });
 
-  const tagFreq = new Map();
+  const seedTagMaps = new Map(); // seedId → Map<tag, count>
+  for (const seed of seedArtists) {
+    seedTagMaps.set(seed.id, new Map());
+  }
+
+  // Assign each node's tags to the seed(s) it's related to
   for (const node of existingNodes) {
     if (!node.genres) continue;
-    for (const genre of node.genres) {
-      const g = genre.toLowerCase().trim();
-      if (g.length > 0) {
-        tagFreq.set(g, (tagFreq.get(g) || 0) + 1);
+    const relatedSeeds = node.relatedToSeeds || [];
+    // If no related seeds (e.g. the node IS a seed), match by name
+    const seedIds = relatedSeeds.length > 0
+      ? relatedSeeds
+      : seedArtists.filter((s) => s.name.toLowerCase().trim() === node.name.toLowerCase().trim()).map((s) => s.id);
+
+    for (const seedId of seedIds) {
+      const tagMap = seedTagMaps.get(seedId);
+      if (!tagMap) continue;
+      for (const genre of node.genres) {
+        const g = genre.toLowerCase().trim();
+        if (g.length > 0) {
+          tagMap.set(g, (tagMap.get(g) || 0) + 1);
+        }
       }
     }
   }
 
-  // Pick mid-frequency tags — not the most common (which yield superstars)
-  // but not the rarest (which have too few results). This targets the
-  // genre-adjacent fringe rather than the mainstream core.
-  const sortedTags = Array.from(tagFreq.entries())
-    .filter(([, count]) => count >= 2) // skip tags that appear only once
-    .sort((a, b) => b[1] - a[1]);
+  // Sample tags evenly across seeds: pick the top mid-frequency tags from each
+  // seed, round-robin, to ensure balanced genre coverage
+  const tagsPerSeed = Math.max(1, Math.ceil(DRIFT_TAGS_TO_QUERY / seedArtists.length));
+  const selectedTags = new Set();
+  const tagToSeeds = new Map(); // tag → Set<seedId> that contributed it
 
-  // Skip the top 3 most common tags (too broad), take the next slice
-  const skipTop = Math.min(3, Math.floor(sortedTags.length * 0.2));
-  const topTags = sortedTags
-    .slice(skipTop, skipTop + DRIFT_TAGS_TO_QUERY)
-    .map(([tag]) => tag);
+  for (const [seedId, tagMap] of seedTagMaps) {
+    const sorted = Array.from(tagMap.entries())
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1]);
+
+    // Skip the top 1-2 most common tags per seed (too broad for that seed)
+    const skip = Math.min(2, Math.floor(sorted.length * 0.2));
+    let added = 0;
+
+    for (let i = skip; i < sorted.length && added < tagsPerSeed; i++) {
+      const tag = sorted[i][0];
+      selectedTags.add(tag);
+      if (!tagToSeeds.has(tag)) tagToSeeds.set(tag, new Set());
+      tagToSeeds.get(tag).add(seedId);
+      added++;
+    }
+  }
+
+  const topTags = Array.from(selectedTags).slice(0, DRIFT_TAGS_TO_QUERY);
 
   if (topTags.length === 0) {
     console.warn('Expand Universe: No genre tags found in existing nodes');
@@ -58,12 +87,13 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
 
   console.log(`Expand Universe: querying ${topTags.length} tags: ${topTags.join(', ')}`);
 
-  // Phase 2: Fetch top artists for each tag
+  // Phase 2: Fetch top artists for each tag, tracking which seed(s) each tag came from
   onProgress({ phase: 'drift', current: 1, total: 3, message: `Exploring ${topTags.length} genres...` });
 
-  const candidateMap = new Map(); // name_lower → { name, tagCount, tags }
+  const candidateMap = new Map(); // name_lower → { name, tagCount, tags, sourceSeedIds }
 
   for (const tag of topTags) {
+    const seedsForTag = tagToSeeds.get(tag) || new Set();
     try {
       const artists = await getTopArtistsByTag(tag, DRIFT_ARTISTS_PER_TAG);
       for (const artist of artists) {
@@ -77,12 +107,14 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
           const existing = candidateMap.get(nameLower);
           existing.tagCount++;
           existing.tags.push(tag);
+          for (const sid of seedsForTag) existing.sourceSeedIds.add(sid);
         } else {
           candidateMap.set(nameLower, {
             name: artist.name,
             tagCount: 1,
             tags: [tag],
             mbid: artist.mbid,
+            sourceSeedIds: new Set(seedsForTag),
           });
         }
       }
@@ -99,10 +131,6 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
 
   // Phase 3: Pre-score by adjacency, take a shortlist, enrich with Deezer for
   // real popularity data, then apply the hard fan ceiling and final scoring.
-  //
-  // Last.fm's tag.getTopArtists does NOT return listener counts, so we must
-  // enrich via Deezer to get nbFan before we can filter by popularity.
-  // We take 3× the target to have enough headroom after filtering.
   const presorted = Array.from(candidateMap.values()).map((candidate) => {
     let adjacencyScore;
     if (candidate.tagCount === 1) {
@@ -163,17 +191,63 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
 
   console.log(`Expand Universe: ${shortlist.length} → ${scored.length} after fan ceiling (max ${DRIFT_MAX_FANS.toLocaleString()} fans)`);
 
-  // Sort by final score, take top targetCount
+  // Sort by final score, then distribute across seeds with a per-seed cap.
+  // This prevents one seed from claiming all drift nodes.
   scored.sort((a, b) => b.score - a.score || b.tagCount - a.tagCount);
-  const selected = scored.slice(0, targetCount);
 
-  console.log(`Expand Universe: selected ${selected.length} drift candidates (target: ${targetCount})`);
+  const maxPerSeed = Math.max(3, Math.ceil(targetCount / seedArtists.length * 1.5));
+  const seedCounts = new Map(); // seedId → count of drift nodes assigned
+  for (const seed of seedArtists) seedCounts.set(seed.id, 0);
 
   // Build seed genre maps for link assignment
   const seedGenreSets = seedArtists.map((seed) => ({
     id: seed.id,
     genres: new Set((seed.genres || []).map((g) => g.toLowerCase().trim())),
   }));
+
+  const selected = [];
+  for (const candidate of scored) {
+    if (selected.length >= targetCount) break;
+
+    // Find the best matching seed, respecting the per-seed cap
+    const candidateGenres = new Set(candidate.tags.map((t) => t.toLowerCase().trim()));
+
+    // Score each seed by genre overlap, preferring seeds the candidate was sourced from
+    const seedScores = seedGenreSets.map((seed) => {
+      let overlap = 0;
+      for (const g of candidateGenres) {
+        if (seed.genres.has(g)) overlap++;
+      }
+      // Small bonus if this candidate came from this seed's tags
+      const sourceBonus = candidate.sourceSeedIds.has(seed.id) ? 0.5 : 0;
+      return { id: seed.id, overlap: overlap + sourceBonus };
+    });
+
+    seedScores.sort((a, b) => b.overlap - a.overlap);
+
+    // Try to assign to the best seed that hasn't hit its cap
+    let assignedSeedId = null;
+    for (const ss of seedScores) {
+      if ((seedCounts.get(ss.id) || 0) < maxPerSeed) {
+        assignedSeedId = ss.id;
+        break;
+      }
+    }
+
+    // If all seeds are at cap, skip this candidate
+    if (!assignedSeedId) continue;
+
+    seedCounts.set(assignedSeedId, (seedCounts.get(assignedSeedId) || 0) + 1);
+    selected.push({ ...candidate, assignedSeedId });
+  }
+
+  console.log(`Expand Universe: selected ${selected.length} drift candidates (target: ${targetCount})`);
+  for (const [seedId, count] of seedCounts) {
+    if (count > 0) {
+      const seed = seedArtists.find((s) => s.id === seedId);
+      console.log(`  → ${seed?.name || seedId}: ${count} drift nodes`);
+    }
+  }
 
   // Build drift nodes and links
   const driftNodes = [];
@@ -203,22 +277,7 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
       isDrift: true,
     };
 
-    // Link to the seed whose genres overlap most with this drift node's tags
-    const candidateGenres = new Set(candidate.tags.map((t) => t.toLowerCase().trim()));
-    let bestSeedId = seedArtists[0]?.id;
-    let bestOverlap = 0;
-
-    for (const seed of seedGenreSets) {
-      let overlap = 0;
-      for (const g of candidateGenres) {
-        if (seed.genres.has(g)) overlap++;
-      }
-      if (overlap > bestOverlap) {
-        bestOverlap = overlap;
-        bestSeedId = seed.id;
-      }
-    }
-
+    const bestSeedId = candidate.assignedSeedId;
     node.relatedToSeeds = [bestSeedId];
     const bestSeed = seedArtists.find((s) => s.id === bestSeedId);
     if (bestSeed) {
@@ -227,7 +286,7 @@ export async function expandUniverse(existingNodes, seedArtists, onProgress = ()
 
     driftNodes.push(node);
 
-    // Create a weak link to the best-matching seed
+    // Create a weak link to the assigned seed
     driftLinks.push({
       source: node.id,
       target: bestSeedId,
