@@ -148,10 +148,31 @@ function sendPasswordResetEmail(toEmail, resetUrl) {
   });
 }
 
+// --- Helpers: extract token from cookie OR Authorization header ---
+
+function extractAccessToken(req) {
+  // Prefer Authorization header (used by Capacitor iOS where cookies are blocked)
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+  // Fall back to cookie (used by web)
+  return req.cookies.stellar_access || null;
+}
+
+function extractRefreshToken(req) {
+  // Check body first (Capacitor sends it in request body), then cookie (web)
+  return req.body?.refreshToken || req.cookies.stellar_refresh || null;
+}
+
+function isCapacitorRequest(req) {
+  return req.headers.origin === 'capacitor://localhost';
+}
+
 // --- Auth middleware (exported for other routes) ---
 
 function requireAuth(req, res, next) {
-  const token = req.cookies.stellar_access;
+  const token = extractAccessToken(req);
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
@@ -166,7 +187,7 @@ function requireAuth(req, res, next) {
 }
 
 function optionalAuth(req, res, next) {
-  const token = req.cookies.stellar_access;
+  const token = extractAccessToken(req);
   if (!token) { req.userId = null; return next(); }
   try {
     const payload = jwt.verify(token, JWT_SECRET);
@@ -222,7 +243,13 @@ router.post('/register', rateLimit, async (req, res) => {
     notifyNewSignup({ email: email.toLowerCase(), displayName: displayName.trim() });
 
     setAuthCookies(res, accessToken, refreshToken, req);
-    res.status(201).json({ user: sanitizeUser(user) });
+    const response = { user: sanitizeUser(user) };
+    // Capacitor iOS: include tokens in body (WKWebView blocks third-party cookies)
+    if (isCapacitorRequest(req)) {
+      response.accessToken = accessToken;
+      response.refreshToken = refreshToken;
+    }
+    res.status(201).json(response);
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Registration failed.' });
@@ -254,7 +281,12 @@ router.post('/login', rateLimit, async (req, res) => {
     db.saveRefreshToken(user.id, refreshToken, expiresAt);
 
     setAuthCookies(res, accessToken, refreshToken, req);
-    res.json({ user: sanitizeUser(user) });
+    const response = { user: sanitizeUser(user) };
+    if (isCapacitorRequest(req)) {
+      response.accessToken = accessToken;
+      response.refreshToken = refreshToken;
+    }
+    res.json(response);
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed.' });
@@ -262,8 +294,8 @@ router.post('/login', rateLimit, async (req, res) => {
 });
 
 // POST /api/auth/logout
-router.post('/logout', (req, res) => {
-  const refreshToken = req.cookies.stellar_refresh;
+router.post('/logout', express.json(), (req, res) => {
+  const refreshToken = extractRefreshToken(req);
   if (refreshToken) {
     db.deleteRefreshToken(refreshToken);
   }
@@ -272,8 +304,8 @@ router.post('/logout', (req, res) => {
 });
 
 // POST /api/auth/refresh
-router.post('/refresh', (req, res) => {
-  const refreshToken = req.cookies.stellar_refresh;
+router.post('/refresh', express.json(), (req, res) => {
+  const refreshToken = extractRefreshToken(req);
   if (!refreshToken) {
     return res.status(401).json({ error: 'No refresh token' });
   }
@@ -300,7 +332,12 @@ router.post('/refresh', (req, res) => {
   db.saveRefreshToken(user.id, newRefreshToken, expiresAt);
 
   setAuthCookies(res, newAccessToken, newRefreshToken, req);
-  res.json({ user: sanitizeUser(user) });
+  const response = { user: sanitizeUser(user) };
+  if (isCapacitorRequest(req)) {
+    response.accessToken = newAccessToken;
+    response.refreshToken = newRefreshToken;
+  }
+  res.json(response);
 });
 
 // GET /api/auth/me

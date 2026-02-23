@@ -1,42 +1,114 @@
 // Authenticated fetch wrapper with automatic token refresh
-import { API_BASE } from './config';
+import { API_BASE, IS_CAPACITOR } from './config';
 
 let isRefreshing = false;
 let refreshPromise = null;
 
+// --- Token storage for Capacitor (iOS WKWebView blocks third-party cookies) ---
+
+function getStoredTokens() {
+  if (!IS_CAPACITOR) return {};
+  return {
+    accessToken: localStorage.getItem('stellar_access_token'),
+    refreshToken: localStorage.getItem('stellar_refresh_token'),
+  };
+}
+
+function storeTokens(accessToken, refreshToken) {
+  if (!IS_CAPACITOR) return;
+  if (accessToken) localStorage.setItem('stellar_access_token', accessToken);
+  if (refreshToken) localStorage.setItem('stellar_refresh_token', refreshToken);
+}
+
+function clearStoredTokens() {
+  if (!IS_CAPACITOR) return;
+  localStorage.removeItem('stellar_access_token');
+  localStorage.removeItem('stellar_refresh_token');
+}
+
+// Save tokens from any auth response (login, register, refresh)
+function handleAuthResponse(data) {
+  if (IS_CAPACITOR && data.accessToken && data.refreshToken) {
+    storeTokens(data.accessToken, data.refreshToken);
+  }
+}
+
+// --- Core fetch wrapper ---
+
 async function authFetch(path, options = {}) {
   const url = API_BASE + path;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  // Capacitor: attach access token as Authorization header
+  if (IS_CAPACITOR) {
+    const { accessToken } = getStoredTokens();
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (response.status === 401 && !path.includes('/api/auth/refresh') && !path.includes('/api/auth/login') && !path.includes('/api/auth/register') && !path.includes('/api/auth/logout')) {
     // Try refresh
     if (!isRefreshing) {
       isRefreshing = true;
-      refreshPromise = fetch(API_BASE + '/api/auth/refresh', {
+
+      const refreshOpts = {
         method: 'POST',
         credentials: 'include',
-      }).finally(() => {
-        isRefreshing = false;
-      });
+      };
+
+      // Capacitor: send refresh token in body
+      if (IS_CAPACITOR) {
+        const { refreshToken } = getStoredTokens();
+        refreshOpts.headers = { 'Content-Type': 'application/json' };
+        refreshOpts.body = JSON.stringify({ refreshToken });
+      }
+
+      refreshPromise = fetch(API_BASE + '/api/auth/refresh', refreshOpts)
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            handleAuthResponse(data);
+            return { ok: true };
+          }
+          clearStoredTokens();
+          return { ok: false };
+        })
+        .catch(() => {
+          clearStoredTokens();
+          return { ok: false };
+        })
+        .finally(() => {
+          isRefreshing = false;
+        });
     }
 
-    const refreshResponse = await refreshPromise;
-    if (refreshResponse && refreshResponse.ok) {
-      // Retry original request
+    const refreshResult = await refreshPromise;
+    if (refreshResult && refreshResult.ok) {
+      // Retry original request with new token
+      const retryHeaders = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+      if (IS_CAPACITOR) {
+        const { accessToken } = getStoredTokens();
+        if (accessToken) {
+          retryHeaders['Authorization'] = `Bearer ${accessToken}`;
+        }
+      }
       return fetch(url, {
         ...options,
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers: retryHeaders,
       });
     }
 
@@ -50,22 +122,42 @@ async function authFetch(path, options = {}) {
 
 // --- Auth API ---
 
-export function register(email, password, displayName) {
-  return authFetch('/api/auth/register', {
+export async function register(email, password, displayName) {
+  const res = await authFetch('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password, displayName }),
   });
+  // Clone so caller can also read .json()
+  const clone = res.clone();
+  try {
+    const data = await clone.json();
+    handleAuthResponse(data);
+  } catch {}
+  return res;
 }
 
-export function login(email, password) {
-  return authFetch('/api/auth/login', {
+export async function login(email, password) {
+  const res = await authFetch('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+  const clone = res.clone();
+  try {
+    const data = await clone.json();
+    handleAuthResponse(data);
+  } catch {}
+  return res;
 }
 
 export function logout() {
-  return authFetch('/api/auth/logout', { method: 'POST' });
+  const options = { method: 'POST' };
+  // Capacitor: send refresh token in body so server can revoke it
+  if (IS_CAPACITOR) {
+    const { refreshToken } = getStoredTokens();
+    options.body = JSON.stringify({ refreshToken });
+  }
+  clearStoredTokens();
+  return authFetch('/api/auth/logout', options);
 }
 
 export function getMe() {
@@ -225,4 +317,3 @@ export function getGalaxyShare(id) {
     return res.json();
   });
 }
-

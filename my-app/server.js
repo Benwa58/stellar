@@ -24,7 +24,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', CAPACITOR_ORIGIN);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   } else if (!req.path.startsWith('/api')) {
     // Non-API routes — wide-open CORS for dev
     res.setHeader('Access-Control-Allow-Origin', '*');
