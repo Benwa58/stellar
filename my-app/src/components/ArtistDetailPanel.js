@@ -161,6 +161,18 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
             </span>
           )}
 
+          {/* Standard recommendation / hidden gem note (only for types without a specific note above) */}
+          {node.type !== 'seed' &&
+           !node.isDrift && node.tier !== 'drift' &&
+           node.discoveryMethod !== 'bridge' &&
+           node.discoveryMethod !== 'deep_cut' &&
+           node.discoveryMethod !== 'chain_bridge' &&
+           node.relatedSeedNames && node.relatedSeedNames.length > 0 && (
+            <span className="panel-discovery-note">
+              {node.tier === 'hidden_gem' ? 'Hidden gem — similar' : 'Similar'} to {node.relatedSeedNames.join(' & ')}
+            </span>
+          )}
+
           {listeners > 0 && (
             <div className="panel-listeners">
               {listeners.toLocaleString()} listeners

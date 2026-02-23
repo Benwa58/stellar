@@ -90,6 +90,33 @@ function GalaxyLegend({ onClose }) {
             <span className="galaxy-legend-label">Drift</span>
           </div>
 
+          {/* Discovered on Stellar */}
+          <div className="galaxy-legend-item">
+            <span className="galaxy-legend-swatch legend-swatch-discovered">
+              <svg width="18" height="18" viewBox="0 0 18 18">
+                <defs>
+                  <linearGradient id="legend-disc-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="rgba(255,230,100,1)" />
+                    <stop offset="50%" stopColor="rgba(255,140,0,0.9)" />
+                    <stop offset="100%" stopColor="rgba(255,200,50,1)" />
+                  </linearGradient>
+                  <radialGradient id="legend-disc-glow" cx="50%" cy="50%" r="50%">
+                    <stop offset="60%" stopColor="rgba(255,200,50,0.15)" />
+                    <stop offset="100%" stopColor="rgba(255,150,0,0)" />
+                  </radialGradient>
+                </defs>
+                <circle cx="9" cy="9" r="8.5" fill="url(#legend-disc-glow)" />
+                <circle cx="9" cy="9" r="6.5" fill="none" stroke="url(#legend-disc-grad)" strokeWidth="2.5" />
+                {/* Sparkle points */}
+                <polygon points="9,1 9.5,3.5 9,3 8.5,3.5" fill="rgba(255,240,180,0.8)" />
+                <polygon points="17,9 14.5,9.5 15,9 14.5,8.5" fill="rgba(255,240,180,0.8)" />
+                <polygon points="9,17 8.5,14.5 9,15 9.5,14.5" fill="rgba(255,240,180,0.6)" />
+                <polygon points="1,9 3.5,8.5 3,9 3.5,9.5" fill="rgba(255,240,180,0.6)" />
+              </svg>
+            </span>
+            <span className="galaxy-legend-label">Discovered on Stellar</span>
+          </div>
+
           {/* Favorites */}
           <div className="galaxy-legend-item">
             <span className="galaxy-legend-swatch">
