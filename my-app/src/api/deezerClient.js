@@ -1,6 +1,7 @@
 import { createRateLimiter } from './rateLimiter';
+import { API_BASE } from './config';
 
-const DEEZER_PROXY = '/deezer';
+const DEEZER_PROXY = API_BASE + '/deezer';
 
 // Separate rate limiter for Deezer
 const limiter = createRateLimiter(5, 60);

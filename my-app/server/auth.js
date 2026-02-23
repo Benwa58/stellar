@@ -43,20 +43,24 @@ function generateRefreshToken() {
   return crypto.randomBytes(40).toString('hex');
 }
 
-function setAuthCookies(res, accessToken, refreshToken) {
+function setAuthCookies(res, accessToken, refreshToken, req) {
   const isProduction = process.env.NODE_ENV === 'production';
+  const isCapacitor = req?.headers?.origin === 'capacitor://localhost';
+
+  // Capacitor iOS sends cross-origin requests — needs sameSite: 'none' + secure: true
+  const cookieBase = {
+    httpOnly: true,
+    secure: isProduction || isCapacitor,
+    sameSite: isCapacitor ? 'none' : 'lax',
+  };
 
   res.cookie('stellar_access', accessToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
+    ...cookieBase,
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
 
   res.cookie('stellar_refresh', refreshToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
+    ...cookieBase,
     maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
   });
 }
@@ -217,7 +221,7 @@ router.post('/register', rateLimit, async (req, res) => {
     // Fire-and-forget email notification
     notifyNewSignup({ email: email.toLowerCase(), displayName: displayName.trim() });
 
-    setAuthCookies(res, accessToken, refreshToken);
+    setAuthCookies(res, accessToken, refreshToken, req);
     res.status(201).json({ user: sanitizeUser(user) });
   } catch (err) {
     console.error('Registration error:', err);
@@ -249,7 +253,7 @@ router.post('/login', rateLimit, async (req, res) => {
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000).toISOString();
     db.saveRefreshToken(user.id, refreshToken, expiresAt);
 
-    setAuthCookies(res, accessToken, refreshToken);
+    setAuthCookies(res, accessToken, refreshToken, req);
     res.json({ user: sanitizeUser(user) });
   } catch (err) {
     console.error('Login error:', err);
@@ -295,7 +299,7 @@ router.post('/refresh', (req, res) => {
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000).toISOString();
   db.saveRefreshToken(user.id, newRefreshToken, expiresAt);
 
-  setAuthCookies(res, newAccessToken, newRefreshToken);
+  setAuthCookies(res, newAccessToken, newRefreshToken, req);
   res.json({ user: sanitizeUser(user) });
 });
 

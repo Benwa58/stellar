@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.6.2",
     "cookie-parser": "^1.4.7",
@@ -20,6 +23,9 @@
     "start:prod": "node server.js",
     "dev:proxy": "LASTFM_API_KEY=$LASTFM_API_KEY PORT=3002 node server.js",
     "build": "react-scripts build",
+    "build:ios": "REACT_APP_API_URL=https://stellar.onrender.com react-scripts build && npx cap sync ios",
+    "cap:sync": "npx cap sync",
+    "cap:open": "npx cap open ios",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

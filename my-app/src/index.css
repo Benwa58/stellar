@@ -23,6 +23,22 @@ body {
   line-height: 1.5;
 }
 
+/* iOS native app feel — only applies on iOS WebView */
+@supports (-webkit-touch-callout: none) {
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  html {
+    overscroll-behavior: none;
+  }
+}
+
 ::selection {
   background: var(--color-accent);
   color: white;

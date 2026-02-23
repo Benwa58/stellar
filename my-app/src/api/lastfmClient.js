@@ -1,6 +1,7 @@
 import { createRateLimiter } from './rateLimiter';
+import { API_BASE } from './config';
 
-const LASTFM_PROXY = '/lastfm';
+const LASTFM_PROXY = API_BASE + '/lastfm';
 
 // Tags that are user noise, not real genres
 const TAG_BLACKLIST = new Set([

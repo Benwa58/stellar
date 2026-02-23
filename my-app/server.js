@@ -14,10 +14,19 @@ const app = express();
 app.use(cookieParser());
 app.use('/api', express.json({ limit: '5mb' }));
 
-// CORS for dev (when CRA runs separately)
+// CORS — allow Capacitor iOS origin on all routes, wide-open on non-API routes
+const CAPACITOR_ORIGIN = 'capacitor://localhost';
+
 app.use((req, res, next) => {
-  // Don't set wide-open CORS on /api routes — those use same-origin cookies
-  if (!req.path.startsWith('/api')) {
+  const origin = req.headers.origin;
+  if (origin === CAPACITOR_ORIGIN) {
+    // Capacitor iOS app — allow credentialed cross-origin requests on all routes
+    res.setHeader('Access-Control-Allow-Origin', CAPACITOR_ORIGIN);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  } else if (!req.path.startsWith('/api')) {
+    // Non-API routes — wide-open CORS for dev
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

@@ -1,6 +1,6 @@
 .detail-panel {
   position: absolute;
-  top: 0;
+  top: env(safe-area-inset-top);
   right: 0;
   bottom: 0;
   width: 320px;

@@ -29,8 +29,8 @@
 
 .galaxy-toolbar {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  left: calc(20px + env(safe-area-inset-left));
   z-index: 20;
   display: flex;
   align-items: center;
@@ -192,7 +192,7 @@
 
 /* Shift toolbar up when player bar is visible */
 .galaxy-view:has(.preview-player) .galaxy-toolbar {
-  bottom: 84px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
 }
 
 /* ===== Info modal ===== */
@@ -323,8 +323,8 @@
 
 .galaxy-legend-card {
   position: absolute;
-  bottom: 70px;
-  left: 20px;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  left: calc(20px + env(safe-area-inset-left));
   width: 260px;
   background: rgba(12, 12, 32, 0.95);
   backdrop-filter: blur(20px);
@@ -462,7 +462,7 @@
 
 /* Player-visible legend card shift */
 .galaxy-view:has(.preview-player) .galaxy-legend-card {
-  bottom: 134px;
+  bottom: calc(134px + env(safe-area-inset-bottom));
 }
 
 /* ===== Save modal ===== */
@@ -535,8 +535,8 @@
 
 .zoom-controls {
   position: absolute;
-  bottom: 70px;
-  left: 20px;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  left: calc(20px + env(safe-area-inset-left));
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -577,7 +577,7 @@
 
 /* Shift zoom controls up when player bar is visible */
 .galaxy-view:has(.preview-player) .zoom-controls {
-  bottom: 134px;
+  bottom: calc(134px + env(safe-area-inset-bottom));
 }
 
 /* ===== Unknown artists badge ===== */
@@ -681,7 +681,7 @@
 
 .regenerate-queue-btn {
   position: absolute;
-  bottom: 70px;
+  bottom: calc(70px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
@@ -735,7 +735,7 @@
 
 /* Shift up when player bar is visible */
 .galaxy-view:has(.preview-player) .regenerate-queue-btn {
-  bottom: 134px;
+  bottom: calc(134px + env(safe-area-inset-bottom));
 }
 
 /* Hide when drawers are open */
@@ -748,8 +748,8 @@
 
 @media (max-width: 480px) {
   .galaxy-toolbar {
-    bottom: 38px;
-    left: 16px;
+    bottom: calc(38px + env(safe-area-inset-bottom));
+    left: calc(16px + env(safe-area-inset-left));
     gap: 8px;
   }
 
@@ -773,25 +773,25 @@
   }
 
   .galaxy-legend-card {
-    bottom: 84px;
-    left: 12px;
-    right: 12px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    left: calc(12px + env(safe-area-inset-left));
+    right: calc(12px + env(safe-area-inset-right));
     width: auto;
     max-height: calc(100vh - 140px);
     overflow-y: auto;
   }
 
   .galaxy-view:has(.preview-player) .galaxy-legend-card {
-    bottom: 206px;
+    bottom: calc(206px + env(safe-area-inset-bottom));
   }
 
   .galaxy-view:has(.preview-player) .galaxy-toolbar {
-    bottom: 160px;
+    bottom: calc(160px + env(safe-area-inset-bottom));
   }
 
   .zoom-controls {
-    bottom: 84px;
-    left: 16px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    left: calc(16px + env(safe-area-inset-left));
   }
 
   .zoom-btn {
@@ -800,17 +800,17 @@
   }
 
   .galaxy-view:has(.preview-player) .zoom-controls {
-    bottom: 206px;
+    bottom: calc(206px + env(safe-area-inset-bottom));
   }
 
   .regenerate-queue-btn {
-    bottom: 84px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
     font-size: 0.78rem;
     padding: 8px 18px;
   }
 
   .galaxy-view:has(.preview-player) .regenerate-queue-btn {
-    bottom: 206px;
+    bottom: calc(206px + env(safe-area-inset-bottom));
   }
 
   .expand-universe-btn {
