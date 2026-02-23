@@ -571,6 +571,36 @@
   bottom: 134px;
 }
 
+/* ===== Unknown artists badge ===== */
+
+.unknown-artists-badge {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: rgba(15, 15, 35, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full, 9999px);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.7rem;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+/* Hide when drawers are open */
+.galaxy-view:has(.export-drawer) .unknown-artists-badge,
+.galaxy-view:has(.share-galaxy-drawer) .unknown-artists-badge {
+  display: none;
+}
+
 /* ===== Expand Universe ghost button ===== */
 
 .expand-universe-btn {
@@ -763,6 +793,13 @@
     left: 16px;
     font-size: 0.66rem;
     padding: 5px 12px 5px 8px;
+  }
+
+  .unknown-artists-badge {
+    top: 64px;
+    right: 16px;
+    font-size: 0.64rem;
+    padding: 4px 10px;
   }
 
   .galaxy-info-modal {

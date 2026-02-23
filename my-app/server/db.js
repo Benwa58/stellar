@@ -73,6 +73,28 @@ function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_dislikes_user ON dislikes(user_id);
 
+    CREATE TABLE IF NOT EXISTS known_artists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      artist_name TEXT NOT NULL,
+      artist_id TEXT,
+      artist_image TEXT,
+      added_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, artist_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_known_artists_user ON known_artists(user_id);
+
+    CREATE TABLE IF NOT EXISTS discovered_artists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      artist_name TEXT NOT NULL,
+      artist_id TEXT,
+      artist_image TEXT,
+      added_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, artist_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_discovered_artists_user ON discovered_artists(user_id);
+
     CREATE TABLE IF NOT EXISTS playlist_exports (
       id TEXT PRIMARY KEY,
       playlist_name TEXT NOT NULL,
@@ -255,6 +277,56 @@ function removeDislike(userId, artistName) {
   return result.changes > 0;
 }
 
+// --- Known artists helpers ---
+
+function getUserKnownArtists(userId) {
+  return getDb().prepare(
+    'SELECT * FROM known_artists WHERE user_id = ? ORDER BY added_at DESC'
+  ).all(userId);
+}
+
+function addKnownArtist(userId, { artistName, artistId, artistImage }) {
+  try {
+    getDb().prepare(`
+      INSERT INTO known_artists (user_id, artist_name, artist_id, artist_image) VALUES (?, ?, ?, ?)
+    `).run(userId, artistName, artistId || null, artistImage || null);
+    return true;
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint')) return false;
+    throw err;
+  }
+}
+
+function removeKnownArtist(userId, artistName) {
+  const result = getDb().prepare('DELETE FROM known_artists WHERE user_id = ? AND artist_name = ?').run(userId, artistName);
+  return result.changes > 0;
+}
+
+// --- Discovered artists helpers ---
+
+function getUserDiscoveredArtists(userId) {
+  return getDb().prepare(
+    'SELECT * FROM discovered_artists WHERE user_id = ? ORDER BY added_at DESC'
+  ).all(userId);
+}
+
+function addDiscoveredArtist(userId, { artistName, artistId, artistImage }) {
+  try {
+    getDb().prepare(`
+      INSERT INTO discovered_artists (user_id, artist_name, artist_id, artist_image) VALUES (?, ?, ?, ?)
+    `).run(userId, artistName, artistId || null, artistImage || null);
+    return true;
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint')) return false;
+    throw err;
+  }
+}
+
+function removeDiscoveredArtist(userId, artistName) {
+  const result = getDb().prepare('DELETE FROM discovered_artists WHERE user_id = ? AND artist_name = ?').run(userId, artistName);
+  return result.changes > 0;
+}
+
 // --- Playlist export helpers ---
 
 function createPlaylistExport(id, { playlistName, trackList, seedArtists, nodeCount, createdBy, visibility }) {
@@ -338,6 +410,12 @@ module.exports = {
   getUserDislikes,
   addDislike,
   removeDislike,
+  getUserKnownArtists,
+  addKnownArtist,
+  removeKnownArtist,
+  getUserDiscoveredArtists,
+  addDiscoveredArtist,
+  removeDiscoveredArtist,
   createPlaylistExport,
   getPlaylistExport,
   getUserPlaylistExports,

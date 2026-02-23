@@ -10,6 +10,7 @@ import ArtistChipList from './ArtistChipList';
 import GenerateButton from './GenerateButton';
 import SavedMapsSection from './SavedMapsSection';
 import FavoritesSection from './FavoritesSection';
+import DiscoveredSection from './DiscoveredSection';
 import ImportLocalMapsPrompt from './ImportLocalMapsPrompt';
 import '../styles/landing.css';
 
@@ -86,6 +87,7 @@ function LandingPage() {
         </div>
 
         <SavedMapsSection />
+        <DiscoveredSection />
         <FavoritesSection />
         <ImportLocalMapsPrompt />
       </div>

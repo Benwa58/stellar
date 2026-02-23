@@ -20,7 +20,7 @@ export function createRenderer(canvas, getState) {
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
     const state = getState();
-    const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames, dislikeNames, isExpanded } = state;
+    const { nodes, links, particles, transform, hoveredNode, selectedNode, favoriteNames, dislikeNames, knownNames, discoveredNames, isExpanded } = state;
 
     // Smoothly animate expand transition (0 → 1 over ~1.2s)
     if (isExpanded && state.expandTransition < 1) {
@@ -55,10 +55,15 @@ export function createRenderer(canvas, getState) {
     // Links
     drawLinks(ctx, links, hoveredNode, selectedNode, state.expandTransition);
 
-    // Nodes
-    drawNodes(ctx, nodes, hoveredNode, selectedNode, time, state.expandTransition);
+    // Nodes (with dimming for known artists)
+    drawNodes(ctx, nodes, hoveredNode, selectedNode, time, state.expandTransition, knownNames);
 
-    // Favorite indicators
+    // Discovered indicators (gold gradient ring)
+    if (discoveredNames && discoveredNames.size > 0) {
+      drawDiscoveredIndicators(ctx, nodes, discoveredNames);
+    }
+
+    // Favorite indicators (drawn after discovered so favorites take visual priority)
     if (favoriteNames && favoriteNames.size > 0) {
       drawFavoriteIndicators(ctx, nodes, favoriteNames);
     }
@@ -214,7 +219,7 @@ function drawLinks(ctx, links, hoveredNode, selectedNode, expandT) {
   }
 }
 
-function drawNodes(ctx, nodes, hoveredNode, selectedNode, time, expandT) {
+function drawNodes(ctx, nodes, hoveredNode, selectedNode, time, expandT, knownNames) {
   if (!nodes) return;
 
   for (const node of nodes) {
@@ -222,22 +227,34 @@ function drawNodes(ctx, nodes, hoveredNode, selectedNode, time, expandT) {
 
     const isActive = node === hoveredNode || node === selectedNode;
 
+    // Dim known artists (but not seeds, and not hovered/selected)
+    const isKnown = knownNames && knownNames.size > 0 && knownNames.has(node.name) && node.type !== 'seed' && !isActive;
+    if (isKnown) {
+      ctx.globalAlpha = 0.35;
+    }
+
     if (node.type === 'seed') {
       drawSeedNode(ctx, node, isActive);
     } else if (node.isChainBridge) {
       drawChainBridgeNode(ctx, node, isActive, time);
     } else if (node.isDrift) {
       // Fade in drift nodes with expand transition
+      const driftAlpha = isKnown ? 0.35 : 1;
       if (expandT < 1) {
-        if (expandT <= 0) continue;
-        ctx.globalAlpha = expandT;
+        if (expandT <= 0) { if (isKnown) ctx.globalAlpha = 1; continue; }
+        ctx.globalAlpha = expandT * driftAlpha;
       }
       drawDriftNode(ctx, node, isActive, time);
-      if (expandT < 1) ctx.globalAlpha = 1;
+      if (expandT < 1 || isKnown) ctx.globalAlpha = 1;
     } else if (node.isHiddenGem) {
       drawHiddenGemNode(ctx, node, isActive, time);
     } else {
       drawRecNode(ctx, node, isActive);
+    }
+
+    // Restore alpha after dimming
+    if (isKnown && !node.isDrift) {
+      ctx.globalAlpha = 1;
     }
   }
 }
@@ -503,6 +520,29 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
     grad.addColorStop(0, 'rgba(30, 64, 175, 0.95)');   // deep blue
     grad.addColorStop(0.5, 'rgba(59, 130, 246, 0.95)'); // mid blue
     grad.addColorStop(1, 'rgba(30, 58, 138, 0.95)');    // navy blue
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+}
+
+function drawDiscoveredIndicators(ctx, nodes, discoveredNames) {
+  if (!nodes) return;
+  for (const node of nodes) {
+    if (node.x == null || node.y == null) continue;
+    if (!discoveredNames.has(node.name)) continue;
+
+    // Gold gradient ring around the node
+    const ringRadius = node.radius + 3;
+    const grad = ctx.createLinearGradient(
+      node.x - ringRadius, node.y - ringRadius,
+      node.x + ringRadius, node.y + ringRadius
+    );
+    grad.addColorStop(0, 'rgba(255, 215, 0, 0.9)');     // bright gold
+    grad.addColorStop(0.5, 'rgba(255, 190, 0, 0.95)');   // warm gold
+    grad.addColorStop(1, 'rgba(218, 165, 32, 0.9)');     // deep goldenrod
     ctx.beginPath();
     ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
     ctx.strokeStyle = grad;

@@ -97,6 +97,8 @@ app.use('/api/auth', require('./server/auth'));
 app.use('/api/maps', require('./server/maps'));
 app.use('/api/favorites', require('./server/favorites'));
 app.use('/api/dislikes', require('./server/dislikes'));
+app.use('/api/known-artists', require('./server/knownArtists'));
+app.use('/api/discovered-artists', require('./server/discoveredArtists'));
 app.use('/api/playlists', require('./server/playlists'));
 app.use('/api/galaxy-shares', require('./server/galaxyShares'));
 

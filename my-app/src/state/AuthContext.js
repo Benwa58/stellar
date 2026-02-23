@@ -9,6 +9,8 @@ const initialState = {
   isLoading: true,
   favorites: [],
   dislikes: [],
+  knownArtists: [],
+  discoveredArtists: [],
   showAuthModal: false,
   authModalTab: 'login', // 'login' or 'register'
 };
@@ -18,7 +20,7 @@ function authReducer(state, action) {
     case 'SET_USER':
       return { ...state, user: action.user, isLoading: false };
     case 'CLEAR_USER':
-      return { ...state, user: null, isLoading: false, favorites: [], dislikes: [] };
+      return { ...state, user: null, isLoading: false, favorites: [], dislikes: [], knownArtists: [], discoveredArtists: [] };
     case 'SET_AUTH_LOADING':
       return { ...state, isLoading: action.isLoading };
     case 'SET_FAVORITES':
@@ -46,6 +48,34 @@ function authReducer(state, action) {
       return {
         ...state,
         dislikes: state.dislikes.filter(
+          (d) => d.artistName !== action.artistName
+        ),
+      };
+    case 'SET_KNOWN_ARTISTS':
+      return { ...state, knownArtists: action.knownArtists };
+    case 'ADD_KNOWN_ARTIST':
+      return {
+        ...state,
+        knownArtists: [action.knownArtist, ...state.knownArtists],
+      };
+    case 'REMOVE_KNOWN_ARTIST':
+      return {
+        ...state,
+        knownArtists: state.knownArtists.filter(
+          (k) => k.artistName !== action.artistName
+        ),
+      };
+    case 'SET_DISCOVERED_ARTISTS':
+      return { ...state, discoveredArtists: action.discoveredArtists };
+    case 'ADD_DISCOVERED_ARTIST':
+      return {
+        ...state,
+        discoveredArtists: [action.discoveredArtist, ...state.discoveredArtists],
+      };
+    case 'REMOVE_DISCOVERED_ARTIST':
+      return {
+        ...state,
+        discoveredArtists: state.discoveredArtists.filter(
           (d) => d.artistName !== action.artistName
         ),
       };
@@ -97,6 +127,26 @@ export function AuthProvider({ children }) {
         .then((data) => {
           if (data.dislikes) {
             dispatch({ type: 'SET_DISLIKES', dislikes: data.dislikes });
+          }
+        })
+        .catch(() => {});
+
+      authApi
+        .getKnownArtists()
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.knownArtists) {
+            dispatch({ type: 'SET_KNOWN_ARTISTS', knownArtists: data.knownArtists });
+          }
+        })
+        .catch(() => {});
+
+      authApi
+        .getDiscoveredArtists()
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.discoveredArtists) {
+            dispatch({ type: 'SET_DISCOVERED_ARTISTS', discoveredArtists: data.discoveredArtists });
           }
         })
         .catch(() => {});
@@ -191,6 +241,21 @@ export function useAuthActions() {
         authApi.removeDislike(artistName).catch(() => {});
       }
 
+      // Favoriting auto-marks as known (favorite implies known)
+      const isKnown = auth.knownArtists.some((k) => k.artistName === artistName);
+      if (!isKnown) {
+        const knownArtist = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
+        dispatch({ type: 'ADD_KNOWN_ARTIST', knownArtist });
+        authApi.addKnownArtist({ artistName, artistId, artistImage }).catch(() => {});
+      }
+
+      // Remove from discovered (favorite implies known, not discovered)
+      const isDiscovered = auth.discoveredArtists.some((d) => d.artistName === artistName);
+      if (isDiscovered) {
+        dispatch({ type: 'REMOVE_DISCOVERED_ARTIST', artistName });
+        authApi.removeDiscoveredArtist(artistName).catch(() => {});
+      }
+
       const favorite = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
       dispatch({ type: 'ADD_FAVORITE', favorite });
       try {
@@ -200,7 +265,7 @@ export function useAuthActions() {
         dispatch({ type: 'REMOVE_FAVORITE', artistName });
       }
     }
-  }, [dispatch, auth.favorites, auth.dislikes]);
+  }, [dispatch, auth.favorites, auth.dislikes, auth.knownArtists, auth.discoveredArtists]);
 
   const toggleDislike = useCallback(async (artistName, artistId, artistImage) => {
     const isDisliked = auth.dislikes.some((d) => d.artistName === artistName);
@@ -225,6 +290,21 @@ export function useAuthActions() {
         authApi.removeFavorite(artistName).catch(() => {});
       }
 
+      // Disliking auto-marks as known (dislike implies known)
+      const isKnown = auth.knownArtists.some((k) => k.artistName === artistName);
+      if (!isKnown) {
+        const knownArtist = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
+        dispatch({ type: 'ADD_KNOWN_ARTIST', knownArtist });
+        authApi.addKnownArtist({ artistName, artistId, artistImage }).catch(() => {});
+      }
+
+      // Remove from discovered (dislike implies known, not discovered)
+      const isDiscovered = auth.discoveredArtists.some((d) => d.artistName === artistName);
+      if (isDiscovered) {
+        dispatch({ type: 'REMOVE_DISCOVERED_ARTIST', artistName });
+        authApi.removeDiscoveredArtist(artistName).catch(() => {});
+      }
+
       const dislike = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
       dispatch({ type: 'ADD_DISLIKE', dislike });
       try {
@@ -234,7 +314,75 @@ export function useAuthActions() {
         dispatch({ type: 'REMOVE_DISLIKE', artistName });
       }
     }
-  }, [dispatch, auth.dislikes, auth.favorites]);
+  }, [dispatch, auth.dislikes, auth.favorites, auth.knownArtists, auth.discoveredArtists]);
+
+  const toggleKnownArtist = useCallback(async (artistName, artistId, artistImage) => {
+    const isKnown = auth.knownArtists.some((k) => k.artistName === artistName);
+
+    if (isKnown) {
+      // Optimistic remove
+      dispatch({ type: 'REMOVE_KNOWN_ARTIST', artistName });
+      try {
+        await authApi.removeKnownArtist(artistName);
+      } catch {
+        // Revert
+        dispatch({
+          type: 'ADD_KNOWN_ARTIST',
+          knownArtist: { artistName, artistId, artistImage, addedAt: new Date().toISOString() },
+        });
+      }
+    } else {
+      // Marking as known auto-removes from discovered (can't discover what you already knew)
+      const isDiscovered = auth.discoveredArtists.some((d) => d.artistName === artistName);
+      if (isDiscovered) {
+        dispatch({ type: 'REMOVE_DISCOVERED_ARTIST', artistName });
+        authApi.removeDiscoveredArtist(artistName).catch(() => {});
+      }
+
+      const knownArtist = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
+      dispatch({ type: 'ADD_KNOWN_ARTIST', knownArtist });
+      try {
+        await authApi.addKnownArtist({ artistName, artistId, artistImage });
+      } catch {
+        // Revert
+        dispatch({ type: 'REMOVE_KNOWN_ARTIST', artistName });
+      }
+    }
+  }, [dispatch, auth.knownArtists, auth.discoveredArtists]);
+
+  const toggleDiscoveredArtist = useCallback(async (artistName, artistId, artistImage) => {
+    const isDiscovered = auth.discoveredArtists.some((d) => d.artistName === artistName);
+
+    if (isDiscovered) {
+      // Optimistic remove
+      dispatch({ type: 'REMOVE_DISCOVERED_ARTIST', artistName });
+      try {
+        await authApi.removeDiscoveredArtist(artistName);
+      } catch {
+        // Revert
+        dispatch({
+          type: 'ADD_DISCOVERED_ARTIST',
+          discoveredArtist: { artistName, artistId, artistImage, addedAt: new Date().toISOString() },
+        });
+      }
+    } else {
+      // Marking as discovered auto-removes from known (discovered means it was new to you)
+      const isKnown = auth.knownArtists.some((k) => k.artistName === artistName);
+      if (isKnown) {
+        dispatch({ type: 'REMOVE_KNOWN_ARTIST', artistName });
+        authApi.removeKnownArtist(artistName).catch(() => {});
+      }
+
+      const discoveredArtist = { artistName, artistId, artistImage, addedAt: new Date().toISOString() };
+      dispatch({ type: 'ADD_DISCOVERED_ARTIST', discoveredArtist });
+      try {
+        await authApi.addDiscoveredArtist({ artistName, artistId, artistImage });
+      } catch {
+        // Revert
+        dispatch({ type: 'REMOVE_DISCOVERED_ARTIST', artistName });
+      }
+    }
+  }, [dispatch, auth.discoveredArtists, auth.knownArtists]);
 
   const showAuthModal = useCallback((tab = 'login') => {
     dispatch({ type: 'SHOW_AUTH_MODAL', tab });
@@ -244,5 +392,5 @@ export function useAuthActions() {
     dispatch({ type: 'HIDE_AUTH_MODAL' });
   }, [dispatch]);
 
-  return { login, register, logout, toggleFavorite, toggleDislike, showAuthModal, hideAuthModal };
+  return { login, register, logout, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, showAuthModal, hideAuthModal };
 }

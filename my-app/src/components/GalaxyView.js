@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
+import { useAuth } from '../state/AuthContext';
 import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES, QUEUE_SEED, UNQUEUE_SEED } from '../state/actions';
 import { generateRecommendations } from '../engine/recommendationEngine';
 import { expandUniverse } from '../engine/expandUniverse';
@@ -18,6 +19,7 @@ import '../styles/galaxy.css';
 function GalaxyView() {
   const { selectedNode, seedArtists, galaxyData, pendingSeedQueue } = useAppState();
   const dispatch = useDispatch();
+  const { user, favorites, dislikes, knownArtists, discoveredArtists } = useAuth();
   const canvasRef = useRef(null);
   const [showTools, setShowTools] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -29,6 +31,24 @@ function GalaxyView() {
   const [showReleaseNotes, setShowReleaseNotes] = useState(false);
   const [isExpanding, setIsExpanding] = useState(false);
   const [hasExpanded, setHasExpanded] = useState(false);
+
+  // Compute unknown artists count — non-seed nodes not in known, favorites, dislikes, or discovered
+  const unknownCount = useMemo(() => {
+    if (!user || !galaxyData?.nodes) return 0;
+    const knownSet = new Set(knownArtists.map((k) => k.artistName));
+    const favSet = new Set(favorites.map((f) => f.artistName));
+    const dislikeSet = new Set(dislikes.map((d) => d.artistName));
+    const discoveredSet = new Set(discoveredArtists.map((d) => d.artistName));
+    let count = 0;
+    for (const node of galaxyData.nodes) {
+      if (node.type === 'seed') continue;
+      const name = node.name;
+      if (!knownSet.has(name) && !favSet.has(name) && !dislikeSet.has(name) && !discoveredSet.has(name)) {
+        count++;
+      }
+    }
+    return count;
+  }, [user, galaxyData, knownArtists, favorites, dislikes, discoveredArtists]);
 
   // Reset expand state when galaxy data changes (new galaxy generation)
   const galaxyGenRef = useRef(null);
@@ -162,6 +182,17 @@ function GalaxyView() {
           )}
           <span>Expand Universe</span>
         </button>
+      )}
+
+      {/* Unknown artists badge */}
+      {user && unknownCount > 0 && galaxyData && (
+        <div className="unknown-artists-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span>{unknownCount} unknown</span>
+        </div>
       )}
 
       {/* Zoom controls — stacked above toolbar */}

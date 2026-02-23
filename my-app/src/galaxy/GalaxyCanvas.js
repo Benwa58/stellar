@@ -77,7 +77,7 @@ function animateTransform(stateRef, target, duration = 400) {
 const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   const { galaxyData, selectedNode: reduxSelectedNode } = useAppState();
   const dispatch = useDispatch();
-  const { favorites, dislikes } = useAuth();
+  const { favorites, dislikes, knownArtists, discoveredArtists } = useAuth();
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -90,6 +90,8 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     selectedNode: null,
     favoriteNames: new Set(),
     dislikeNames: new Set(),
+    knownNames: new Set(),
+    discoveredNames: new Set(),
     isExpanded: false,
     expandTransition: 0,
     driftOrbit: null, // { cx, cy, radius } in world coords
@@ -223,6 +225,16 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   useEffect(() => {
     stateRef.current.dislikeNames = new Set(dislikes.map((d) => d.artistName));
   }, [dislikes]);
+
+  // Sync known artists to canvas state for dimming
+  useEffect(() => {
+    stateRef.current.knownNames = new Set(knownArtists.map((k) => k.artistName));
+  }, [knownArtists]);
+
+  // Sync discovered artists to canvas state for gold ring
+  useEffect(() => {
+    stateRef.current.discoveredNames = new Set(discoveredArtists.map((d) => d.artistName));
+  }, [discoveredArtists]);
 
   // Track drift merge generation to detect incremental merges
   const driftGenRef = useRef(0);

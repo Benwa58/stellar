@@ -136,6 +136,44 @@ export function removeDislike(artistName) {
   });
 }
 
+// --- Known Artists API ---
+
+export function getKnownArtists() {
+  return authFetch('/api/known-artists');
+}
+
+export function addKnownArtist(data) {
+  return authFetch('/api/known-artists', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function removeKnownArtist(artistName) {
+  return authFetch(`/api/known-artists/${encodeURIComponent(artistName)}`, {
+    method: 'DELETE',
+  });
+}
+
+// --- Discovered Artists API ---
+
+export function getDiscoveredArtists() {
+  return authFetch('/api/discovered-artists');
+}
+
+export function addDiscoveredArtist(data) {
+  return authFetch('/api/discovered-artists', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function removeDiscoveredArtist(artistName) {
+  return authFetch(`/api/discovered-artists/${encodeURIComponent(artistName)}`, {
+    method: 'DELETE',
+  });
+}
+
 // --- Shared Playlists API ---
 
 export function createSharedPlaylist(data) {

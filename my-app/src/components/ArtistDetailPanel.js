@@ -6,6 +6,8 @@ import { useAudioPreview } from '../hooks/useAudioPreview';
 import { buildSpotifySearchUrl } from '../utils/exportUtils';
 import FavoriteButton from './FavoriteButton';
 import DislikeButton from './DislikeButton';
+import KnownButton from './KnownButton';
+import DiscoveredButton from './DiscoveredButton';
 import '../styles/panel.css';
 
 function getBadgeInfo(node) {
@@ -120,6 +122,8 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
             <h3 className="panel-artist-name">{node.name}</h3>
             <FavoriteButton artistName={node.name} artistId={node.id} artistImage={node.image} />
             <DislikeButton artistName={node.name} artistId={node.id} artistImage={node.image} />
+            <KnownButton artistName={node.name} artistId={node.id} artistImage={node.image} />
+            <DiscoveredButton artistName={node.name} artistId={node.id} artistImage={node.image} />
           </div>
 
           <span className={`panel-type-badge ${badge.className}`}>

@@ -3,6 +3,18 @@ import '../styles/landing.css';
 
 const RELEASES = [
   {
+    version: '1.7',
+    date: 'February 2026',
+    title: 'Known Artists & Discovery Tracking',
+    items: [
+      'Mark artists as "Known" from the detail panel — known nodes dim on the canvas so new discoveries stand out.',
+      'Mark artists as "Discovered on Stellar" — discovered nodes get a gold gradient ring on the canvas.',
+      'An "unknown artists" badge on the galaxy map shows how many artists you haven\'t interacted with yet, updating dynamically as you explore.',
+      '"Discovered on Stellar" section on the landing page — a horizontal scroll of your discoveries, click to add as seed.',
+      'Favoriting or disliking an artist auto-marks them as known. Known and discovered are mutually exclusive.',
+    ],
+  },
+  {
     version: '1.6',
     date: 'February 2026',
     title: 'Batch Seed Selection',
