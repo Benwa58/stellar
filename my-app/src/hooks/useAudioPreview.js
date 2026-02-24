@@ -63,6 +63,51 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     };
   }, []);
 
+  // Update lock screen / MediaSession metadata
+  const updateMediaSession = useCallback((track, playing) => {
+    if (!('mediaSession' in navigator)) return;
+    if (!track) {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.name || '',
+      artist: track.artistName || '',
+      album: track.albumName || '',
+      ...(track.albumImage ? { artwork: [{ src: track.albumImage, sizes: '256x256', type: 'image/jpeg' }] } : {}),
+    });
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  }, []);
+
+  // Wire up MediaSession action handlers
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    const actions = {
+      play: () => {
+        if (currentTrackRef.current && !isPlayingRef.current) {
+          audioRef.current?.play().catch(() => {});
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+          updateMediaSession(currentTrackRef.current, true);
+        }
+      },
+      pause: () => {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        updateMediaSession(currentTrackRef.current, false);
+      },
+    };
+    for (const [action, handler] of Object.entries(actions)) {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
+    }
+    return () => {
+      for (const action of Object.keys(actions)) {
+        try { navigator.mediaSession.setActionHandler(action, null); } catch {}
+      }
+    };
+  }, [updateMediaSession]);
+
   const play = useCallback((track) => {
     const audio = audioRef.current;
     if (!audio || !track?.previewUrl) return;
@@ -72,6 +117,7 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audio.play().catch(() => {});
       setIsPlaying(true);
       isPlayingRef.current = true;
+      updateMediaSession(track, true);
       return;
     }
 
@@ -85,7 +131,8 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     setIsPlaying(true);
     isPlayingRef.current = true;
     setProgress(0);
-  }, []); // Stable — no deps, reads from refs
+    updateMediaSession(track, true);
+  }, [updateMediaSession]); // Stable — updateMediaSession is stable, reads from refs
 
   const pause = useCallback(() => {
     const audio = audioRef.current;
@@ -93,8 +140,9 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audio.pause();
       setIsPlaying(false);
       isPlayingRef.current = false;
+      updateMediaSession(currentTrackRef.current, false);
     }
-  }, []);
+  }, [updateMediaSession]);
 
   const toggle = useCallback(() => {
     if (isPlayingRef.current) {
