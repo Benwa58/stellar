@@ -95,6 +95,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     isExpanded: false,
     expandTransition: 0,
     driftOrbit: null, // { cx, cy, radius } in world coords
+    cameraFollowing: false, // true when explore mode is controlling the camera
   });
   const simulationRef = useRef(null);
   const rendererRef = useRef(null);
@@ -106,6 +107,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   const resetView = useCallback(() => {
     const { nodes } = stateRef.current;
     if (!nodes || size.width === 0 || size.height === 0) return;
+    stateRef.current.cameraFollowing = false;
     const target = computeFitTransform(nodes, size.width, size.height);
     animateTransform(stateRef, target);
   }, [size.width, size.height]);
@@ -152,6 +154,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
       scale,
     };
 
+    stateRef.current.cameraFollowing = true;
     animateTransform(stateRef, target, 1000);
   }, [size.width, size.height]);
 
@@ -385,8 +388,11 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
       const nebulaCanvas = renderNebulaeToCanvas(genreClusters, size.width, size.height);
       renderer.setNebulaCanvas(nebulaCanvas);
       // Smoothly auto-fit to show all nodes once layout is final
-      const target = computeFitTransform(nodes, size.width, size.height);
-      animateTransform(stateRef, target, 600);
+      // Skip if explore mode is already controlling the camera
+      if (!stateRef.current.cameraFollowing) {
+        const target = computeFitTransform(nodes, size.width, size.height);
+        animateTransform(stateRef, target, 600);
+      }
     });
 
     renderer.start();
