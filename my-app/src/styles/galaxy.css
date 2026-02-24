@@ -790,17 +790,7 @@
   }
 
   .zoom-controls {
-    bottom: calc(84px + env(safe-area-inset-bottom));
-    left: calc(16px + env(safe-area-inset-left));
-  }
-
-  .zoom-btn {
-    width: 30px;
-    height: 26px;
-  }
-
-  .galaxy-view:has(.preview-player) .zoom-controls {
-    bottom: calc(206px + env(safe-area-inset-bottom));
+    display: none;
   }
 
   .regenerate-queue-btn {

@@ -568,4 +568,11 @@
   .export-actions {
     padding: 10px 16px;
   }
+
+  /* Hide CSV export, Spotify links, and format selector on mobile */
+  .export-action-btn-csv,
+  .export-action-btn-copy,
+  .export-link-format {
+    display: none !important;
+  }
 }

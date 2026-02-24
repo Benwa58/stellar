@@ -287,7 +287,7 @@ function ExportDrawer({ onClose, seedArtists }) {
           )}
 
           <button
-            className="export-action-btn"
+            className="export-action-btn export-action-btn-csv"
             onClick={handleExportCSV}
             disabled={trackList.length === 0 || isLoading}
           >
@@ -300,7 +300,7 @@ function ExportDrawer({ onClose, seedArtists }) {
           </button>
 
           <button
-            className="export-action-btn"
+            className="export-action-btn export-action-btn-copy"
             onClick={handleCopyLinks}
             disabled={trackList.length === 0 || isLoading}
           >

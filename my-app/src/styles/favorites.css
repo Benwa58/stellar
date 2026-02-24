@@ -170,6 +170,16 @@
   color: #3b82f6;
 }
 
+.section-count {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-text-muted, #555577);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 8px;
+  border-radius: var(--radius-full, 9999px);
+  margin-left: 2px;
+}
+
 .favorites-scroll {
   display: flex;
   gap: 10px;
