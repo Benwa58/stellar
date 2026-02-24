@@ -122,6 +122,39 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     animateTransform(stateRef, target, 500);
   }, [size.width, size.height]);
 
+  // Smoothly follow a node during explore mode — shows the active node
+  // centered with its neighbors visible for context
+  const followNode = useCallback((node) => {
+    if (!node || node.x == null || node.y == null || size.width === 0 || size.height === 0) return;
+
+    // Gather the target node + direct neighbors for context framing
+    const links = stateRef.current.links || [];
+    const neighbors = [node];
+    for (const link of links) {
+      const src = link.source;
+      const tgt = link.target;
+      if (src === node || src?.id === node.id) {
+        if (tgt && tgt.x != null) neighbors.push(tgt);
+      } else if (tgt === node || tgt?.id === node.id) {
+        if (src && src.x != null) neighbors.push(src);
+      }
+    }
+
+    // Compute scale that fits the node + neighbors, then bias tighter
+    // so the target node feels prominent, not lost among neighbors
+    const fit = computeFitTransform(neighbors, size.width, size.height, 80);
+    const scale = clamp(fit.scale * 1.15, 0.6, 1.4);
+
+    // Center on the target node (not the neighbor centroid)
+    const target = {
+      x: size.width / 2 - node.x * scale,
+      y: size.height / 2 - node.y * scale,
+      scale,
+    };
+
+    animateTransform(stateRef, target, 1000);
+  }, [size.width, size.height]);
+
   // Return current positioned nodes
   const getNodes = useCallback(() => {
     return stateRef.current.nodes || [];
@@ -237,7 +270,7 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
   }, [size.width, size.height]);
 
   // Expose methods to parent via ref
-  useImperativeHandle(ref, () => ({ resetView, focusOnNode, getNodes, captureImage, mergeNodes, contractUniverse, zoomBy }), [resetView, focusOnNode, getNodes, captureImage, mergeNodes, contractUniverse, zoomBy]);
+  useImperativeHandle(ref, () => ({ resetView, focusOnNode, followNode, getNodes, captureImage, mergeNodes, contractUniverse, zoomBy }), [resetView, focusOnNode, followNode, getNodes, captureImage, mergeNodes, contractUniverse, zoomBy]);
 
   // Sync Redux selectedNode to canvas stateRef so the renderer highlights it.
   // The player dispatches SELECT_NODE with a copy, so we match by ID to find
