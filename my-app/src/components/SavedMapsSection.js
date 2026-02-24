@@ -97,7 +97,10 @@ function SavedMapsSection() {
 
   return (
     <div className="saved-maps-section">
-      <h3 className="saved-maps-title">Saved Galaxies</h3>
+      <h3 className="saved-maps-title">
+        Saved Galaxies
+        <span className="section-count">{maps.length}</span>
+      </h3>
       <div className="saved-maps-list">
         {maps.map((map) => (
           <div

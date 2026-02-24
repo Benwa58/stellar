@@ -448,4 +448,11 @@
   .share-player-bar {
     padding: 10px 16px;
   }
+
+  /* Hide CSV export, Spotify links, and format selector on mobile */
+  .share-action-btn-csv,
+  .share-action-btn-copy,
+  .share-link-format {
+    display: none !important;
+  }
 }
