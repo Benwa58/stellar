@@ -9,9 +9,8 @@ export function getMaxRecommendations(seedCount) {
   return Math.max(MAX_RECOMMENDATIONS_MIN, Math.min(scaled, MAX_RECOMMENDATIONS_CAP));
 }
 
-// Saved maps
+// Saved maps (STORAGE_KEY kept for localStorage migration)
 export const STORAGE_KEY = 'stellar_saved_maps';
-export const MAX_SAVED_MAPS = 20;
 
 export const FORCE_CONFIG = {
   linkDistanceSeedToSeed: 180,

@@ -285,3 +285,46 @@
 .favorite-card-remove:hover {
   color: var(--color-error, #ef4444);
 }
+
+/* Shared placeholder card for signed-out / empty sections */
+.section-placeholder-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 160px;
+  min-height: 80px;
+  padding: 16px 14px;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md, 12px);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+  color: var(--color-text-muted, #555577);
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+}
+
+.section-placeholder-card:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text-secondary, #8888aa);
+}
+
+.section-placeholder-card.empty {
+  cursor: default;
+  border-style: dashed;
+}
+
+.section-placeholder-card.empty:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--color-text-muted, #555577);
+}
+
+.section-placeholder-text {
+  font-size: 0.72rem;
+  text-align: center;
+  line-height: 1.4;
+}

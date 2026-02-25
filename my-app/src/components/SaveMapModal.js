@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useAppState } from '../state/AppContext';
-import { useAuth } from '../state/AuthContext';
-import { saveMap, generateMapName } from '../utils/savedMapsStorage';
+import { generateMapName } from '../utils/mapNameUtil';
 import { saveMapCloud } from '../api/authClient';
 import '../styles/galaxy.css';
 
 function SaveMapModal({ onClose, onSaved }) {
   const { seedArtists, galaxyData } = useAppState();
-  const { user } = useAuth();
   const defaultName = generateMapName(seedArtists);
   const [name, setName] = useState(defaultName);
   const [error, setError] = useState(null);
@@ -15,40 +13,23 @@ function SaveMapModal({ onClose, onSaved }) {
 
   const handleSave = async () => {
     const mapName = name.trim() || defaultName;
-
-    if (user) {
-      // Cloud save
-      setSaving(true);
-      try {
-        const res = await saveMapCloud({
-          name: mapName,
-          seedArtists,
-          galaxyData,
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error || 'Failed to save map.');
-        } else {
-          onSaved();
-        }
-      } catch {
-        setError('Failed to save map. Please try again.');
-      } finally {
-        setSaving(false);
-      }
-    } else {
-      // localStorage save
-      const result = saveMap({
+    setSaving(true);
+    try {
+      const res = await saveMapCloud({
         name: mapName,
         seedArtists,
         galaxyData,
       });
-
-      if (result.success) {
-        onSaved();
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to save map.');
       } else {
-        setError(result.error);
+        onSaved();
       }
+    } catch {
+      setError('Failed to save map. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -86,7 +67,6 @@ function SaveMapModal({ onClose, onSaved }) {
 
         <div className="save-map-meta">
           {seedArtists.length} seed artists &middot; {galaxyData?.nodes?.length || 0} nodes
-          {user && <> &middot; Saved to your account</>}
         </div>
 
         {error && <div className="save-map-error">{error}</div>}

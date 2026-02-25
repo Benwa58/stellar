@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useAppState } from '../state/AppContext';
 import { createGalaxyShare } from '../api/authClient';
-import { generateMapName } from '../utils/savedMapsStorage';
+import { generateMapName } from '../utils/mapNameUtil';
 import '../styles/shareGalaxy.css';
 
 function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {

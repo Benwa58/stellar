@@ -73,6 +73,13 @@
   border-color: rgba(74, 222, 128, 0.3);
 }
 
+/* Actions group — keeps Share/Playlist/Explore together when toolbar wraps */
+.toolbar-actions-group {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+}
+
 /* Pill variant (Share, Playlist) */
 .toolbar-pill {
   gap: 6px;

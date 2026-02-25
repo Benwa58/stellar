@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Stellar',
   webDir: 'build',
   ios: {
-    contentInset: 'always',
+    contentInset: 'never',
     backgroundColor: '#0a0a1a',
   },
 };

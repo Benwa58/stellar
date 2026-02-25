@@ -1,4 +1,4 @@
-import { STORAGE_KEY, MAX_SAVED_MAPS } from './constants';
+import { STORAGE_KEY } from './constants';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -31,13 +31,6 @@ export function loadSavedMap(id) {
 export function saveMap({ name, seedArtists, galaxyData }) {
   try {
     const maps = getSavedMaps();
-
-    if (maps.length >= MAX_SAVED_MAPS) {
-      return {
-        success: false,
-        error: `You can save up to ${MAX_SAVED_MAPS} maps. Delete one to save a new one.`,
-      };
-    }
 
     const storableGalaxyData = {
       nodes: galaxyData.nodes,

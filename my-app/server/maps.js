@@ -4,8 +4,6 @@ const db = require('./db');
 
 const router = express.Router();
 
-const MAX_SAVED_MAPS = 20;
-
 // GET /api/maps — list user's maps (metadata only, no full galaxy data)
 router.get('/', requireAuth, (req, res) => {
   try {
@@ -59,13 +57,6 @@ router.post('/', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'Map name must be 80 characters or fewer.' });
     }
 
-    const count = db.countUserMaps(req.userId);
-    if (count >= MAX_SAVED_MAPS) {
-      return res.status(400).json({
-        error: `You can save up to ${MAX_SAVED_MAPS} maps. Delete one to save a new one.`,
-      });
-    }
-
     const storableGalaxyData = {
       nodes: galaxyData.nodes,
       links: galaxyData.links,
@@ -108,19 +99,9 @@ router.post('/import', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'No maps to import.' });
     }
 
-    const currentCount = db.countUserMaps(req.userId);
-    const availableSlots = MAX_SAVED_MAPS - currentCount;
-
-    if (availableSlots <= 0) {
-      return res.status(400).json({
-        error: `You already have ${MAX_SAVED_MAPS} maps. Delete some to import.`,
-      });
-    }
-
-    const toImport = maps.slice(0, availableSlots);
     let imported = 0;
 
-    for (const map of toImport) {
+    for (const map of maps) {
       if (map.name && map.seedArtists && map.galaxyData) {
         db.createMap(req.userId, {
           name: map.name,
