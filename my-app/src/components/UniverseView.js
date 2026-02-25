@@ -46,9 +46,6 @@ function UniverseView() {
 
   const handleSelectNode = useCallback((node) => {
     setSelectedNode(node);
-    if (!node) {
-      // Clicked empty space — could zoom to nearest cluster
-    }
   }, []);
 
   const handleHoverNode = useCallback(() => {
@@ -59,29 +56,43 @@ function UniverseView() {
     setSelectedNode(null);
   }, []);
 
-  const handleZoomToCluster = useCallback((clusterId) => {
-    canvasRef.current?.zoomToCluster(clusterId);
+  // Called by canvas when cluster transition completes
+  const handleClusterFocus = useCallback((clusterId) => {
     setFocusedCluster(clusterId);
     setSelectedNode(null);
   }, []);
 
-  const handleBackToOverview = useCallback(() => {
-    canvasRef.current?.resetView();
-    setFocusedCluster(null);
-    setSelectedNode(null);
+  const handleZoomToCluster = useCallback((clusterId) => {
+    canvasRef.current?.zoomToCluster(clusterId);
   }, []);
 
-  // Compute stats
+  const handleBackToOverview = useCallback(() => {
+    canvasRef.current?.backToOverview();
+  }, []);
+
+  // Compute stats — show focused cluster info when zoomed in
   const stats = useMemo(() => {
     if (!universeData) return null;
+
+    if (focusedCluster != null && universeData.clusters?.[focusedCluster]) {
+      const cluster = universeData.clusters[focusedCluster];
+      return {
+        label: cluster.label,
+        artists: cluster.members.length,
+        recs: cluster.recommendations?.length || 0,
+        isFocused: true,
+      };
+    }
+
     const recCount = universeData.visualization?.totalRecs || 0;
     return {
       artists: universeData.artistCount || 0,
       clusters: universeData.clusters?.length || 0,
       recs: recCount,
       bridges: universeData.bridges?.length || 0,
+      isFocused: false,
     };
-  }, [universeData]);
+  }, [universeData, focusedCluster]);
 
   if (!universeData) return null;
 
@@ -103,22 +114,36 @@ function UniverseView() {
         clusterCenters={clusterCenters}
         bridgeLinks={bridgeLinks}
         recLinks={recLinks}
+        clusters={universeData.clusters || []}
         onSelectNode={handleSelectNode}
         onHoverNode={handleHoverNode}
+        onClusterFocus={handleClusterFocus}
       />
 
       {/* Stats bar */}
       {stats && (
         <div className="universe-stats-bar">
-          <span className="universe-stat-item">{stats.artists} artists</span>
-          <span className="universe-stat-sep">&middot;</span>
-          <span className="universe-stat-item">{stats.clusters} clouds</span>
-          <span className="universe-stat-sep">&middot;</span>
-          <span className="universe-stat-item">{stats.recs} recommendations</span>
-          {stats.bridges > 0 && (
+          {stats.isFocused ? (
             <>
+              <span className="universe-stat-item universe-stat-cluster-name">{stats.label}</span>
               <span className="universe-stat-sep">&middot;</span>
-              <span className="universe-stat-item">{stats.bridges} bridges</span>
+              <span className="universe-stat-item">{stats.artists} artists</span>
+              <span className="universe-stat-sep">&middot;</span>
+              <span className="universe-stat-item">{stats.recs} recommendations</span>
+            </>
+          ) : (
+            <>
+              <span className="universe-stat-item">{stats.artists} artists</span>
+              <span className="universe-stat-sep">&middot;</span>
+              <span className="universe-stat-item">{stats.clusters} clouds</span>
+              <span className="universe-stat-sep">&middot;</span>
+              <span className="universe-stat-item">{stats.recs} recommendations</span>
+              {stats.bridges > 0 && (
+                <>
+                  <span className="universe-stat-sep">&middot;</span>
+                  <span className="universe-stat-item">{stats.bridges} bridges</span>
+                </>
+              )}
             </>
           )}
         </div>
@@ -182,7 +207,11 @@ function UniverseView() {
       {selectedNode && (
         <UniverseArtistCard
           node={selectedNode}
-          cluster={clusterCenters[selectedNode.clusterId]}
+          cluster={
+            focusedCluster != null
+              ? clusterCenters[focusedCluster]
+              : clusterCenters[selectedNode.clusterId]
+          }
           onClose={handleCloseCard}
         />
       )}
@@ -251,8 +280,8 @@ function UniverseArtistCard({ node, cluster, onClose }) {
                 )}
               </span>
             ) : (
-              <span className={`universe-card-badge badge-${node.source}`}>
-                {node.source === 'favorite' ? 'Favorite' : 'Discovered'}
+              <span className={`universe-card-badge badge-${node.source || 'member'}`}>
+                {node.source === 'favorite' ? 'Favorite' : node.isMember ? 'Member' : 'Discovered'}
               </span>
             )}
             {cluster && (
