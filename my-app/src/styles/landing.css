@@ -10,17 +10,34 @@
 /* Header */
 .app-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   padding: calc(16px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right)) 16px calc(24px + env(safe-area-inset-left));
   position: relative;
   z-index: 10;
+}
+
+.header-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.header-map-name-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Mobile: hide inline map name, show row version */
+.header-map-name-row {
+  display: none;
 }
 
 .header-title {
@@ -389,5 +406,32 @@
 
   .landing-content {
     padding: 0 16px 40px;
+  }
+
+  /* Stack map name below Stellar on mobile */
+  .header-map-name-inline {
+    display: none;
+  }
+
+  .app-header.has-map-name {
+    padding-bottom: 8px;
+  }
+
+  .header-map-name-row {
+    display: flex;
+    align-items: center;
+    padding-left: 32px;
+    margin-top: 2px;
+  }
+
+  .header-map-name-row .header-map-name {
+    max-width: calc(100vw - 80px);
+    font-size: 0.78rem;
+  }
+
+  .header-map-name-row .header-map-name-input {
+    max-width: calc(100vw - 80px);
+    font-size: 0.78rem;
+    width: 100%;
   }
 }

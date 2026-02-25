@@ -812,14 +812,14 @@
   }
 
   .expand-universe-btn {
-    top: calc(64px + env(safe-area-inset-top));
+    top: calc(82px + env(safe-area-inset-top));
     left: 16px;
     font-size: 0.66rem;
     padding: 5px 12px 5px 8px;
   }
 
   .unknown-artists-badge {
-    top: calc(64px + env(safe-area-inset-top));
+    top: calc(82px + env(safe-area-inset-top));
     right: 16px;
     font-size: 0.64rem;
     padding: 4px 10px;
