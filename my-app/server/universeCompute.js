@@ -120,7 +120,7 @@ async function fetchArtistTags(artistName) {
   }
 }
 
-async function fetchSimilarArtists(artistName, limit = 50) {
+async function fetchSimilarArtists(artistName, limit = 60) {
   try {
     const data = await lastfmFetch('artist.getSimilar', {
       artist: artistName,
@@ -374,12 +374,12 @@ function assignClusterColor(centroid, vocabulary) {
 
 // --- Per-cluster recommendations ---
 
-async function getClusterRecommendations(clusterMembers, allUserArtists, limit = 5) {
+async function getClusterRecommendations(clusterMembers, allUserArtists, limit = 20) {
   const candidateScores = new Map();
   const membersToQuery = clusterMembers.slice(0, 5);
 
   for (const memberName of membersToQuery) {
-    const similar = await fetchSimilarArtists(memberName, 30);
+    const similar = await fetchSimilarArtists(memberName, 50);
     for (const s of similar) {
       const nameLower = s.name.toLowerCase().trim();
       if (allUserArtists.has(nameLower)) continue;
@@ -448,15 +448,21 @@ function buildMiniVisualization(clusters, bridges) {
   const totalClusters = clusters.length;
   const canvasSize = 1000;
   const canvasCenter = canvasSize / 2;
-  const layoutRadius = 300;
+  // Tighter layout for visual continuity between clusters
+  const layoutRadius = totalClusters <= 2 ? 150 : 220;
+
+  // Golden angle spiral for organic, non-uniform distribution
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
   // Track member positions for rec-to-member linking
   const memberPositions = new Map();
 
   for (let i = 0; i < totalClusters; i++) {
-    const angle = (2 * Math.PI * i) / totalClusters - Math.PI / 2;
-    const cx = canvasCenter + layoutRadius * Math.cos(angle);
-    const cy = canvasCenter + layoutRadius * Math.sin(angle);
+    // Sunflower/Fibonacci spiral layout — fills a disk organically
+    const angle = i * goldenAngle - Math.PI / 2;
+    const dist = totalClusters <= 1 ? 0 : layoutRadius * Math.sqrt((i + 0.5) / totalClusters);
+    const cx = canvasCenter + dist * Math.cos(angle);
+    const cy = canvasCenter + dist * Math.sin(angle);
     clusterCenters.push({ x: cx, y: cy });
 
     // Member nodes (favorites/discovered) — form the nebula core
@@ -610,7 +616,7 @@ async function computeUniverse(userId, db) {
     const cluster = rawClusters[i];
     const label = labelCluster(cluster.centroid, vocabulary);
     const color = assignClusterColor(cluster.centroid, vocabulary);
-    const recommendations = await getClusterRecommendations(cluster.members, allUserNamesLower, 10);
+    const recommendations = await getClusterRecommendations(cluster.members, allUserNamesLower, 20);
 
     const members = cluster.members.map((name) => {
       const data = artistsWithTags.find((a) => a.artistName === name);
