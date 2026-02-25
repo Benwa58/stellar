@@ -9,6 +9,7 @@ import ArtistSearch from './ArtistSearch';
 import ArtistChipList from './ArtistChipList';
 import GenerateButton from './GenerateButton';
 import SavedMapsSection from './SavedMapsSection';
+import MyUniverseSection from './MyUniverseSection';
 import FavoritesSection from './FavoritesSection';
 import DiscoveredSection from './DiscoveredSection';
 import ImportLocalMapsPrompt from './ImportLocalMapsPrompt';
@@ -87,6 +88,7 @@ function LandingPage() {
         </div>
 
         <SavedMapsSection />
+        <MyUniverseSection />
         <DiscoveredSection />
         <FavoritesSection />
         <ImportLocalMapsPrompt />

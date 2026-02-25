@@ -110,6 +110,7 @@ app.use('/api/known-artists', require('./server/knownArtists'));
 app.use('/api/discovered-artists', require('./server/discoveredArtists'));
 app.use('/api/playlists', require('./server/playlists'));
 app.use('/api/galaxy-shares', require('./server/galaxyShares'));
+app.use('/api/universe', require('./server/universe'));
 
 // --- Static files from React build ---
 app.use(express.static(buildPath, {

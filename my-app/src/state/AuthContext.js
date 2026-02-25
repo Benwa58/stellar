@@ -13,6 +13,8 @@ const initialState = {
   discoveredArtists: [],
   showAuthModal: false,
   authModalTab: 'login', // 'login' or 'register'
+  universeData: null,
+  universeStatus: 'none', // 'none', 'computing', 'ready', 'error', 'stale'
 };
 
 function authReducer(state, action) {
@@ -20,7 +22,7 @@ function authReducer(state, action) {
     case 'SET_USER':
       return { ...state, user: action.user, isLoading: false };
     case 'CLEAR_USER':
-      return { ...state, user: null, isLoading: false, favorites: [], dislikes: [], knownArtists: [], discoveredArtists: [] };
+      return { ...state, user: null, isLoading: false, favorites: [], dislikes: [], knownArtists: [], discoveredArtists: [], universeData: null, universeStatus: 'none' };
     case 'SET_AUTH_LOADING':
       return { ...state, isLoading: action.isLoading };
     case 'SET_FAVORITES':
@@ -79,6 +81,10 @@ function authReducer(state, action) {
           (d) => d.artistName !== action.artistName
         ),
       };
+    case 'SET_UNIVERSE_DATA':
+      return { ...state, universeData: action.data, universeStatus: action.status || 'ready' };
+    case 'SET_UNIVERSE_STATUS':
+      return { ...state, universeStatus: action.status };
     case 'SHOW_AUTH_MODAL':
       return { ...state, showAuthModal: true, authModalTab: action.tab || 'login' };
     case 'HIDE_AUTH_MODAL':
@@ -150,6 +156,18 @@ export function AuthProvider({ children }) {
           }
         })
         .catch(() => {});
+
+      authApi
+        .getUniverse()
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.universe) {
+            dispatch({ type: 'SET_UNIVERSE_DATA', data: data.universe, status: data.isStale ? 'stale' : 'ready' });
+          } else {
+            dispatch({ type: 'SET_UNIVERSE_STATUS', status: data.status || 'none' });
+          }
+        })
+        .catch(() => {});
     }
   }, [state.user]);
 
@@ -185,6 +203,43 @@ export function useAuthDispatch() {
     throw new Error('useAuthDispatch must be used within an AuthProvider');
   }
   return context;
+}
+
+// --- Universe polling helper ---
+
+let universePollTimer = null;
+
+function pollUniverseStatus(dispatch) {
+  if (universePollTimer) clearInterval(universePollTimer);
+  let attempts = 0;
+  universePollTimer = setInterval(async () => {
+    attempts++;
+    if (attempts > 60) {
+      clearInterval(universePollTimer);
+      universePollTimer = null;
+      dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'error' });
+      return;
+    }
+    try {
+      const res = await authApi.getUniverseStatus();
+      const data = await res.json();
+      if (data.status === 'ready') {
+        clearInterval(universePollTimer);
+        universePollTimer = null;
+        const universeRes = await authApi.getUniverse();
+        const universeData = await universeRes.json();
+        if (universeData.universe) {
+          dispatch({ type: 'SET_UNIVERSE_DATA', data: universeData.universe, status: 'ready' });
+        }
+      } else if (data.status === 'error') {
+        clearInterval(universePollTimer);
+        universePollTimer = null;
+        dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'error' });
+      }
+    } catch {
+      // continue polling
+    }
+  }, 5000);
 }
 
 // --- Action helpers ---
@@ -226,6 +281,7 @@ export function useAuthActions() {
       dispatch({ type: 'REMOVE_FAVORITE', artistName });
       try {
         await authApi.removeFavorite(artistName);
+        dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'stale' });
       } catch {
         // Revert
         dispatch({
@@ -260,6 +316,7 @@ export function useAuthActions() {
       dispatch({ type: 'ADD_FAVORITE', favorite });
       try {
         await authApi.addFavorite({ artistName, artistId, artistImage });
+        dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'stale' });
       } catch {
         // Revert
         dispatch({ type: 'REMOVE_FAVORITE', artistName });
@@ -358,6 +415,7 @@ export function useAuthActions() {
       dispatch({ type: 'REMOVE_DISCOVERED_ARTIST', artistName });
       try {
         await authApi.removeDiscoveredArtist(artistName);
+        dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'stale' });
       } catch {
         // Revert
         dispatch({
@@ -377,12 +435,33 @@ export function useAuthActions() {
       dispatch({ type: 'ADD_DISCOVERED_ARTIST', discoveredArtist });
       try {
         await authApi.addDiscoveredArtist({ artistName, artistId, artistImage });
+        dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'stale' });
       } catch {
         // Revert
         dispatch({ type: 'REMOVE_DISCOVERED_ARTIST', artistName });
       }
     }
   }, [dispatch, auth.discoveredArtists, auth.knownArtists]);
+
+  const refreshUniverse = useCallback(async () => {
+    dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'computing' });
+    try {
+      const res = await authApi.triggerUniverseCompute();
+      const data = await res.json();
+      if (data.status === 'ready') {
+        // Already up to date, re-fetch the full data
+        const universeRes = await authApi.getUniverse();
+        const universeData = await universeRes.json();
+        if (universeData.universe) {
+          dispatch({ type: 'SET_UNIVERSE_DATA', data: universeData.universe, status: 'ready' });
+        }
+      } else if (data.status === 'computing') {
+        pollUniverseStatus(dispatch);
+      }
+    } catch {
+      dispatch({ type: 'SET_UNIVERSE_STATUS', status: 'error' });
+    }
+  }, [dispatch]);
 
   const showAuthModal = useCallback((tab = 'login') => {
     dispatch({ type: 'SHOW_AUTH_MODAL', tab });
@@ -392,5 +471,5 @@ export function useAuthActions() {
     dispatch({ type: 'HIDE_AUTH_MODAL' });
   }, [dispatch]);
 
-  return { login, register, logout, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, showAuthModal, hideAuthModal };
+  return { login, register, logout, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, refreshUniverse, showAuthModal, hideAuthModal };
 }

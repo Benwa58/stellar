@@ -128,6 +128,22 @@ function initSchema() {
       link_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS universe_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      snapshot_data TEXT NOT NULL,
+      artist_hash TEXT NOT NULL,
+      cluster_count INTEGER NOT NULL DEFAULT 0,
+      artist_count INTEGER NOT NULL DEFAULT 0,
+      recommendation_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error_message TEXT,
+      computed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_universe_user ON universe_snapshots(user_id);
   `);
 
   // --- Migrations for existing databases ---
@@ -387,6 +403,57 @@ function getSharedGalaxy(id) {
   return getDb().prepare('SELECT * FROM shared_galaxies WHERE id = ?').get(id);
 }
 
+// --- Universe snapshot helpers ---
+
+function getUniverseSnapshot(userId) {
+  return getDb().prepare(
+    'SELECT * FROM universe_snapshots WHERE user_id = ?'
+  ).get(userId);
+}
+
+function upsertUniverseSnapshot(userId, { snapshotData, artistHash, clusterCount, artistCount, recommendationCount, status, errorMessage }) {
+  const existing = getUniverseSnapshot(userId);
+  if (existing) {
+    getDb().prepare(`
+      UPDATE universe_snapshots
+      SET snapshot_data = ?, artist_hash = ?, cluster_count = ?, artist_count = ?,
+          recommendation_count = ?, status = ?, error_message = ?,
+          computed_at = datetime('now'), updated_at = datetime('now')
+      WHERE user_id = ?
+    `).run(
+      JSON.stringify(snapshotData), artistHash, clusterCount, artistCount,
+      recommendationCount, status, errorMessage || null, userId
+    );
+  } else {
+    getDb().prepare(`
+      INSERT INTO universe_snapshots
+        (user_id, snapshot_data, artist_hash, cluster_count, artist_count,
+         recommendation_count, status, error_message, computed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).run(
+      userId, JSON.stringify(snapshotData), artistHash, clusterCount,
+      artistCount, recommendationCount, status, errorMessage || null
+    );
+  }
+}
+
+function setUniverseStatus(userId, status, errorMessage) {
+  const existing = getUniverseSnapshot(userId);
+  if (existing) {
+    getDb().prepare(`
+      UPDATE universe_snapshots SET status = ?, error_message = ?, updated_at = datetime('now')
+      WHERE user_id = ?
+    `).run(status, errorMessage || null, userId);
+  }
+}
+
+function getUniverseArtistHash(userId) {
+  const row = getDb().prepare(
+    'SELECT artist_hash FROM universe_snapshots WHERE user_id = ?'
+  ).get(userId);
+  return row?.artist_hash || null;
+}
+
 module.exports = {
   getDb,
   createUser,
@@ -427,4 +494,8 @@ module.exports = {
   createSharedGalaxy,
   getSharedGalaxy,
   getSharedGalaxyThumbnail,
+  getUniverseSnapshot,
+  upsertUniverseSnapshot,
+  setUniverseStatus,
+  getUniverseArtistHash,
 };

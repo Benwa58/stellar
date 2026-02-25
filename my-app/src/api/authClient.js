@@ -268,6 +268,20 @@ export function removeDiscoveredArtist(artistName) {
   });
 }
 
+// --- Universe API ---
+
+export function getUniverse() {
+  return authFetch('/api/universe');
+}
+
+export function triggerUniverseCompute() {
+  return authFetch('/api/universe/compute', { method: 'POST' });
+}
+
+export function getUniverseStatus() {
+  return authFetch('/api/universe/status');
+}
+
 // --- Shared Playlists API ---
 
 export function createSharedPlaylist(data) {
