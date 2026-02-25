@@ -9,9 +9,9 @@ export function buildGalaxyGraph(galaxyData) {
       return {
         ...node,
         radius: NODE_SIZES.seedMax,
-        color: 'rgba(255, 215, 0, 1)',
-        glowColor: 'rgba(255, 215, 0, 0.3)',
-        brightness: 1,
+        color: 'rgba(150, 165, 195, 0.65)',
+        glowColor: 'rgba(160, 170, 200, 0.15)',
+        brightness: 0.5,
       };
     }
 

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useCanvasSize } from '../hooks/useCanvasSize';
 import { setupInteractions } from './interactionHandler';
-import { createUniverseRenderer, hitTestCluster } from './universeRenderer';
+import { createUniverseRenderer, hitTestCluster, clusterVisualRadius } from './universeRenderer';
 import { buildClusterGalaxyData } from './universeGraphBuilder';
 import { buildGalaxyGraph } from './galaxyLayout';
 import { createSimulation } from './forceGraph';
@@ -51,8 +51,8 @@ function computeClusterFitTransform(clusterCenters, viewWidth, viewHeight) {
   if (!clusterCenters || clusterCenters.length === 0) return { x: 0, y: 0, scale: 1 };
 
   const items = clusterCenters.map((c) => {
-    const r = 80 + c.memberCount * 14 + (c.recCount || 0) * 6;
-    return { x: c.x, y: c.y, radius: r * 1.9 };
+    const r = clusterVisualRadius(c);
+    return { x: c.x, y: c.y, radius: r * 1.5 };
   });
 
   return computeFitTransform(items, viewWidth, viewHeight, 40);

@@ -264,36 +264,36 @@ function drawNodes(ctx, nodes, hoveredNode, selectedNode, time, expandT, knownNa
 function drawSeedNode(ctx, node, isActive) {
   const { x, y, radius } = node;
 
-  // Outer glow
-  const glowRadius = radius * 3;
+  // Subtle glow
+  const glowRadius = radius * 2;
   const glow = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
-  glow.addColorStop(0, 'rgba(255, 215, 0, 0.6)');
-  glow.addColorStop(0.3, 'rgba(255, 215, 0, 0.2)');
-  glow.addColorStop(0.7, 'rgba(255, 215, 0, 0.05)');
-  glow.addColorStop(1, 'rgba(255, 215, 0, 0)');
+  glow.addColorStop(0, 'rgba(160, 170, 200, 0.15)');
+  glow.addColorStop(0.5, 'rgba(140, 150, 180, 0.05)');
+  glow.addColorStop(1, 'rgba(140, 150, 180, 0)');
   ctx.beginPath();
   ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
   ctx.fillStyle = glow;
   ctx.fill();
 
-  // Body
+  // Body - muted blue-gray
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = '#FFD700';
+  ctx.fillStyle = 'rgba(150, 165, 195, 0.6)';
   ctx.fill();
 
-  // Core
+  // Thin ring outline
   ctx.beginPath();
-  ctx.arc(x, y, radius * 0.5, 0, Math.PI * 2);
-  ctx.fillStyle = '#FFFBE6';
-  ctx.fill();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(180, 195, 220, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
   // Active ring
   if (isActive) {
     ctx.beginPath();
-    ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.lineWidth = 1.5;
+    ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200, 210, 235, 0.6)';
+    ctx.lineWidth = 1.2;
     ctx.stroke();
   }
 }
@@ -513,19 +513,12 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
     if (node.x == null || node.y == null) continue;
     if (!favoriteNames.has(node.name)) continue;
 
-    // Dark blue gradient ring around the node
-    const ringRadius = node.radius + 3;
-    const grad = ctx.createLinearGradient(
-      node.x - ringRadius, node.y - ringRadius,
-      node.x + ringRadius, node.y + ringRadius
-    );
-    grad.addColorStop(0, 'rgba(30, 64, 175, 0.95)');   // deep blue
-    grad.addColorStop(0.5, 'rgba(59, 130, 246, 0.95)'); // mid blue
-    grad.addColorStop(1, 'rgba(30, 58, 138, 0.95)');    // navy blue
+    // Subtle thin ring
+    const ringRadius = node.radius + 2;
     ctx.beginPath();
     ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(100, 130, 180, 0.4)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
   }
 }
@@ -538,70 +531,14 @@ function drawDiscoveredIndicators(ctx, nodes, discoveredNames, time) {
 
     const { x, y, radius } = node;
 
-    // --- 1. Pulsing outer glow ---
-    const pulse = 0.7 + 0.3 * Math.sin(time * 0.002 + x * 0.01);
-    const glowRadius = (radius + 8) * pulse + radius;
-    const glow = ctx.createRadialGradient(x, y, radius, x, y, glowRadius);
-    glow.addColorStop(0, `rgba(255, 200, 50, ${0.25 * pulse})`);
-    glow.addColorStop(0.5, `rgba(255, 170, 0, ${0.1 * pulse})`);
-    glow.addColorStop(1, 'rgba(255, 150, 0, 0)');
-    ctx.beginPath();
-    ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
-    ctx.fillStyle = glow;
-    ctx.fill();
-
-    // --- 2. Rotating gradient ring ---
-    const angle = time * 0.001;
-    const ringRadius = radius + 3;
-    const gx = x + Math.cos(angle) * ringRadius;
-    const gy = y + Math.sin(angle) * ringRadius;
-    const gx2 = x + Math.cos(angle + Math.PI) * ringRadius;
-    const gy2 = y + Math.sin(angle + Math.PI) * ringRadius;
-    const ringGrad = ctx.createLinearGradient(gx, gy, gx2, gy2);
-    ringGrad.addColorStop(0, 'rgba(255, 230, 100, 1)');    // bright yellow-gold
-    ringGrad.addColorStop(0.25, 'rgba(255, 190, 0, 0.95)'); // warm gold
-    ringGrad.addColorStop(0.5, 'rgba(255, 140, 0, 0.9)');   // deep amber
-    ringGrad.addColorStop(0.75, 'rgba(255, 200, 50, 0.95)'); // light gold
-    ringGrad.addColorStop(1, 'rgba(255, 230, 100, 1)');     // back to bright
+    // Gentle pulsing ring - no sparkles
+    const pulse = 0.65 + 0.35 * Math.sin(time * 0.0015 + x * 0.01);
+    const ringRadius = radius + 2;
     ctx.beginPath();
     ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = ringGrad;
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = `rgba(180, 165, 110, ${0.35 * pulse})`;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
-
-    // --- 3. Orbiting sparkle particles ---
-    const sparkleCount = 4;
-    for (let i = 0; i < sparkleCount; i++) {
-      const sparkleAngle = angle * 1.5 + (Math.PI * 2 * i) / sparkleCount;
-      const sparkleR = ringRadius + 1;
-      const sx = x + Math.cos(sparkleAngle) * sparkleR;
-      const sy = y + Math.sin(sparkleAngle) * sparkleR;
-      const sparkleAlpha = 0.5 + 0.5 * Math.sin(time * 0.004 + i * 1.5);
-      const sparkleSize = 1.2 + 0.6 * sparkleAlpha;
-
-      // 4-pointed star sparkle
-      ctx.save();
-      ctx.translate(sx, sy);
-      ctx.rotate(sparkleAngle);
-      ctx.beginPath();
-      ctx.moveTo(0, -sparkleSize * 2);
-      ctx.lineTo(sparkleSize * 0.4, 0);
-      ctx.lineTo(0, sparkleSize * 2);
-      ctx.lineTo(-sparkleSize * 0.4, 0);
-      ctx.closePath();
-      ctx.fillStyle = `rgba(255, 240, 180, ${sparkleAlpha * 0.9})`;
-      ctx.fill();
-      // Cross arm
-      ctx.beginPath();
-      ctx.moveTo(-sparkleSize * 2, 0);
-      ctx.lineTo(0, sparkleSize * 0.4);
-      ctx.lineTo(sparkleSize * 2, 0);
-      ctx.lineTo(0, -sparkleSize * 0.4);
-      ctx.closePath();
-      ctx.fillStyle = `rgba(255, 240, 180, ${sparkleAlpha * 0.7})`;
-      ctx.fill();
-      ctx.restore();
-    }
   }
 }
 

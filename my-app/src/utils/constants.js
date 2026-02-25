@@ -18,7 +18,7 @@ export const FORCE_CONFIG = {
   linkDistanceRecToRec: 80,
   linkDistanceChain: 90,
   linkDistanceDrift: 300,
-  chargeSeed: -400,
+  chargeSeed: -220,
   chargeRecommendation: -100,
   chargeDrift: -40,
   centerStrength: 0.03,
@@ -28,8 +28,8 @@ export const FORCE_CONFIG = {
 };
 
 export const NODE_SIZES = {
-  seedMin: 14,
-  seedMax: 18,
+  seedMin: 7,
+  seedMax: 10,
   recMin: 3,
   recMax: 14,
   gemMin: 2.5,
