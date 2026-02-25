@@ -65,7 +65,7 @@ function animateTransform(stateRef, target, duration = 500) {
 }
 
 const UniverseCanvas = forwardRef(function UniverseCanvas(
-  { nodes, clusterCenters, bridgeLinks, onSelectNode, onHoverNode },
+  { nodes, clusterCenters, bridgeLinks, recLinks, onSelectNode, onHoverNode },
   ref
 ) {
   const containerRef = useRef(null);
@@ -74,6 +74,7 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     nodes: null,
     clusterCenters: null,
     bridgeLinks: null,
+    recLinks: null,
     transform: { x: 0, y: 0, scale: 1 },
     hoveredNode: null,
     selectedNode: null,
@@ -88,7 +89,8 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     stateRef.current.nodes = nodes;
     stateRef.current.clusterCenters = clusterCenters;
     stateRef.current.bridgeLinks = bridgeLinks;
-  }, [nodes, clusterCenters, bridgeLinks]);
+    stateRef.current.recLinks = recLinks;
+  }, [nodes, clusterCenters, bridgeLinks, recLinks]);
 
   // Reset view to fit all nodes
   const resetView = useCallback(() => {

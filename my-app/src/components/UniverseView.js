@@ -21,8 +21,8 @@ function UniverseView() {
   const universeLabel = user?.displayName ? `${user.displayName}\u2019s Universe` : 'My Universe';
 
   // Build enriched node array from universe visualization data
-  const { nodes, clusterCenters, bridgeLinks } = useMemo(() => {
-    if (!universeData?.visualization) return { nodes: [], clusterCenters: [], bridgeLinks: [] };
+  const { nodes, clusterCenters, bridgeLinks, recLinks } = useMemo(() => {
+    if (!universeData?.visualization) return { nodes: [], clusterCenters: [], bridgeLinks: [], recLinks: [] };
 
     const viz = universeData.visualization;
 
@@ -36,6 +36,7 @@ function UniverseView() {
       nodes: enrichedNodes,
       clusterCenters: viz.clusterCenters || [],
       bridgeLinks: viz.bridgeLinks || [],
+      recLinks: viz.recLinks || [],
     };
   }, [universeData]);
 
@@ -101,6 +102,7 @@ function UniverseView() {
         nodes={nodes}
         clusterCenters={clusterCenters}
         bridgeLinks={bridgeLinks}
+        recLinks={recLinks}
         onSelectNode={handleSelectNode}
         onHoverNode={handleHoverNode}
       />

@@ -444,26 +444,33 @@ function detectBridgeArtists(clusters, vectors) {
 function buildMiniVisualization(clusters, bridges) {
   const nodes = [];
   const clusterCenters = [];
+  const recLinks = [];
   const totalClusters = clusters.length;
-  const center = 400;
-  const radius = 240;
+  const canvasSize = 1000;
+  const canvasCenter = canvasSize / 2;
+  const layoutRadius = 300;
+
+  // Track member positions for rec-to-member linking
+  const memberPositions = new Map();
 
   for (let i = 0; i < totalClusters; i++) {
     const angle = (2 * Math.PI * i) / totalClusters - Math.PI / 2;
-    const cx = center + radius * Math.cos(angle);
-    const cy = center + radius * Math.sin(angle);
+    const cx = canvasCenter + layoutRadius * Math.cos(angle);
+    const cy = canvasCenter + layoutRadius * Math.sin(angle);
     clusterCenters.push({ x: cx, y: cy });
 
-    // Member nodes (favorites/discovered) — smaller anchors in inner ring
+    // Member nodes (favorites/discovered) — form the nebula core
     const memberCount = clusters[i].members.length;
-    const memberRadius = 40 + memberCount * 6;
+    const memberRadius = 45 + memberCount * 7;
     for (let j = 0; j < memberCount; j++) {
       const memberAngle = (2 * Math.PI * j) / memberCount;
-      const jitter = (Math.random() - 0.5) * memberRadius * 0.4;
-      const dist = memberRadius * 0.4 + Math.random() * memberRadius * 0.4;
+      const jitter = (Math.random() - 0.5) * memberRadius * 0.35;
+      const dist = memberRadius * 0.3 + Math.random() * memberRadius * 0.45;
+      const nx = cx + dist * Math.cos(memberAngle) + jitter;
+      const ny = cy + dist * Math.sin(memberAngle) + jitter;
       nodes.push({
-        x: cx + dist * Math.cos(memberAngle) + jitter,
-        y: cy + dist * Math.sin(memberAngle) + jitter,
+        x: nx,
+        y: ny,
         clusterId: i,
         name: clusters[i].members[j].name,
         source: clusters[i].members[j].source,
@@ -471,27 +478,41 @@ function buildMiniVisualization(clusters, bridges) {
         isRecommendation: false,
         size: clusters[i].members[j].source === 'favorite' ? 5 : 4,
       });
+      memberPositions.set(clusters[i].members[j].name, { x: nx, y: ny });
     }
 
-    // Recommendation nodes — larger, positioned in outer ring around cluster
+    // Recommendation nodes — positioned outside nebula, connected by links
     const recs = clusters[i].recommendations || [];
-    const recRadius = memberRadius + 25 + recs.length * 3;
+    const recRadius = memberRadius + 40 + recs.length * 4;
     for (let j = 0; j < recs.length; j++) {
-      // Offset rec angles to sit in gaps between members
       const recAngle = (2 * Math.PI * j) / recs.length + Math.PI / recs.length;
-      const jitter = (Math.random() - 0.5) * recRadius * 0.2;
+      const jitter = (Math.random() - 0.5) * recRadius * 0.15;
       const dist = recRadius * 0.7 + Math.random() * recRadius * 0.3;
+      const rx = cx + dist * Math.cos(recAngle) + jitter;
+      const ry = cy + dist * Math.sin(recAngle) + jitter;
       nodes.push({
-        x: cx + dist * Math.cos(recAngle) + jitter,
-        y: cy + dist * Math.sin(recAngle) + jitter,
+        x: rx,
+        y: ry,
         clusterId: i,
         name: recs[j].name,
         isRecommendation: true,
         score: recs[j].score,
         matchScore: recs[j].matchScore,
         suggestedBy: recs[j].suggestedBy,
-        size: 7,
+        size: 8,
       });
+
+      // Create links from this rec to its suggestedBy members
+      for (const suggestorName of (recs[j].suggestedBy || [])) {
+        const memberPos = memberPositions.get(suggestorName);
+        if (memberPos) {
+          recLinks.push({
+            from: { x: rx, y: ry },
+            to: { x: memberPos.x, y: memberPos.y },
+            strength: recs[j].matchScore || 0.5,
+          });
+        }
+      }
     }
   }
 
@@ -514,8 +535,9 @@ function buildMiniVisualization(clusters, bridges) {
       recCount: clusters[i].recommendations?.length || 0,
     })),
     bridgeLinks,
-    width: 800,
-    height: 800,
+    recLinks,
+    width: canvasSize,
+    height: canvasSize,
     totalRecs,
   };
 }
@@ -588,7 +610,7 @@ async function computeUniverse(userId, db) {
     const cluster = rawClusters[i];
     const label = labelCluster(cluster.centroid, vocabulary);
     const color = assignClusterColor(cluster.centroid, vocabulary);
-    const recommendations = await getClusterRecommendations(cluster.members, allUserNamesLower, 5);
+    const recommendations = await getClusterRecommendations(cluster.members, allUserNamesLower, 10);
 
     const members = cluster.members.map((name) => {
       const data = artistsWithTags.find((a) => a.artistName === name);

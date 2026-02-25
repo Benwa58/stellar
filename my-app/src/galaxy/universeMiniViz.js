@@ -1,6 +1,7 @@
 /**
  * Mini Canvas 2D renderer for the universe preview on the landing page.
- * Renders taste cloud nebulae, artist nodes, bridge links, and cluster labels.
+ * Galaxy-quality rendering: nebulae, rec links, particles, and node styling
+ * matching the full-page universe view.
  * Returns a cleanup function to cancel the animation loop.
  */
 export function renderUniverseMiniViz(canvas, universeData) {
@@ -22,15 +23,16 @@ export function renderUniverseMiniViz(canvas, universeData) {
   let frameId = null;
   const startTime = performance.now();
 
-  // Pre-generate some background stars
+  // Background stars
   const stars = [];
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 80; i++) {
     stars.push({
       x: Math.random() * w,
       y: Math.random() * h,
       size: 0.3 + Math.random() * 0.8,
-      baseOpacity: 0.1 + Math.random() * 0.3,
+      baseAlpha: 0.08 + Math.random() * 0.25,
       phase: Math.random() * Math.PI * 2,
+      speed: 0.0006 + Math.random() * 0.0015,
     });
   }
 
@@ -39,49 +41,82 @@ export function renderUniverseMiniViz(canvas, universeData) {
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    // Clear with transparent background
     ctx.clearRect(0, 0, w, h);
 
-    // Draw background stars
+    // Background stars
     for (const star of stars) {
-      const twinkle = star.baseOpacity + 0.15 * Math.sin(time * 0.001 + star.phase);
+      const twinkle = star.baseAlpha + 0.12 * Math.sin(time * star.speed + star.phase);
+      if (twinkle <= 0) continue;
       ctx.beginPath();
       ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(200, 210, 240, ${twinkle})`;
+      ctx.fillStyle = `rgba(195, 205, 235, ${twinkle})`;
       ctx.fill();
     }
 
-    // Draw cluster nebulae (soft radial gradients)
+    // Cluster nebulae (multi-layer)
     for (const center of viz.clusterCenters) {
       const cx = center.x * scale + offsetX;
       const cy = center.y * scale + offsetY;
-      const r = (30 + center.memberCount * 5) * scale;
+      const baseR = (35 + center.memberCount * 6 + (center.recCount || 0) * 3) * scale;
       const { h: ch, s, l } = center.color;
+      const breathe = 1 + 0.02 * Math.sin(time * 0.0004 + cx * 0.01);
+      const r = baseR * breathe;
 
-      // Main nebula
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-      grad.addColorStop(0, `hsla(${ch}, ${s}%, ${l}%, 0.18)`);
-      grad.addColorStop(0.5, `hsla(${ch}, ${s}%, ${l}%, 0.06)`);
-      grad.addColorStop(1, `hsla(${ch}, ${s}%, ${l}%, 0)`);
-      ctx.fillStyle = grad;
+      // Outer halo
+      const outerR = r * 1.7;
+      const g1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
+      g1.addColorStop(0, `hsla(${ch}, ${s}%, ${l}%, 0.08)`);
+      g1.addColorStop(0.4, `hsla(${ch}, ${s}%, ${l}%, 0.035)`);
+      g1.addColorStop(1, `hsla(${ch}, ${s}%, ${l}%, 0)`);
+      ctx.fillStyle = g1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core
+      const g2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g2.addColorStop(0, `hsla(${ch}, ${s}%, ${l}%, 0.20)`);
+      g2.addColorStop(0.4, `hsla(${ch}, ${s}%, ${l}%, 0.09)`);
+      g2.addColorStop(1, `hsla(${ch}, ${s}%, ${l}%, 0)`);
+      ctx.fillStyle = g2;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fill();
 
-      // Secondary offset nebula for organic shape
-      const ox = cx + r * 0.2;
-      const oy = cy - r * 0.15;
-      const grad2 = ctx.createRadialGradient(ox, oy, 0, ox, oy, r * 0.7);
-      grad2.addColorStop(0, `hsla(${ch}, ${Math.max(s - 10, 30)}%, ${Math.min(l + 10, 80)}%, 0.1)`);
-      grad2.addColorStop(1, `hsla(${ch}, ${s}%, ${l}%, 0)`);
-      ctx.fillStyle = grad2;
+      // Offset sub-cloud
+      const ox = cx + r * 0.25;
+      const oy = cy - r * 0.2;
+      const sr = r * 0.55;
+      const g3 = ctx.createRadialGradient(ox, oy, 0, ox, oy, sr);
+      g3.addColorStop(0, `hsla(${ch}, ${Math.min(s + 10, 100)}%, ${Math.min(l + 8, 80)}%, 0.09)`);
+      g3.addColorStop(1, `hsla(${ch}, ${s}%, ${l}%, 0)`);
+      ctx.fillStyle = g3;
       ctx.beginPath();
-      ctx.arc(ox, oy, r * 0.7, 0, Math.PI * 2);
+      ctx.arc(ox, oy, sr, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Draw bridge links (dashed lines between cluster centers)
+    // Rec links
+    if (viz.recLinks && viz.recLinks.length > 0) {
+      ctx.setLineDash([2, 3]);
+      for (const link of viz.recLinks) {
+        const x1 = link.from.x * scale + offsetX;
+        const y1 = link.from.y * scale + offsetY;
+        const x2 = link.to.x * scale + offsetX;
+        const y2 = link.to.y * scale + offsetY;
+        const pulse = 0.5 + 0.3 * Math.sin(time * 0.001 + x1 * 0.02);
+        const alpha = (0.03 + link.strength * 0.06) * pulse;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `rgba(170, 180, 255, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    // Bridge links
     if (viz.bridgeLinks && viz.bridgeLinks.length > 0) {
       ctx.setLineDash([3, 5]);
       for (const link of viz.bridgeLinks) {
@@ -99,51 +134,91 @@ export function renderUniverseMiniViz(canvas, universeData) {
       ctx.setLineDash([]);
     }
 
-    // Draw artist nodes with gentle twinkle
+    // Nodes — members first, then recs on top
+    const members = [];
+    const recs = [];
     for (const node of viz.nodes) {
+      if (node.isRecommendation) recs.push(node);
+      else members.push(node);
+    }
+
+    // Member nodes
+    for (const node of members) {
       const nx = node.x * scale + offsetX;
       const ny = node.y * scale + offsetY;
       const center = viz.clusterCenters[node.clusterId];
       if (!center) continue;
       const { h: ch, s, l } = center.color;
-
-      const twinkle = 0.5 + 0.5 * Math.sin(time * 0.002 + nx * 0.05 + ny * 0.03);
-      const size = node.size * scale * (0.8 + twinkle * 0.2);
+      const size = node.size * scale;
+      const isFav = node.source === 'favorite';
 
       // Glow
-      const glow = ctx.createRadialGradient(nx, ny, 0, nx, ny, size * 3);
-      glow.addColorStop(0, `hsla(${ch}, ${s}%, ${l}%, ${0.2 * twinkle})`);
-      glow.addColorStop(1, 'hsla(0, 0%, 0%, 0)');
+      const glowR = size * 2.5;
+      const glow = ctx.createRadialGradient(nx, ny, 0, nx, ny, glowR);
+      glow.addColorStop(0, `hsla(${ch}, ${s}%, ${l}%, ${isFav ? 0.18 : 0.10})`);
+      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(nx, ny, size * 3, 0, Math.PI * 2);
+      ctx.arc(nx, ny, glowR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Node body
+      // Body
       ctx.beginPath();
       ctx.arc(nx, ny, size, 0, Math.PI * 2);
-      ctx.fillStyle =
-        node.source === 'favorite'
-          ? `hsla(${ch}, ${s}%, ${Math.min(l + 15, 80)}%, ${0.7 + twinkle * 0.3})`
-          : `hsla(${ch}, ${s}%, ${l}%, ${0.5 + twinkle * 0.3})`;
+      ctx.fillStyle = isFav
+        ? `hsla(${ch}, ${s}%, ${Math.min(l + 15, 80)}%, 0.8)`
+        : `hsla(${ch}, ${s}%, ${l}%, 0.6)`;
       ctx.fill();
     }
 
-    // Draw cluster labels
-    const fontSize = Math.max(8, 10 * scale);
-    ctx.font = `500 ${fontSize}px 'Space Grotesk', sans-serif`;
+    // Recommendation nodes (prominent pulsing)
+    for (const node of recs) {
+      const nx = node.x * scale + offsetX;
+      const ny = node.y * scale + offsetY;
+      const center = viz.clusterCenters[node.clusterId];
+      if (!center) continue;
+      const { h: ch, s, l } = center.color;
+      const size = node.size * scale;
+      const pulse = 0.6 + 0.4 * Math.sin(time * 0.002 + nx * 0.03 + ny * 0.03);
+
+      // Glow
+      const glowR = size * 4;
+      const glow = ctx.createRadialGradient(nx, ny, 0, nx, ny, glowR);
+      glow.addColorStop(0, `hsla(${ch}, ${Math.min(s + 15, 100)}%, ${Math.min(l + 20, 85)}%, ${0.25 * pulse})`);
+      glow.addColorStop(0.4, `hsla(${ch}, ${s}%, ${l}%, ${0.08 * pulse})`);
+      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(nx, ny, glowR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body
+      ctx.beginPath();
+      ctx.arc(nx, ny, size, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${ch}, ${Math.min(s + 15, 100)}%, ${Math.min(l + 20, 85)}%, ${0.7 + 0.3 * pulse})`;
+      ctx.fill();
+
+      // Core
+      ctx.beginPath();
+      ctx.arc(nx, ny, size * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${ch}, ${Math.min(s + 10, 100)}%, ${Math.min(l + 30, 95)}%, ${0.4 + 0.3 * pulse})`;
+      ctx.fill();
+    }
+
+    // Cluster labels
+    const fontSize = Math.max(7, 10 * scale);
+    ctx.font = `600 ${fontSize}px 'Space Grotesk', sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const center of viz.clusterCenters) {
       const cx = center.x * scale + offsetX;
-      const cy = center.y * scale + offsetY - (30 + center.memberCount * 3) * scale;
+      const r = (35 + center.memberCount * 6 + (center.recCount || 0) * 3) * scale;
+      const cy = center.y * scale + offsetY - r - 6;
       const { h: ch, s, l } = center.color;
 
-      // Text shadow for readability
-      ctx.fillStyle = `rgba(0, 0, 0, 0.5)`;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fillText(center.label, cx + 0.5, cy + 0.5);
-
-      ctx.fillStyle = `hsla(${ch}, ${Math.max(s - 20, 30)}%, ${Math.min(l + 20, 85)}%, 0.75)`;
+      ctx.fillStyle = `hsla(${ch}, ${Math.max(s - 15, 30)}%, ${Math.min(l + 22, 88)}%, 0.8)`;
       ctx.fillText(center.label, cx, cy);
     }
 
