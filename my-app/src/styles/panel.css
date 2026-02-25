@@ -508,9 +508,9 @@
   .detail-panel {
     width: 100%;
     max-width: 100%;
-    top: 0;
+    top: env(safe-area-inset-top);
     bottom: auto;
-    max-height: 25vh;
+    max-height: 20vh;
     height: auto;
     border-left: none;
     border-top: none;

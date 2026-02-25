@@ -584,7 +584,7 @@
 
 .unknown-artists-badge {
   position: absolute;
-  top: 80px;
+  top: calc(80px + env(safe-area-inset-top));
   right: 20px;
   display: flex;
   align-items: center;
@@ -614,7 +614,7 @@
 
 .expand-universe-btn {
   position: absolute;
-  top: 80px;
+  top: calc(80px + env(safe-area-inset-top));
   left: 20px;
   display: flex;
   align-items: center;
@@ -805,14 +805,14 @@
   }
 
   .expand-universe-btn {
-    top: 64px;
+    top: calc(64px + env(safe-area-inset-top));
     left: 16px;
     font-size: 0.66rem;
     padding: 5px 12px 5px 8px;
   }
 
   .unknown-artists-badge {
-    top: 64px;
+    top: calc(64px + env(safe-area-inset-top));
     right: 16px;
     font-size: 0.64rem;
     padding: 4px 10px;

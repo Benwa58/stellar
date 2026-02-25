@@ -86,7 +86,7 @@
   position: relative;
   width: 420px;
   max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 80px);
+  max-height: calc(100vh - 80px - env(safe-area-inset-top));
   overflow-y: auto;
   background: rgba(12, 12, 32, 0.95);
   backdrop-filter: blur(20px);
