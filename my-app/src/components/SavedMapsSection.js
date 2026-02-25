@@ -50,6 +50,7 @@ function SavedMapsSection() {
           payload: {
             seedArtists: mapData.seedArtists,
             galaxyData: mapData.galaxyData,
+            mapName: mapData.name,
           },
         });
       } catch {

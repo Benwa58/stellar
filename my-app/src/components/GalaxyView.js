@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { useAppState, useDispatch } from '../state/AppContext';
 import { useAuth, useAuthActions } from '../state/AuthContext';
-import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES, REMOVE_DRIFT_NODES, QUEUE_SEED, UNQUEUE_SEED } from '../state/actions';
+import { SELECT_NODE, GO_TO_INPUT, ADD_SEED_AND_REGENERATE, SET_LOADING_PROGRESS, SET_GALAXY_DATA, SET_ERROR, MERGE_DRIFT_NODES, REMOVE_DRIFT_NODES, QUEUE_SEED, UNQUEUE_SEED, SET_MAP_NAME } from '../state/actions';
+import { generateMapName } from '../utils/mapNameUtil';
 import { generateRecommendations } from '../engine/recommendationEngine';
 import { expandUniverse } from '../engine/expandUniverse';
 import Header from './Header';
@@ -17,7 +18,7 @@ import ReleaseNotesModal from './ReleaseNotesModal';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
-  const { selectedNode, seedArtists, galaxyData, pendingSeedQueue } = useAppState();
+  const { selectedNode, seedArtists, galaxyData, pendingSeedQueue, currentMapName } = useAppState();
   const dispatch = useDispatch();
   const { user, favorites, dislikes, knownArtists, discoveredArtists } = useAuth();
   const { showAuthModal } = useAuthActions();
@@ -30,6 +31,12 @@ function GalaxyView() {
   const [showExport, setShowExport] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showReleaseNotes, setShowReleaseNotes] = useState(false);
+  const defaultMapName = useMemo(() => generateMapName(seedArtists), [seedArtists]);
+
+  const handleMapNameChange = useCallback((name) => {
+    dispatch({ type: SET_MAP_NAME, payload: name });
+  }, [dispatch]);
+
   const [isExpanding, setIsExpanding] = useState(false);
   const [hasExpanded, setHasExpanded] = useState(false);
   const [isContracting, setIsContracting] = useState(false);
@@ -173,6 +180,9 @@ function GalaxyView() {
           showBack
           onBack={handleBack}
           artistCount={seedArtists.length}
+          mapName={currentMapName}
+          defaultMapName={defaultMapName}
+          onMapNameChange={handleMapNameChange}
         />
       </div>
 

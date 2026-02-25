@@ -19,6 +19,7 @@ export const initialState = {
   error: null,
 
   pendingSeedQueue: [],
+  currentMapName: '',
 };
 
 export function appReducer(state, action) {
@@ -46,6 +47,9 @@ export function appReducer(state, action) {
     case actions.SET_SEARCH_QUERY:
       return { ...state, searchQuery: action.payload };
 
+    case actions.SET_MAP_NAME:
+      return { ...state, currentMapName: action.payload };
+
     case actions.START_GENERATING:
       return {
         ...state,
@@ -57,6 +61,7 @@ export function appReducer(state, action) {
         previewTrack: null,
         isPlaying: false,
         error: null,
+        currentMapName: '',
       };
 
     case actions.SET_LOADING_PROGRESS:
@@ -98,6 +103,7 @@ export function appReducer(state, action) {
         hoveredNode: null,
         previewTrack: null,
         isPlaying: false,
+        currentMapName: '',
       };
 
     case actions.ADD_SEED_AND_REGENERATE: {
@@ -124,7 +130,7 @@ export function appReducer(state, action) {
     }
 
     case actions.LOAD_SAVED_MAP: {
-      const { seedArtists, galaxyData } = action.payload;
+      const { seedArtists, galaxyData, mapName } = action.payload;
       const fullGalaxyData = {
         ...galaxyData,
         genreClusters: galaxyData.genreClusters || clusterByGenre(galaxyData.nodes),
@@ -141,6 +147,7 @@ export function appReducer(state, action) {
         error: null,
         searchQuery: '',
         searchResults: [],
+        currentMapName: mapName || '',
       };
     }
 

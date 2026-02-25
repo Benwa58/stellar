@@ -5,8 +5,8 @@ import { saveMapCloud } from '../api/authClient';
 import '../styles/galaxy.css';
 
 function SaveMapModal({ onClose, onSaved }) {
-  const { seedArtists, galaxyData } = useAppState();
-  const defaultName = generateMapName(seedArtists);
+  const { seedArtists, galaxyData, currentMapName } = useAppState();
+  const defaultName = currentMapName || generateMapName(seedArtists);
   const [name, setName] = useState(defaultName);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
