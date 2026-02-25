@@ -1,12 +1,19 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { useAuth, useAuthActions } from '../state/AuthContext';
+import { useDispatch } from '../state/AppContext';
+import { VIEW_UNIVERSE } from '../state/actions';
 import { renderUniverseMiniViz } from '../galaxy/universeMiniViz';
 import '../styles/universe.css';
 
 function MyUniverseSection() {
   const { user, favorites, discoveredArtists, universeData, universeStatus } = useAuth();
   const { showAuthModal, refreshUniverse } = useAuthActions();
+  const appDispatch = useDispatch();
   const canvasRef = useRef(null);
+
+  const handleExplore = useCallback(() => {
+    appDispatch({ type: VIEW_UNIVERSE });
+  }, [appDispatch]);
 
   // Render mini visualization when data is available
   useEffect(() => {
@@ -30,7 +37,7 @@ function MyUniverseSection() {
   }, [user, universeStatus, refreshUniverse]);
 
   const hasData = (favorites.length + discoveredArtists.length) >= 4;
-  const displayName = user?.displayName || 'My';
+  const universeLabel = user?.displayName ? `${user.displayName}\u2019s Universe` : 'My Universe';
 
   return (
     <div className="universe-section">
@@ -40,7 +47,7 @@ function MyUniverseSection() {
           <circle cx="12" cy="12" r="3.5" fill="currentColor" />
           <ellipse cx="12" cy="12" rx="10" ry="3.5" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
         </svg>
-        {displayName}&rsquo;s Universe
+        {universeLabel}
         {universeData && universeData.clusters && (
           <span className="section-count">{universeData.clusters.length} clusters</span>
         )}
@@ -106,9 +113,16 @@ function MyUniverseSection() {
       {/* Ready — show visualization + clusters */}
       {user && universeData && (universeStatus === 'ready' || universeStatus === 'stale') && (
         <div className="universe-content">
-          {/* Mini visualization canvas */}
-          <div className="universe-viz-container">
+          {/* Mini visualization canvas — tap to explore */}
+          <div className="universe-viz-container" onClick={handleExplore} role="button" tabIndex={0}>
             <canvas ref={canvasRef} className="universe-viz-canvas" />
+            <div className="universe-viz-explore-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <span>Tap to explore</span>
+            </div>
           </div>
 
           {/* Stats summary */}
@@ -190,6 +204,16 @@ function MyUniverseSection() {
               ))}
             </div>
           )}
+
+          {/* Explore button */}
+          <button className="universe-explore-btn" onClick={handleExplore}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3.5" fill="currentColor" />
+              <ellipse cx="12" cy="12" rx="10" ry="3.5" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
+            </svg>
+            <span>Explore Your Universe</span>
+          </button>
         </div>
       )}
     </div>

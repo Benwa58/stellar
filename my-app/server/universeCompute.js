@@ -445,26 +445,52 @@ function buildMiniVisualization(clusters, bridges) {
   const nodes = [];
   const clusterCenters = [];
   const totalClusters = clusters.length;
-  const radius = 120;
+  const center = 400;
+  const radius = 240;
 
   for (let i = 0; i < totalClusters; i++) {
     const angle = (2 * Math.PI * i) / totalClusters - Math.PI / 2;
-    const cx = 200 + radius * Math.cos(angle);
-    const cy = 200 + radius * Math.sin(angle);
+    const cx = center + radius * Math.cos(angle);
+    const cy = center + radius * Math.sin(angle);
     clusterCenters.push({ x: cx, y: cy });
 
-    const memberRadius = 20 + clusters[i].members.length * 3;
-    for (let j = 0; j < clusters[i].members.length; j++) {
-      const memberAngle = (2 * Math.PI * j) / clusters[i].members.length;
+    // Member nodes (favorites/discovered) — smaller anchors in inner ring
+    const memberCount = clusters[i].members.length;
+    const memberRadius = 40 + memberCount * 6;
+    for (let j = 0; j < memberCount; j++) {
+      const memberAngle = (2 * Math.PI * j) / memberCount;
       const jitter = (Math.random() - 0.5) * memberRadius * 0.4;
-      const dist = memberRadius * 0.5 + Math.random() * memberRadius * 0.5;
+      const dist = memberRadius * 0.4 + Math.random() * memberRadius * 0.4;
       nodes.push({
         x: cx + dist * Math.cos(memberAngle) + jitter,
         y: cy + dist * Math.sin(memberAngle) + jitter,
         clusterId: i,
         name: clusters[i].members[j].name,
         source: clusters[i].members[j].source,
-        size: clusters[i].members[j].source === 'favorite' ? 4 : 3,
+        image: clusters[i].members[j].image || null,
+        isRecommendation: false,
+        size: clusters[i].members[j].source === 'favorite' ? 5 : 4,
+      });
+    }
+
+    // Recommendation nodes — larger, positioned in outer ring around cluster
+    const recs = clusters[i].recommendations || [];
+    const recRadius = memberRadius + 25 + recs.length * 3;
+    for (let j = 0; j < recs.length; j++) {
+      // Offset rec angles to sit in gaps between members
+      const recAngle = (2 * Math.PI * j) / recs.length + Math.PI / recs.length;
+      const jitter = (Math.random() - 0.5) * recRadius * 0.2;
+      const dist = recRadius * 0.7 + Math.random() * recRadius * 0.3;
+      nodes.push({
+        x: cx + dist * Math.cos(recAngle) + jitter,
+        y: cy + dist * Math.sin(recAngle) + jitter,
+        clusterId: i,
+        name: recs[j].name,
+        isRecommendation: true,
+        score: recs[j].score,
+        matchScore: recs[j].matchScore,
+        suggestedBy: recs[j].suggestedBy,
+        size: 7,
       });
     }
   }
@@ -476,6 +502,8 @@ function buildMiniVisualization(clusters, bridges) {
     strength: b.strength,
   }));
 
+  const totalRecs = clusters.reduce((sum, c) => sum + (c.recommendations?.length || 0), 0);
+
   return {
     nodes,
     clusterCenters: clusterCenters.map((c, i) => ({
@@ -483,10 +511,12 @@ function buildMiniVisualization(clusters, bridges) {
       label: clusters[i].label,
       color: clusters[i].color,
       memberCount: clusters[i].members.length,
+      recCount: clusters[i].recommendations?.length || 0,
     })),
     bridgeLinks,
-    width: 400,
-    height: 400,
+    width: 800,
+    height: 800,
+    totalRecs,
   };
 }
 

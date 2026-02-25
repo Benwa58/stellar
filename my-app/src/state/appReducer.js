@@ -204,6 +204,16 @@ export function appReducer(state, action) {
     case actions.CLEAR_SEED_QUEUE:
       return { ...state, pendingSeedQueue: [] };
 
+    case actions.VIEW_UNIVERSE:
+      return {
+        ...state,
+        phase: 'viewing-universe',
+        selectedNode: null,
+        hoveredNode: null,
+        previewTrack: null,
+        isPlaying: false,
+      };
+
     case actions.RESET:
       return { ...initialState };
 

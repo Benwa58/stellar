@@ -5,6 +5,7 @@ import { CLEAR_ERROR } from './state/actions';
 import LandingPage from './components/LandingPage';
 import LoadingAnimation from './components/LoadingAnimation';
 import GalaxyView from './components/GalaxyView';
+import UniverseView from './components/UniverseView';
 import SharePage from './components/SharePage';
 import ShareGalaxyPage from './components/ShareGalaxyPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
@@ -65,6 +66,7 @@ function AppContent() {
       {phase === 'inputting' && <LandingPage />}
       {phase === 'loading' && <LoadingAnimation />}
       {phase === 'viewing' && <GalaxyView />}
+      {phase === 'viewing-universe' && <UniverseView />}
 
       <AuthModal />
     </div>
