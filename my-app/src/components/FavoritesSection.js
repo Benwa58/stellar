@@ -1,12 +1,19 @@
+import { useMemo } from 'react';
 import { useAuth, useAuthActions } from '../state/AuthContext';
-import { useDispatch } from '../state/AppContext';
+import { useAppState, useDispatch } from '../state/AppContext';
 import { ADD_SEED_ARTIST } from '../state/actions';
 import '../styles/favorites.css';
 
 function FavoritesSection() {
   const { user, favorites } = useAuth();
   const { toggleFavorite } = useAuthActions();
+  const { seedArtists } = useAppState();
   const dispatch = useDispatch();
+
+  const selectedNames = useMemo(
+    () => new Set(seedArtists.map((a) => a.name)),
+    [seedArtists]
+  );
 
   if (!user || favorites.length === 0) return null;
 
@@ -33,7 +40,7 @@ function FavoritesSection() {
       </h3>
       <div className="favorites-scroll">
         {favorites.map((fav) => (
-          <div key={fav.artistName} className="favorite-card">
+          <div key={fav.artistName} className={`favorite-card ${selectedNames.has(fav.artistName) ? 'selected' : ''}`}>
             <button
               className="favorite-card-main"
               onClick={() => handleAddSeed(fav)}

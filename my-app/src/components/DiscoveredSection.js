@@ -1,12 +1,19 @@
+import { useMemo } from 'react';
 import { useAuth, useAuthActions } from '../state/AuthContext';
-import { useDispatch } from '../state/AppContext';
+import { useAppState, useDispatch } from '../state/AppContext';
 import { ADD_SEED_ARTIST } from '../state/actions';
 import '../styles/favorites.css';
 
 function DiscoveredSection() {
   const { user, discoveredArtists } = useAuth();
   const { toggleDiscoveredArtist } = useAuthActions();
+  const { seedArtists } = useAppState();
   const dispatch = useDispatch();
+
+  const selectedNames = useMemo(
+    () => new Set(seedArtists.map((a) => a.name)),
+    [seedArtists]
+  );
 
   if (!user || discoveredArtists.length === 0) return null;
 
@@ -33,7 +40,7 @@ function DiscoveredSection() {
       </h3>
       <div className="favorites-scroll">
         {discoveredArtists.map((artist) => (
-          <div key={artist.artistName} className="favorite-card">
+          <div key={artist.artistName} className={`favorite-card ${selectedNames.has(artist.artistName) ? 'selected' : ''}`}>
             <button
               className="favorite-card-main"
               onClick={() => handleAddSeed(artist)}

@@ -210,6 +210,11 @@
   scroll-snap-align: start;
 }
 
+.favorite-card.selected .favorite-card-main {
+  border-color: var(--color-accent, #6366f1);
+  box-shadow: 0 0 0 1px var(--color-accent, #6366f1);
+}
+
 .favorite-card-main {
   display: flex;
   flex-direction: column;

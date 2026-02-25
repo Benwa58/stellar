@@ -787,7 +787,7 @@
   }
 
   .galaxy-view:has(.preview-player) .galaxy-toolbar {
-    bottom: calc(160px + env(safe-area-inset-bottom));
+    bottom: calc(130px + env(safe-area-inset-bottom));
   }
 
   .zoom-controls {
