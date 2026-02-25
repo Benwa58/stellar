@@ -155,7 +155,30 @@ const GalaxyCanvas = forwardRef(function GalaxyCanvas(props, ref) {
     };
 
     stateRef.current.cameraFollowing = true;
-    animateTransform(stateRef, target, 1000);
+
+    // Use a gentle ease-in-out curve for a smooth glide between nodes
+    const start = { ...stateRef.current.transform };
+    const startTime = performance.now();
+    const duration = 1400;
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      // Ease-in-out sine: smooth acceleration and deceleration
+      const ease = -(Math.cos(Math.PI * t) - 1) / 2;
+
+      stateRef.current.transform = {
+        x: start.x + (target.x - start.x) * ease,
+        y: start.y + (target.y - start.y) * ease,
+        scale: start.scale + (target.scale - start.scale) * ease,
+      };
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      }
+    }
+
+    requestAnimationFrame(step);
   }, [size.width, size.height]);
 
   // Return current positioned nodes

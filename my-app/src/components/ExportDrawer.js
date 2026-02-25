@@ -143,8 +143,20 @@ function ExportDrawer({ onClose, seedArtists }) {
       if (!res.ok) throw new Error(data.error || 'Share failed');
 
       const fullUrl = `${window.location.origin}/p/${data.id}`;
-      setShareUrl(fullUrl);
-      try { await navigator.clipboard.writeText(fullUrl); } catch {}
+
+      // On mobile/iOS, open the native share sheet directly
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: playlistName,
+            text: `Check out this playlist: ${playlistName}`,
+            url: fullUrl,
+          });
+        } catch {}
+      } else {
+        setShareUrl(fullUrl);
+        try { await navigator.clipboard.writeText(fullUrl); } catch {}
+      }
     } catch (err) {
       console.warn('Share failed:', err.message);
     } finally {
