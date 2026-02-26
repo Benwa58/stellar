@@ -403,6 +403,38 @@ export function createUniverseRenderer(canvas, getState) {
       ctx.globalAlpha = 1;
     }
 
+    // --- Chain links (purple dashed, visible from LOD 2) ---
+    if (lod.nodeFactor > 0 && allLinks) {
+      const chainAlpha = lod.nodeFactor * 0.7;
+      ctx.globalAlpha = chainAlpha;
+      for (const link of allLinks) {
+        if (!link.isChainLink) continue;
+        const source = link.source;
+        const target = link.target;
+        if (!source || !target || source.x == null || target.x == null) continue;
+
+        const isHighlighted = source === hoveredNode || target === hoveredNode ||
+                              source === selectedNode || target === selectedNode;
+
+        // Animated dash offset for flowing effect
+        const dashOffset = (time * 0.015) % 16;
+
+        ctx.beginPath();
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
+        ctx.setLineDash([4, 4]);
+        ctx.lineDashOffset = -dashOffset;
+        ctx.strokeStyle = isHighlighted
+          ? 'rgba(200, 160, 255, 0.5)'
+          : 'rgba(200, 160, 255, 0.2)';
+        ctx.lineWidth = isHighlighted ? 1.5 : 1;
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+      ctx.globalAlpha = 1;
+    }
+
     // --- Links (LOD 3 only) ---
     if (lod.detailFactor > 0 && allLinks) {
       ctx.globalAlpha = lod.detailFactor;
@@ -500,6 +532,38 @@ export function createUniverseRenderer(canvas, getState) {
           ctx.stroke();
           ctx.setLineDash([]);
         }
+      }
+
+      // Hidden gem indicators (teal ring with sparkle)
+      for (const node of allNodes) {
+        if (node.x == null || !node.isHiddenGem || node.isChainLink) continue;
+        const ringR = node.radius + 3.5;
+        const sparkle = 0.5 + 0.2 * Math.sin(time * 0.002 + node.x * 0.05);
+        const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
+        grad.addColorStop(0, `rgba(100, 220, 200, ${0.7 * sparkle})`);
+        grad.addColorStop(0.5, `rgba(120, 235, 215, ${0.8 * sparkle})`);
+        grad.addColorStop(1, `rgba(80, 200, 180, ${0.7 * sparkle})`);
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Chain link indicators (purple ring)
+      for (const node of allNodes) {
+        if (node.x == null || !node.isChainLink) continue;
+        const ringR = node.radius + 3.5;
+        const pulse = 0.6 + 0.15 * Math.sin(time * 0.0015 + node.y * 0.04);
+        const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
+        grad.addColorStop(0, `rgba(200, 160, 255, ${0.7 * pulse})`);
+        grad.addColorStop(0.5, `rgba(220, 180, 255, ${0.8 * pulse})`);
+        grad.addColorStop(1, `rgba(180, 140, 235, ${0.7 * pulse})`);
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
       }
 
       ctx.globalAlpha = 1;
