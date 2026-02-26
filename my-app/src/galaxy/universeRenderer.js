@@ -1,7 +1,7 @@
 /**
  * Unified universe renderer with 3 levels of detail (LOD).
  *
- * LOD 1 (scale < 0.35):  Supercluster overview — cluster hazes + count badges
+ * LOD 1 (scale < 0.35):  Supercluster overview — vibrant nebulae, cluster labels, nuclei
  * LOD 2 (0.35 – 0.9):   Mid detail — nodes visible, selective artist labels
  * LOD 3 (scale >= 0.9):  Full galaxy detail — links, full nodes, indicators, labels
  */
@@ -23,8 +23,10 @@ function getLODFactors(scale) {
   const detailFactor = clamp01((scale - 0.9) / 0.2);
   const nodeFactor = clamp01((scale - 0.25) / 0.15);
   const hazeFactor = 1 - clamp01((scale - 0.6) / 0.4);
+  // Extra-bright boost for the farthest-out overview (< 0.35)
+  const overviewBoost = 1 - clamp01((scale - 0.15) / 0.25);
 
-  return { badgeFactor, labelFactor, detailFactor, nodeFactor, hazeFactor };
+  return { badgeFactor, labelFactor, detailFactor, nodeFactor, hazeFactor, overviewBoost };
 }
 
 // ─── Starfield (world-space background) ────────────────────────────────
@@ -49,8 +51,9 @@ function buildClusterHazes(clusterMetas) {
   return clusterMetas.map((cm) => {
     const seed = cm.cx * 1000 + cm.cy * 7 + cm.index * 333;
     const dots = [];
-    const dotCount = 40 + cm.memberCount * 8 + (cm.recCount || 0) * 3;
-    const baseR = cm.visualRadius * 1.2;
+    // Denser particle field for richer nebulae
+    const dotCount = 60 + cm.memberCount * 12 + (cm.recCount || 0) * 5;
+    const baseR = cm.visualRadius * 1.3;
 
     for (let i = 0; i < dotCount; i++) {
       const r1 = seededRandom(seed + i * 12.9898);
@@ -59,40 +62,42 @@ function buildClusterHazes(clusterMetas) {
       const r4 = seededRandom(seed + i * 93.989 + 3.0);
 
       const angle = r1 * Math.PI * 2;
-      const radialT = r2 * r3;
+      // Concentrate more particles toward center for galaxy-like density falloff
+      const radialT = r2 * r2 * r3;
       const dist = radialT * baseR;
 
       dots.push({
         x: cm.cx + dist * Math.cos(angle),
         y: cm.cy + dist * Math.sin(angle),
-        size: (0.4 + r4 * 2.0) * Math.max(0.25, 1 - (dist / baseR) * 0.5),
-        baseBrightness: Math.max(0.12, 1 - (dist / baseR) * 0.65),
+        size: (0.5 + r4 * 2.5) * Math.max(0.3, 1 - (dist / baseR) * 0.4),
+        baseBrightness: Math.max(0.2, 1 - (dist / baseR) * 0.55),
         phase: r1 * Math.PI * 2,
         speed: 0.0008 + r3 * 0.002,
-        h: cm.color.h,
+        h: cm.color.h + (r4 - 0.5) * 15, // slight hue variation
         s: cm.color.s,
         l: cm.color.l,
       });
     }
 
-    const bcgCount = 3 + Math.floor(cm.memberCount * 0.5);
+    // More BCGs (Brightest Cluster Galaxies) for visible bright spots
+    const bcgCount = 5 + Math.floor(cm.memberCount * 0.8);
     for (let i = 0; i < bcgCount; i++) {
       const r1 = seededRandom(seed + i * 33.33 + 100);
       const r2 = seededRandom(seed + i * 77.77 + 200);
       const r3 = seededRandom(seed + i * 55.55 + 300);
       const angle = r1 * Math.PI * 2;
-      const dist = r2 * baseR * 0.4;
+      const dist = r2 * r2 * baseR * 0.5;
 
       dots.push({
         x: cm.cx + dist * Math.cos(angle),
         y: cm.cy + dist * Math.sin(angle),
-        size: 2.5 + r1 * 3,
-        baseBrightness: 0.75 + r3 * 0.25,
+        size: 3 + r1 * 4,
+        baseBrightness: 0.8 + r3 * 0.2,
         phase: r1 * Math.PI * 2,
         speed: 0.0005 + r2 * 0.001,
         h: cm.color.h, s: cm.color.s, l: cm.color.l,
         isBCG: true,
-        glowSize: 7 + r1 * 7,
+        glowSize: 10 + r1 * 12,
       });
     }
 
@@ -113,28 +118,28 @@ function buildFilaments(clusterMetas) {
       const ri = ci.visualRadius;
       const rj = cj.visualRadius;
 
-      if (dist > (ri + rj) * 3.5) continue;
+      if (dist > (ri + rj) * 4) continue;
 
       const filDots = [];
-      const dotCount = Math.floor(dist / 12);
+      const dotCount = Math.floor(dist / 8);
       const seed = ci.cx * 100 + cj.cy * 7 + i * 50;
 
       for (let k = 0; k < dotCount; k++) {
         const t = (k + 0.5) / dotCount;
-        const noise = (seededRandom(seed + k * 12.9898) - 0.5) * 20;
-        const noiseY = (seededRandom(seed + k * 45.164 + 5) - 0.5) * 8;
+        const noise = (seededRandom(seed + k * 12.9898) - 0.5) * 25;
+        const noiseY = (seededRandom(seed + k * 45.164 + 5) - 0.5) * 10;
 
         filDots.push({
           x: ci.cx + dx * t + (-dy / dist) * noise,
           y: ci.cy + dy * t + (dx / dist) * noise + noiseY,
-          size: 0.3 + seededRandom(seed + k * 78.233) * 0.9,
+          size: 0.4 + seededRandom(seed + k * 78.233) * 1.2,
           t,
           h: ci.color.h + (cj.color.h - ci.color.h) * t,
           phase: seededRandom(seed + k * 93.989) * Math.PI * 2,
         });
       }
 
-      const maxDist = (ri + rj) * 3.5;
+      const maxDist = (ri + rj) * 4;
       const proximity = 1 - dist / maxDist;
       filaments.push({ dots: filDots, proximity });
     }
@@ -220,15 +225,16 @@ export function createUniverseRenderer(canvas, getState) {
 
     // --- Cosmic filaments ---
     if (filaments && lod.hazeFactor > 0) {
-      ctx.globalAlpha = lod.hazeFactor;
+      const filAlpha = lod.hazeFactor * (1 + lod.overviewBoost * 0.5);
+      ctx.globalAlpha = Math.min(filAlpha, 1);
       for (const fil of filaments) {
         for (const d of fil.dots) {
           const midDist = Math.abs(d.t - 0.5) * 2;
           const twinkle = 0.5 + 0.5 * Math.sin(time * 0.001 + d.phase);
-          const alpha = (0.06 + midDist * 0.14) * twinkle * (0.3 + fil.proximity * 0.7);
+          const alpha = (0.1 + midDist * 0.2) * twinkle * (0.3 + fil.proximity * 0.7);
           ctx.beginPath();
           ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(${d.h}, 25%, 68%, ${alpha})`;
+          ctx.fillStyle = `hsla(${d.h}, 30%, 72%, ${alpha})`;
           ctx.fill();
         }
       }
@@ -237,35 +243,91 @@ export function createUniverseRenderer(canvas, getState) {
 
     // --- Cluster hazes ---
     if (hazes) {
+      // Brightness increases at farther zoom-out for dramatic overview
+      const brightnessBoost = 1 + lod.overviewBoost * 1.5;
+
       for (const { dots, cm, baseR } of hazes) {
-        if (!isVisible(cm.cx, cm.cy, baseR * 1.5, transform, w, h)) continue;
+        if (!isVisible(cm.cx, cm.cy, baseR * 2, transform, w, h)) continue;
 
-        const breathe = 1 + 0.015 * Math.sin(time * 0.0004 + cm.cx * 0.008);
+        const breathe = 1 + 0.025 * Math.sin(time * 0.0004 + cm.cx * 0.008);
+        const { h: ch, s: cs, l: cl } = cm.color;
 
+        // --- Multi-layer nebula gradients (visible when hazeFactor > 0) ---
         if (lod.hazeFactor > 0) {
           ctx.globalAlpha = lod.hazeFactor;
-          const hazeR = baseR * 1.1 * breathe;
-          const haze = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, hazeR);
-          haze.addColorStop(0, `hsla(${cm.color.h}, ${cm.color.s}%, ${cm.color.l}%, 0.06)`);
-          haze.addColorStop(0.35, `hsla(${cm.color.h}, ${cm.color.s}%, ${cm.color.l}%, 0.03)`);
-          haze.addColorStop(1, `hsla(${cm.color.h}, ${cm.color.s}%, ${cm.color.l}%, 0)`);
+
+          // Outer diffuse halo — large, very soft
+          const outerR = baseR * 1.6 * breathe;
+          const outer = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, outerR);
+          const outerAlpha = 0.08 * brightnessBoost;
+          outer.addColorStop(0, `hsla(${ch}, ${cs}%, ${cl}%, ${Math.min(outerAlpha, 0.25)})`);
+          outer.addColorStop(0.4, `hsla(${ch}, ${cs}%, ${cl}%, ${Math.min(outerAlpha * 0.5, 0.15)})`);
+          outer.addColorStop(1, `hsla(${ch}, ${cs}%, ${cl}%, 0)`);
           ctx.beginPath();
-          ctx.arc(cm.cx, cm.cy, hazeR, 0, Math.PI * 2);
-          ctx.fillStyle = haze;
+          ctx.arc(cm.cx, cm.cy, outerR, 0, Math.PI * 2);
+          ctx.fillStyle = outer;
           ctx.fill();
+
+          // Mid nebula — color-rich, medium radius
+          const midR = baseR * 1.0 * breathe;
+          const mid = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, midR);
+          const midAlpha = 0.12 * brightnessBoost;
+          mid.addColorStop(0, `hsla(${ch}, ${Math.min(cs + 15, 95)}%, ${Math.min(cl + 10, 80)}%, ${Math.min(midAlpha, 0.35)})`);
+          mid.addColorStop(0.5, `hsla(${ch}, ${cs}%, ${cl}%, ${Math.min(midAlpha * 0.4, 0.15)})`);
+          mid.addColorStop(1, `hsla(${ch}, ${cs}%, ${cl}%, 0)`);
+          ctx.beginPath();
+          ctx.arc(cm.cx, cm.cy, midR, 0, Math.PI * 2);
+          ctx.fillStyle = mid;
+          ctx.fill();
+
+          // Hot core — bright, small, saturated
+          const coreR = baseR * 0.35 * breathe;
+          const core = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, coreR);
+          const coreAlpha = 0.2 * brightnessBoost;
+          core.addColorStop(0, `hsla(${ch}, ${Math.min(cs + 20, 100)}%, ${Math.min(cl + 25, 95)}%, ${Math.min(coreAlpha, 0.5)})`);
+          core.addColorStop(0.4, `hsla(${ch}, ${Math.min(cs + 10, 90)}%, ${Math.min(cl + 15, 85)}%, ${Math.min(coreAlpha * 0.5, 0.3)})`);
+          core.addColorStop(1, `hsla(${ch}, ${cs}%, ${cl}%, 0)`);
+          ctx.beginPath();
+          ctx.arc(cm.cx, cm.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = core;
+          ctx.fill();
+
           ctx.globalAlpha = 1;
         }
 
-        const dotAlphaScale = 0.4 + lod.hazeFactor * 0.6;
+        // --- Nucleus point — bright visible center at all haze zoom levels ---
+        if (lod.hazeFactor > 0) {
+          const nucleusPulse = 0.85 + 0.15 * Math.sin(time * 0.0006 + cm.cy * 0.01);
+          const nucleusR = Math.max(4, baseR * 0.06) * nucleusPulse;
+          const nucleusAlpha = (0.6 + lod.overviewBoost * 0.4) * lod.hazeFactor;
+
+          const nGlow = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, nucleusR * 4);
+          nGlow.addColorStop(0, `hsla(${ch}, ${Math.min(cs + 10, 95)}%, ${Math.min(cl + 30, 97)}%, ${nucleusAlpha * 0.7})`);
+          nGlow.addColorStop(0.3, `hsla(${ch}, ${cs}%, ${Math.min(cl + 15, 85)}%, ${nucleusAlpha * 0.25})`);
+          nGlow.addColorStop(1, `hsla(${ch}, ${cs}%, ${cl}%, 0)`);
+          ctx.beginPath();
+          ctx.arc(cm.cx, cm.cy, nucleusR * 4, 0, Math.PI * 2);
+          ctx.fillStyle = nGlow;
+          ctx.fill();
+
+          // White-hot center point
+          ctx.beginPath();
+          ctx.arc(cm.cx, cm.cy, nucleusR, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${ch}, 20%, 95%, ${nucleusAlpha})`;
+          ctx.fill();
+        }
+
+        // --- Particle dots ---
+        const dotAlphaScale = (0.5 + lod.hazeFactor * 0.5) * brightnessBoost;
         for (const d of dots) {
           if (d.isBCG) {
             const twinkle = 0.82 + 0.18 * Math.sin(time * d.speed + d.phase);
-            const alpha = d.baseBrightness * twinkle * dotAlphaScale;
-            if (alpha < 0.02) continue;
+            const alpha = Math.min(d.baseBrightness * twinkle * dotAlphaScale, 1);
+            if (alpha < 0.03) continue;
 
             const glow = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.glowSize * breathe);
-            glow.addColorStop(0, `hsla(${d.h}, ${d.s}%, ${Math.min(d.l + 35, 97)}%, ${alpha * 0.6})`);
-            glow.addColorStop(0.3, `hsla(${d.h}, ${d.s}%, ${Math.min(d.l + 20, 85)}%, ${alpha * 0.2})`);
+            glow.addColorStop(0, `hsla(${d.h}, ${d.s}%, ${Math.min(d.l + 35, 97)}%, ${Math.min(alpha * 0.7, 0.9)})`);
+            glow.addColorStop(0.3, `hsla(${d.h}, ${d.s}%, ${Math.min(d.l + 20, 85)}%, ${Math.min(alpha * 0.25, 0.5)})`);
             glow.addColorStop(1, `hsla(${d.h}, ${d.s}%, ${d.l}%, 0)`);
             ctx.beginPath();
             ctx.arc(d.x, d.y, d.glowSize * breathe, 0, Math.PI * 2);
@@ -274,12 +336,12 @@ export function createUniverseRenderer(canvas, getState) {
 
             ctx.beginPath();
             ctx.arc(d.x, d.y, d.size * 0.6, 0, Math.PI * 2);
-            ctx.fillStyle = `hsla(${d.h}, ${Math.max(d.s - 15, 20)}%, ${Math.min(d.l + 35, 98)}%, ${alpha})`;
+            ctx.fillStyle = `hsla(${d.h}, ${Math.max(d.s - 15, 20)}%, ${Math.min(d.l + 35, 98)}%, ${Math.min(alpha, 1)})`;
             ctx.fill();
           } else {
             const twinkle = 0.7 + 0.3 * Math.sin(time * d.speed + d.phase);
-            const alpha = d.baseBrightness * twinkle * dotAlphaScale;
-            if (alpha < 0.02) continue;
+            const alpha = Math.min(d.baseBrightness * twinkle * dotAlphaScale, 1);
+            if (alpha < 0.03) continue;
 
             ctx.beginPath();
             ctx.arc(d.x, d.y, d.size * breathe, 0, Math.PI * 2);
@@ -418,12 +480,12 @@ export function createUniverseRenderer(canvas, getState) {
       }
     }
 
-    // --- Count badges (LOD 1) ---
+    // --- Cluster labels (LOD 1) ---
     if (lod.badgeFactor > 0) {
       ctx.globalAlpha = lod.badgeFactor;
       for (const cm of clusterMetas) {
         if (!isVisible(cm.cx, cm.cy, cm.visualRadius, transform, w, h)) continue;
-        drawCountBadge(ctx, cm, scale);
+        drawClusterLabel(ctx, cm, scale, time);
       }
       ctx.globalAlpha = 1;
     }
@@ -555,38 +617,31 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.quadraticCurveTo(x, y, x + r, y);
 }
 
-// ─── Count badge ───────────────────────────────────────────────────────
+// ─── Cluster label (LOD 1 — replaces old count badge) ─────────────────
 
-function drawCountBadge(ctx, cm, viewScale) {
-  const fontSize = Math.max(10, Math.min(22, 16 / viewScale));
-  ctx.font = `700 ${fontSize}px 'Space Grotesk', sans-serif`;
+function drawClusterLabel(ctx, cm, viewScale, time) {
+  const { h, s, l } = cm.color;
+
+  // --- Cluster name (primary text) ---
+  const nameFontSize = Math.max(12, Math.min(28, 20 / viewScale));
+  ctx.font = `700 ${nameFontSize}px 'Space Grotesk', sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  const text = `+${cm.totalCount}`;
-  const metrics = ctx.measureText(text);
-  const padX = fontSize * 0.6;
-  const padY = fontSize * 0.35;
-  const badgeW = metrics.width + padX * 2;
-  const badgeH = fontSize + padY * 2;
-  const bx = cm.cx - badgeW / 2;
-  const by = cm.cy - badgeH / 2;
-  const r = badgeH / 2;
+  const nameY = cm.cy - nameFontSize * 0.3;
 
-  const { h, s, l } = cm.color;
-  ctx.beginPath();
-  roundRect(ctx, bx, by, badgeW, badgeH, r);
-  ctx.fillStyle = `hsla(${h}, ${s}%, ${Math.max(l - 15, 15)}%, 0.85)`;
-  ctx.fill();
-  ctx.strokeStyle = `hsla(${h}, ${s}%, ${l}%, 0.5)`;
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  // Subtle text glow for readability against the nebula
+  const glowPulse = 0.8 + 0.2 * Math.sin(time * 0.0005 + cm.cx * 0.01);
+  ctx.shadowColor = `hsla(${h}, ${s}%, ${Math.min(l + 20, 90)}%, ${0.6 * glowPulse})`;
+  ctx.shadowBlur = nameFontSize * 0.6;
+  ctx.fillStyle = `hsla(${h}, ${Math.max(s - 5, 25)}%, ${Math.min(l + 35, 97)}%, 0.95)`;
+  ctx.fillText(cm.label, cm.cx, nameY);
+  ctx.shadowBlur = 0;
 
-  ctx.fillStyle = `hsla(${h}, ${Math.max(s - 10, 20)}%, ${Math.min(l + 40, 97)}%, 1)`;
-  ctx.fillText(text, cm.cx, cm.cy + 1);
-
-  const labelFontSize = Math.max(7, Math.min(14, 11 / viewScale));
-  ctx.font = `600 ${labelFontSize}px 'Space Grotesk', sans-serif`;
-  ctx.fillStyle = `hsla(${h}, ${Math.max(s - 10, 25)}%, ${Math.min(l + 25, 90)}%, 0.7)`;
-  ctx.fillText(cm.label, cm.cx, cm.cy + badgeH / 2 + labelFontSize + 4);
+  // --- Artist count subtitle ---
+  const countFontSize = Math.max(8, Math.min(16, 12 / viewScale));
+  ctx.font = `500 ${countFontSize}px 'Space Grotesk', sans-serif`;
+  const countY = nameY + nameFontSize * 0.65 + countFontSize * 0.5;
+  ctx.fillStyle = `hsla(${h}, ${Math.max(s - 10, 20)}%, ${Math.min(l + 20, 85)}%, 0.6)`;
+  ctx.fillText(`${cm.totalCount} artists`, cm.cx, countY);
 }

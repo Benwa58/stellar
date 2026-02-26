@@ -115,6 +115,15 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     }));
     const target = computeFitTransform(items, size.width, size.height, 40);
 
+    // Zoom in 40% closer than pure fit so clusters appear larger and
+    // more visually striking at the overview level.
+    const zoomBoost = 1.4;
+    const cx = size.width / 2;
+    const cy = size.height / 2;
+    target.scale = clamp(target.scale * zoomBoost, 0.05, 3);
+    target.x = cx - (cx - target.x) * zoomBoost;
+    target.y = cy - (cy - target.y) * zoomBoost;
+
     if (animate) {
       animateTransform(stateRef, target, 500);
     } else {
