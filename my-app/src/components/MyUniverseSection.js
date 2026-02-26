@@ -48,9 +48,6 @@ function MyUniverseSection() {
           <ellipse cx="12" cy="12" rx="10" ry="3.5" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
         </svg>
         {universeLabel}
-        {universeData && universeData.clusters && (
-          <span className="section-count">{universeData.clusters.length} clusters</span>
-        )}
       </h3>
 
       {/* Not signed in */}
@@ -110,10 +107,9 @@ function MyUniverseSection() {
         </div>
       )}
 
-      {/* Ready — show visualization + clusters */}
+      {/* Ready — show visualization snapshot */}
       {user && universeData && (universeStatus === 'ready' || universeStatus === 'stale') && (
         <div className="universe-content">
-          {/* Mini visualization canvas — tap to explore */}
           <div className="universe-viz-container" onClick={handleExplore} role="button" tabIndex={0}>
             <canvas ref={canvasRef} className="universe-viz-canvas" />
             <div className="universe-viz-explore-hint">
@@ -124,96 +120,7 @@ function MyUniverseSection() {
               <span>Tap to explore</span>
             </div>
           </div>
-
-          {/* Stats summary */}
-          <div className="universe-stats">
-            <span className="universe-stat">{universeData.artistCount} artists</span>
-            <span className="universe-stat-dot">&middot;</span>
-            <span className="universe-stat">{universeData.clusters?.length} taste clouds</span>
-            {universeData.bridges?.length > 0 && (
-              <>
-                <span className="universe-stat-dot">&middot;</span>
-                <span className="universe-stat">{universeData.bridges.length} bridges</span>
-              </>
-            )}
-          </div>
-
-          {/* Cluster cards — horizontal scroll */}
-          <div className="universe-clusters-scroll">
-            {universeData.clusters.map((cluster) => (
-              <div
-                key={cluster.id}
-                className="universe-cluster-card"
-                style={{
-                  borderColor: `hsla(${cluster.color.h}, ${cluster.color.s}%, ${cluster.color.l}%, 0.3)`,
-                }}
-              >
-                <div className="universe-cluster-header">
-                  <div
-                    className="universe-cluster-dot"
-                    style={{
-                      background: `hsl(${cluster.color.h}, ${cluster.color.s}%, ${cluster.color.l}%)`,
-                    }}
-                  />
-                  <h4 className="universe-cluster-label">{cluster.label}</h4>
-                  <span className="universe-cluster-count">{cluster.members.length}</span>
-                </div>
-
-                {/* Member avatars */}
-                <div className="universe-cluster-members">
-                  {cluster.members.slice(0, 4).map((m) => (
-                    m.image ? (
-                      <img key={m.name} className="universe-member-avatar" src={m.image} alt={m.name} title={m.name} />
-                    ) : (
-                      <div key={m.name} className="universe-member-avatar universe-member-placeholder" title={m.name}>
-                        {m.name.charAt(0)}
-                      </div>
-                    )
-                  ))}
-                  {cluster.members.length > 4 && (
-                    <span className="universe-member-more">+{cluster.members.length - 4}</span>
-                  )}
-                </div>
-
-                {/* Top tags */}
-                <div className="universe-cluster-tags">
-                  {cluster.topTags.slice(0, 3).map((tag) => (
-                    <span key={tag} className="universe-tag">{tag}</span>
-                  ))}
-                </div>
-
-                {/* Recommendations */}
-                {cluster.recommendations.length > 0 && (
-                  <div className="universe-cluster-recs">
-                    <span className="universe-recs-label">Try:</span>
-                    {cluster.recommendations.slice(0, 3).map((rec) => (
-                      <span key={rec.name} className="universe-rec-name">{rec.name}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Bridge artists */}
-          {universeData.bridges?.length > 0 && (
-            <div className="universe-bridges">
-              <span className="universe-bridges-label">Bridges:</span>
-              {universeData.bridges.slice(0, 5).map((b) => (
-                <span key={b.name} className="universe-bridge-name">{b.name}</span>
-              ))}
-            </div>
-          )}
-
-          {/* Explore button */}
-          <button className="universe-explore-btn" onClick={handleExplore}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="16" height="16">
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="3.5" fill="currentColor" />
-              <ellipse cx="12" cy="12" rx="10" ry="3.5" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
-            </svg>
-            <span>Explore Your Universe</span>
-          </button>
+          <span className="universe-artist-count">{universeData.artistCount} artists</span>
         </div>
       )}
     </div>
