@@ -45,17 +45,17 @@ function computeFitTransform(items, viewWidth, viewHeight, padding = 60) {
 }
 
 /**
- * Compute fit transform for cluster centers (using nebula radius as size).
+ * Compute fit transform for cluster centers (tighter fit for closer default zoom).
  */
 function computeClusterFitTransform(clusterCenters, viewWidth, viewHeight) {
   if (!clusterCenters || clusterCenters.length === 0) return { x: 0, y: 0, scale: 1 };
 
   const items = clusterCenters.map((c) => {
     const r = clusterVisualRadius(c);
-    return { x: c.x, y: c.y, radius: r * 1.5 };
+    return { x: c.x, y: c.y, radius: r };
   });
 
-  return computeFitTransform(items, viewWidth, viewHeight, 40);
+  return computeFitTransform(items, viewWidth, viewHeight, 20);
 }
 
 /**
@@ -89,7 +89,8 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
   ref
 ) {
   const containerRef = useRef(null);
-  const canvasRef = useRef(null);
+  const overviewCanvasRef = useRef(null);
+  const clusterCanvasRef = useRef(null);
 
   // Overview state (nebula view)
   const overviewStateRef = useRef({
@@ -129,9 +130,6 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
   const cleanupRef = useRef(null);
   const clusterCleanupRef = useRef(null);
 
-  // Second canvas for cross-fade (cluster mode renders here during transition)
-  const clusterCanvasRef = useRef(null);
-
   const size = useCanvasSize(containerRef);
 
   // Sync overview props to state
@@ -163,7 +161,7 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
 
   // --- Enter cluster mode ---
   const enterClusterMode = useCallback((clusterId) => {
-    if (!clusters || !clusters[clusterId] || !canvasRef.current || size.width === 0) return;
+    if (!clusters || !clusters[clusterId] || !clusterCanvasRef.current || size.width === 0) return;
 
     const cluster = clusters[clusterId];
     focusedClusterIdRef.current = clusterId;
@@ -189,10 +187,31 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     const sim = createSimulation(graph.nodes, graph.links, size.width, size.height);
     clusterSimulationRef.current = sim;
 
-    // Create renderer on main canvas
-    const canvas = canvasRef.current;
+    // Create renderer on CLUSTER canvas (separate from overview)
+    const canvas = clusterCanvasRef.current;
     const renderer = createRenderer(canvas, () => clusterStateRef.current);
     clusterRendererRef.current = renderer;
+
+    // Build supercluster context so neighboring clusters show faintly in background
+    if (clusterCenters && clusterCenters.length > 1) {
+      const focused = clusterCenters[clusterId];
+      const others = clusterCenters.filter((_, i) => i !== clusterId);
+      const maxDist = Math.max(...others.map(c => {
+        const dx = c.x - focused.x;
+        const dy = c.y - focused.y;
+        return Math.sqrt(dx * dx + dy * dy);
+      }));
+
+      const neighbors = others.map(c => {
+        const dx = c.x - focused.x;
+        const dy = c.y - focused.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        return { angle, distance: dist, color: c.color, label: c.label };
+      });
+
+      renderer.setSuperclusterContext({ neighbors, maxDistance: maxDist });
+    }
 
     // Nebulae after simulation settles a bit
     let nebulaTimeout = setTimeout(() => {
@@ -209,7 +228,7 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
       animateTransform(clusterStateRef, target, 600);
     });
 
-    // Set up cluster interactions
+    // Set up cluster interactions on the cluster canvas
     if (clusterCleanupRef.current) clusterCleanupRef.current();
     const clusterCleanup = setupInteractions(
       canvas,
@@ -255,9 +274,10 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     return () => {
       clearTimeout(nebulaTimeout);
     };
-  }, [clusters, size.width, size.height, onSelectNode, onHoverNode]);
+  }, [clusters, clusterCenters, size.width, size.height, onSelectNode, onHoverNode]);
 
   // --- Cross-fade transition: overview → cluster ---
+  // Uses two layered canvases: overview zooms in on bottom, cluster fades in on top.
   const transitionToCluster = useCallback((clusterId) => {
     if (modeRef.current === 'transitioning') return;
     modeRef.current = 'transitioning';
@@ -268,7 +288,7 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
       cleanupRef.current = null;
     }
 
-    // Animate camera zooming into the selected cluster's position
+    // Animate overview camera zooming into the selected cluster
     const center = clusterCenters?.[clusterId];
     if (center) {
       const targetScale = 3;
@@ -277,37 +297,59 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
         y: size.height / 2 - center.y * targetScale,
         scale: targetScale,
       };
-      animateTransform(overviewStateRef, target, 600);
+      animateTransform(overviewStateRef, target, 900);
     }
 
-    // Cross-fade: overview fades out while cluster fades in
-    const startTime = performance.now();
-    const duration = 600;
-
-    // Start building cluster mode during fade (simulation starts settling)
-    // Stop overview renderer first so cluster renderer can use the canvas
-    if (overviewRendererRef.current) {
-      overviewRendererRef.current.stop();
-      overviewRendererRef.current = null;
+    // Prepare cluster canvas (starts transparent, on top of overview)
+    if (clusterCanvasRef.current) {
+      clusterCanvasRef.current.style.opacity = '0';
+      clusterCanvasRef.current.style.pointerEvents = 'none';
     }
+
+    // Start cluster mode — overview keeps rendering underneath
     enterClusterMode(clusterId);
 
-    // Animate cross-fade opacity
+    // Cross-fade: overview zooms in while cluster galaxy materializes on top
+    const startTime = performance.now();
+    const totalDuration = 900;
+    const fadeDelay = 200;   // cluster starts appearing after zoom begins
+    const fadeDuration = 700;
+
     function fadeStep(now) {
       const elapsed = now - startTime;
-      const t = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const t = Math.min(elapsed / totalDuration, 1);
 
-      // Overview fades out, cluster galaxy fades in
-      overviewStateRef.current.overviewOpacity = 1 - ease;
+      // Cluster fade-in (delayed start, smoothstep ease for natural feel)
+      const fadeElapsed = Math.max(0, elapsed - fadeDelay);
+      const fadeT = Math.min(fadeElapsed / fadeDuration, 1);
+      const clusterOpacity = fadeT * fadeT * (3 - 2 * fadeT);
+
+      if (clusterCanvasRef.current) {
+        clusterCanvasRef.current.style.opacity = String(clusterOpacity);
+      }
 
       if (t < 1) {
         transitionRef.current = requestAnimationFrame(fadeStep);
       } else {
         // Transition complete
         modeRef.current = 'cluster';
-        overviewStateRef.current.overviewOpacity = 0;
         transitionRef.current = null;
+
+        // Stop overview renderer (fully hidden behind cluster canvas)
+        if (overviewRendererRef.current) {
+          overviewRendererRef.current.stop();
+          overviewRendererRef.current = null;
+        }
+
+        // Finalize canvas states
+        if (clusterCanvasRef.current) {
+          clusterCanvasRef.current.style.opacity = '1';
+          clusterCanvasRef.current.style.pointerEvents = 'auto';
+        }
+        if (overviewCanvasRef.current) {
+          overviewCanvasRef.current.style.pointerEvents = 'none';
+        }
+
         if (onClusterFocus) onClusterFocus(clusterId);
       }
     }
@@ -320,27 +362,37 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     if (modeRef.current === 'overview') return;
     modeRef.current = 'transitioning';
 
-    const startTime = performance.now();
-    const duration = 500;
-
-    // Restart overview renderer
-    const canvas = canvasRef.current;
-    if (canvas && !overviewRendererRef.current) {
-      const renderer = createUniverseRenderer(canvas, () => overviewStateRef.current);
-      overviewRendererRef.current = renderer;
-      renderer.start();
+    // Restart overview renderer on its own canvas
+    const overviewCanvas = overviewCanvasRef.current;
+    if (overviewCanvas) {
+      overviewCanvas.style.pointerEvents = 'auto';
+      if (!overviewRendererRef.current) {
+        const renderer = createUniverseRenderer(overviewCanvas, () => overviewStateRef.current);
+        overviewRendererRef.current = renderer;
+        renderer.start();
+      }
     }
 
     // Set up overview interactions
     if (cleanupRef.current) cleanupRef.current();
-    setupOverviewInteractions(canvas);
+    setupOverviewInteractions(overviewCanvas);
+
+    // Animate overview camera back to fit-all-clusters view
+    const target = computeClusterFitTransform(clusterCenters, size.width, size.height);
+    animateTransform(overviewStateRef, target, 700);
+
+    const startTime = performance.now();
+    const duration = 700;
 
     function fadeStep(now) {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3);
+      const ease = t * t * (3 - 2 * t); // smoothstep
 
-      overviewStateRef.current.overviewOpacity = ease;
+      // Cluster fades out, revealing overview underneath
+      if (clusterCanvasRef.current) {
+        clusterCanvasRef.current.style.opacity = String(1 - ease);
+      }
 
       if (t < 1) {
         transitionRef.current = requestAnimationFrame(fadeStep);
@@ -348,13 +400,13 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
         // Transition complete — tear down cluster mode
         teardownClusterMode();
         modeRef.current = 'overview';
-        overviewStateRef.current.overviewOpacity = 1;
         focusedClusterIdRef.current = null;
         transitionRef.current = null;
 
-        // Animate camera back to fit-all-clusters view
-        const target = computeClusterFitTransform(clusterCenters, size.width, size.height);
-        animateTransform(overviewStateRef, target, 500);
+        if (clusterCanvasRef.current) {
+          clusterCanvasRef.current.style.opacity = '0';
+          clusterCanvasRef.current.style.pointerEvents = 'none';
+        }
 
         if (onClusterFocus) onClusterFocus(null);
       }
@@ -373,16 +425,8 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
       () => [],
       () => overviewStateRef.current.transform,
       {
-        onHover: (_node) => {
-          // Hit-test cluster centers for hover effect
-          // We need mouse position in graph coords — the interaction handler
-          // already converted, but since getNodes returns [], the node is null.
-          // We'll use the canvas for cursor styling instead via mousemove below.
-        },
-        onClick: (_node) => {
-          // Cluster click is handled separately via the mousemove/click
-          // hit-testing below
-        },
+        onHover: (_node) => {},
+        onClick: (_node) => {},
         onPan: (dx, dy) => {
           const t = overviewStateRef.current.transform;
           overviewStateRef.current.transform = { ...t, x: t.x + dx, y: t.y + dy };
@@ -462,9 +506,16 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
       modeRef.current = 'overview';
       overviewStateRef.current.overviewOpacity = 1;
 
-      // Restart overview renderer briefly
-      const canvas = canvasRef.current;
+      // Reset cluster canvas
+      if (clusterCanvasRef.current) {
+        clusterCanvasRef.current.style.opacity = '0';
+        clusterCanvasRef.current.style.pointerEvents = 'none';
+      }
+
+      // Restart overview renderer
+      const canvas = overviewCanvasRef.current;
       if (canvas) {
+        canvas.style.pointerEvents = 'auto';
         if (!overviewRendererRef.current) {
           const renderer = createUniverseRenderer(canvas, () => overviewStateRef.current);
           overviewRendererRef.current = renderer;
@@ -501,30 +552,43 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     getFocusedClusterId: () => focusedClusterIdRef.current,
   }), [resetView, zoomToCluster, zoomBy, transitionToOverview]);
 
-  // Set up canvas and overview renderer
+  // Set up both canvases and overview renderer
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !clusterCenters || clusterCenters.length === 0 || size.width === 0 || size.height === 0) return;
+    const overviewCanvas = overviewCanvasRef.current;
+    const clusterCanvas = clusterCanvasRef.current;
+    if (!overviewCanvas || !clusterCanvas || !clusterCenters || clusterCenters.length === 0 || size.width === 0 || size.height === 0) return;
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = size.width * dpr;
-    canvas.height = size.height * dpr;
-    canvas.style.width = size.width + 'px';
-    canvas.style.height = size.height + 'px';
+
+    // Size both canvases identically
+    overviewCanvas.width = size.width * dpr;
+    overviewCanvas.height = size.height * dpr;
+    overviewCanvas.style.width = size.width + 'px';
+    overviewCanvas.style.height = size.height + 'px';
+
+    clusterCanvas.width = size.width * dpr;
+    clusterCanvas.height = size.height * dpr;
+    clusterCanvas.style.width = size.width + 'px';
+    clusterCanvas.style.height = size.height + 'px';
 
     // Fit view to all clusters
     overviewStateRef.current.transform = computeClusterFitTransform(clusterCenters, size.width, size.height);
     overviewStateRef.current.overviewOpacity = 1;
 
-    // Create overview renderer
+    // Create overview renderer on its canvas
     if (overviewRendererRef.current) overviewRendererRef.current.stop();
-    const renderer = createUniverseRenderer(canvas, () => overviewStateRef.current);
+    const renderer = createUniverseRenderer(overviewCanvas, () => overviewStateRef.current);
     overviewRendererRef.current = renderer;
     renderer.start();
     modeRef.current = 'overview';
 
+    // Initial canvas states: overview active, cluster hidden
+    overviewCanvas.style.pointerEvents = 'auto';
+    clusterCanvas.style.opacity = '0';
+    clusterCanvas.style.pointerEvents = 'none';
+
     // Set up overview interactions
-    setupOverviewInteractions(canvas);
+    setupOverviewInteractions(overviewCanvas);
 
     return () => {
       renderer.stop();
@@ -544,8 +608,12 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       <canvas
-        ref={canvasRef}
-        style={{ display: 'block', cursor: 'grab' }}
+        ref={overviewCanvasRef}
+        style={{ display: 'block', position: 'absolute', top: 0, left: 0, cursor: 'grab' }}
+      />
+      <canvas
+        ref={clusterCanvasRef}
+        style={{ display: 'block', position: 'absolute', top: 0, left: 0, cursor: 'grab', opacity: 0, pointerEvents: 'none' }}
       />
     </div>
   );
