@@ -20,14 +20,24 @@ function PreviewPlayer({
   // Expose the player's top-edge position as a CSS variable so sibling
   // elements (toolbar, zoom, regenerate, legend) can position themselves
   // a fixed distance above the player — avoiding double-counted offsets.
+  // Uses getBoundingClientRect() for reliable measurement regardless of
+  // CSS variable resolution timing.
   useEffect(() => {
     const el = playerRef.current;
     if (!el) return;
 
     const update = () => {
-      const height = el.offsetHeight;
-      const bottom = parseFloat(getComputedStyle(el).bottom) || 0;
-      el.parentElement?.style.setProperty('--preview-player-top', `${bottom + height}px`);
+      requestAnimationFrame(() => {
+        const parent = el.parentElement;
+        if (!parent) return;
+        const parentRect = parent.getBoundingClientRect();
+        const playerRect = el.getBoundingClientRect();
+        // Distance from the parent's bottom edge to the player's top edge
+        const topOffset = Math.round(parentRect.bottom - playerRect.top);
+        if (topOffset > 0) {
+          parent.style.setProperty('--preview-player-top', `${topOffset}px`);
+        }
+      });
     };
 
     const observer = new ResizeObserver(update);

@@ -14,6 +14,10 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
   const isPlayingRef = useRef(false);
   const updateMediaSessionRef = useRef(null);
 
+  // Cache album artwork as blob URLs so iOS doesn't re-fetch on metadata
+  // recreation, which causes the Now Playing widget to fall back to the site icon.
+  const artworkBlobCache = useRef(new Map());
+
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
@@ -72,27 +76,44 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audio.removeEventListener('playing', onPlaying);
       audio.pause();
       audio.src = '';
+      // Revoke cached blob URLs
+      for (const blobUrl of artworkBlobCache.current.values()) {
+        URL.revokeObjectURL(blobUrl);
+      }
+      artworkBlobCache.current.clear();
     };
   }, []);
 
-  // Update lock screen / MediaSession metadata
+  // Pre-fetch artwork image as blob URL to prevent iOS re-fetch flicker
+  const cacheArtwork = useCallback((url) => {
+    if (!url || artworkBlobCache.current.has(url)) return;
+    fetch(url)
+      .then((r) => r.blob())
+      .then((blob) => {
+        artworkBlobCache.current.set(url, URL.createObjectURL(blob));
+      })
+      .catch(() => {}); // fall back to original URL
+  }, []);
+
+  // Update lock screen / MediaSession metadata.
+  // Always recreate MediaMetadata on both play and pause — using a cached blob
+  // URL for the artwork so iOS doesn't need to re-fetch (which causes the
+  // Now Playing widget to fall back to the Stellar site icon).
   const updateMediaSession = useCallback((track, playing) => {
     if (!('mediaSession' in navigator)) return;
     if (!track) {
       navigator.mediaSession.metadata = null;
       return;
     }
-    // On pause, only update playbackState — avoid re-creating MediaMetadata
-    // which causes iOS to re-fetch artwork and momentarily clear the Now Playing
-    // widget, falling back to the site icon and title.
-    if (playing || !navigator.mediaSession.metadata) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.name || '',
-        artist: track.artistName || '',
-        album: track.albumName || '',
-        ...(track.albumImage ? { artwork: [{ src: track.albumImage, sizes: '256x256', type: 'image/jpeg' }] } : {}),
-      });
-    }
+    const artworkUrl = track.albumImage
+      ? (artworkBlobCache.current.get(track.albumImage) || track.albumImage)
+      : null;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.name || '',
+      artist: track.artistName || '',
+      album: track.albumName || '',
+      ...(artworkUrl ? { artwork: [{ src: artworkUrl, sizes: '256x256', type: 'image/jpeg' }] } : {}),
+    });
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   }, []);
   updateMediaSessionRef.current = updateMediaSession;
@@ -130,6 +151,9 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     const audio = audioRef.current;
     if (!audio || !track?.previewUrl) return;
 
+    // Pre-cache artwork as blob URL for reliable lock screen display
+    if (track.albumImage) cacheArtwork(track.albumImage);
+
     // Resume same track
     if (currentTrackRef.current?.id === track.id && !isPlayingRef.current) {
       audio.play().catch(() => {});
@@ -150,7 +174,7 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     isPlayingRef.current = true;
     setProgress(0);
     updateMediaSession(track, true);
-  }, [updateMediaSession]); // Stable — updateMediaSession is stable, reads from refs
+  }, [updateMediaSession, cacheArtwork]);
 
   const pause = useCallback(() => {
     const audio = audioRef.current;
