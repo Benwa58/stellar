@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef } from 'react';
 import '../styles/player.css';
 
 function PreviewPlayer({
@@ -15,15 +15,19 @@ function PreviewPlayer({
   currentIndex,
   totalCount,
 }) {
-  const playerRef = useRef(null);
+  // Use a callback ref so the ResizeObserver is set up/torn down exactly when
+  // the player div appears/disappears in the DOM. The previous useEffect+useRef
+  // approach failed because the effect ran once on mount when the component
+  // returned null (no track), so the observer was never attached.
+  const cleanupRef = useRef(null);
 
-  // Expose the player's top-edge position as a CSS variable so sibling
-  // elements (toolbar, zoom, regenerate, legend) can position themselves
-  // a fixed distance above the player — avoiding double-counted offsets.
-  // Uses getBoundingClientRect() for reliable measurement regardless of
-  // CSS variable resolution timing.
-  useEffect(() => {
-    const el = playerRef.current;
+  const playerRef = useCallback((el) => {
+    // Tear down previous observer if any
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
+
     if (!el) return;
 
     const update = () => {
@@ -32,7 +36,6 @@ function PreviewPlayer({
         if (!parent) return;
         const parentRect = parent.getBoundingClientRect();
         const playerRect = el.getBoundingClientRect();
-        // Distance from the parent's bottom edge to the player's top edge
         const topOffset = Math.round(parentRect.bottom - playerRect.top);
         if (topOffset > 0) {
           parent.style.setProperty('--preview-player-top', `${topOffset}px`);
@@ -44,10 +47,9 @@ function PreviewPlayer({
     observer.observe(el);
     update();
 
-    // Re-measure when --browser-bar-offset changes via window resize
     window.addEventListener('resize', update);
 
-    return () => {
+    cleanupRef.current = () => {
       observer.disconnect();
       window.removeEventListener('resize', update);
       el.parentElement?.style.removeProperty('--preview-player-top');

@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 
 /**
- * Detects whether the page is running in a mobile browser with a visible
- * bottom navigation bar (vs standalone/fullscreen mode with no chrome).
+ * Detects whether the page is running in iOS Safari with a visible
+ * bottom navigation bar and sets --browser-bar-offset on <html>.
  *
- * Sets the CSS custom property --browser-bar-offset on <html> so that
- * bottom-positioned elements (player bar, toolbars, etc.) can shift up
- * to avoid being hidden behind the browser's navigation bar.
+ * The 100vh-vs-innerHeight trick measures ALL browser chrome (top address
+ * bar + bottom nav bar). On Android Chrome the address bar is at the TOP,
+ * so the full diff would be incorrectly applied as a bottom offset. We
+ * therefore restrict this detection to iOS Safari, which is the only
+ * platform where the bottom bar actually overlaps content.
  *
  * Usage: call once in any top-level view component.
  *   useBottomBarDetect();
@@ -14,6 +16,16 @@ import { useEffect } from 'react';
  */
 export function useBottomBarDetect() {
   useEffect(() => {
+    // Only apply on iOS (iPhone/iPad) — other platforms either don't have a
+    // bottom bar or handle it via safe-area-inset-bottom.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (!isIOS) {
+      document.documentElement.style.setProperty('--browser-bar-offset', '0px');
+      return;
+    }
+
     function detect() {
       // Standalone / fullscreen PWA has no browser bars
       const isFullscreen =
@@ -26,8 +38,8 @@ export function useBottomBarDetect() {
         return;
       }
 
-      // On mobile browsers, CSS 100vh may be taller than the actual visible
-      // viewport when the browser's address/navigation bar is present.
+      // On iOS Safari, CSS 100vh is taller than the visible viewport when
+      // the bottom navigation bar is present.
       const probe = document.createElement('div');
       probe.style.cssText = 'position:fixed;top:0;height:100vh;visibility:hidden;pointer-events:none';
       document.body.appendChild(probe);
