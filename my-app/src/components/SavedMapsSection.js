@@ -19,6 +19,35 @@ function formatDate(isoString) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+// Deterministic hash from a string → number in [0, 1)
+function hashStr(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return (((h >>> 0) % 10000) / 10000);
+}
+
+// Build inline CSS background for a galaxy-like visual from seed artists
+function buildCardVisual(seeds) {
+  const layers = [];
+  // Each seed produces a nebula blob
+  seeds.slice(0, 5).forEach((a, i) => {
+    const hue = Math.floor(hashStr(a.name) * 360);
+    const x = 15 + hashStr(a.name + 'x') * 70;
+    const y = 20 + hashStr(a.name + 'y') * 60;
+    const size = 35 + hashStr(a.name + 's') * 30;
+    layers.push(
+      `radial-gradient(circle at ${x}% ${y}%, hsla(${hue}, 60%, 55%, 0.18) 0%, hsla(${hue}, 50%, 45%, 0.06) 40%, transparent 70%)`
+    );
+    // Smaller brighter core
+    layers.push(
+      `radial-gradient(circle at ${x + 2}% ${y - 3}%, hsla(${hue}, 70%, 65%, 0.12) 0%, transparent 30%)`
+    );
+  });
+  return layers.join(', ');
+}
+
 function SavedMapsSection() {
   const dispatch = useDispatch();
   const { user } = useAuth();
@@ -124,8 +153,11 @@ function SavedMapsSection() {
               className="saved-map-card"
               onClick={() => handleLoad(map.id)}
             >
-              <div className="saved-map-card-header">
-                <h4 className="saved-map-name">{map.name}</h4>
+              {/* Visual header — deterministic nebula from seed artists */}
+              <div
+                className="saved-map-visual"
+                style={{ background: buildCardVisual(map.seedArtists) }}
+              >
                 <button
                   className={`saved-map-delete ${confirmDeleteId === map.id ? 'confirm' : ''}`}
                   onClick={(e) => {
@@ -150,23 +182,27 @@ function SavedMapsSection() {
                 </button>
               </div>
 
-              <div className="saved-map-seeds">
-                {map.seedArtists.slice(0, 3).map((a) => (
-                  <span key={a.id} className="saved-map-seed-name">
-                    {a.name}
-                  </span>
-                ))}
-                {map.seedArtists.length > 3 && (
-                  <span className="saved-map-seed-more">
-                    +{map.seedArtists.length - 3}
-                  </span>
-                )}
-              </div>
+              <div className="saved-map-card-body">
+                <h4 className="saved-map-name">{map.name}</h4>
 
-              <div className="saved-map-card-meta">
-                <span>{map.nodeCount} artists</span>
-                <span className="saved-map-dot">&middot;</span>
-                <span>{formatDate(map.savedAt)}</span>
+                <div className="saved-map-seeds">
+                  {map.seedArtists.slice(0, 3).map((a) => (
+                    <span key={a.id} className="saved-map-seed-name">
+                      {a.name}
+                    </span>
+                  ))}
+                  {map.seedArtists.length > 3 && (
+                    <span className="saved-map-seed-more">
+                      +{map.seedArtists.length - 3}
+                    </span>
+                  )}
+                </div>
+
+                <div className="saved-map-card-meta">
+                  <span>{map.nodeCount} artists</span>
+                  <span className="saved-map-dot">&middot;</span>
+                  <span>{formatDate(map.savedAt)}</span>
+                </div>
               </div>
             </div>
           ))}

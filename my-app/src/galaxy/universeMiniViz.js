@@ -205,23 +205,6 @@ export function renderUniverseMiniViz(canvas, universeData) {
       ctx.fill();
     }
 
-    // Cluster labels
-    const fontSize = Math.max(7, 10 * scale);
-    ctx.font = `600 ${fontSize}px 'Space Grotesk', sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (const center of viz.clusterCenters) {
-      const cx = center.x * scale + offsetX;
-      const r = (35 + center.memberCount * 6 + (center.recCount || 0) * 3) * scale;
-      const cy = center.y * scale + offsetY - r - 6;
-      const { h: ch, s, l } = center.color;
-
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillText(center.label, cx + 0.5, cy + 0.5);
-      ctx.fillStyle = `hsla(${ch}, ${Math.max(s - 15, 30)}%, ${Math.min(l + 22, 88)}%, 0.8)`;
-      ctx.fillText(center.label, cx, cy);
-    }
-
     ctx.restore();
     frameId = requestAnimationFrame(render);
   }
