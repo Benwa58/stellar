@@ -65,7 +65,19 @@ function GalaxyPlayerController({ canvasRef }) {
     });
   }, [mode]);
 
-  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek } = useAudioPreview({ onEnded: handleAutoAdvance });
+  const handleNext = useCallback(() => {
+    const playlist = getPlaylist();
+    if (playlist.length === 0) return;
+    setCurrentIndex((prev) => (prev + 1 < playlist.length ? prev + 1 : 0));
+  }, [getPlaylist]);
+
+  const handlePrev = useCallback(() => {
+    const playlist = getPlaylist();
+    if (playlist.length === 0) return;
+    setCurrentIndex((prev) => (prev - 1 >= 0 ? prev - 1 : playlist.length - 1));
+  }, [getPlaylist]);
+
+  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev });
 
   // Clear playlists when galaxy data changes (will rebuild on play start)
   useEffect(() => {
@@ -204,18 +216,6 @@ function GalaxyPlayerController({ canvasRef }) {
       audioToggle();
     }
   }, [isActive, audioToggle, ensurePlaylistsBuilt]);
-
-  const handleNext = useCallback(() => {
-    const playlist = getPlaylist();
-    if (playlist.length === 0) return;
-    setCurrentIndex((prev) => (prev + 1 < playlist.length ? prev + 1 : 0));
-  }, [getPlaylist]);
-
-  const handlePrev = useCallback(() => {
-    const playlist = getPlaylist();
-    if (playlist.length === 0) return;
-    setCurrentIndex((prev) => (prev - 1 >= 0 ? prev - 1 : playlist.length - 1));
-  }, [getPlaylist]);
 
   const handleModeToggle = useCallback(() => {
     setMode((prev) => {
