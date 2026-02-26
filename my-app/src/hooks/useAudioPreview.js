@@ -34,6 +34,16 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     function onTimeUpdate() {
       if (audio.duration) {
         setProgress(audio.currentTime / audio.duration);
+        // Keep lock screen scrubber in sync
+        if ('mediaSession' in navigator && isFinite(audio.duration)) {
+          try {
+            navigator.mediaSession.setPositionState({
+              duration: audio.duration,
+              position: Math.min(audio.currentTime, audio.duration),
+              playbackRate: audio.playbackRate || 1,
+            });
+          } catch {}
+        }
       }
     }
 
@@ -84,10 +94,12 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     };
   }, []);
 
-  // Pre-fetch artwork image as blob URL to prevent iOS re-fetch flicker
+  // Pre-fetch artwork image as blob URL to prevent iOS re-fetch flicker.
+  // Returns a promise that resolves when the blob is cached (or on failure).
   const cacheArtwork = useCallback((url) => {
-    if (!url || artworkBlobCache.current.has(url)) return;
-    fetch(url)
+    if (!url) return Promise.resolve();
+    if (artworkBlobCache.current.has(url)) return Promise.resolve();
+    return fetch(url)
       .then((r) => r.blob())
       .then((blob) => {
         artworkBlobCache.current.set(url, URL.createObjectURL(blob));
@@ -115,10 +127,22 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       ...(artworkUrl ? { artwork: [{ src: artworkUrl, sizes: '256x256', type: 'image/jpeg' }] } : {}),
     });
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+
+    // Keep lock screen position indicator in sync
+    const audio = audioRef.current;
+    if (audio && audio.duration && isFinite(audio.duration)) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          position: Math.min(audio.currentTime, audio.duration),
+          playbackRate: audio.playbackRate || 1,
+        });
+      } catch {}
+    }
   }, []);
   updateMediaSessionRef.current = updateMediaSession;
 
-  // Wire up MediaSession action handlers
+  // Wire up MediaSession action handlers (play, pause, seek)
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     const actions = {
@@ -136,6 +160,24 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
         isPlayingRef.current = false;
         updateMediaSession(currentTrackRef.current, false);
       },
+      seekforward: (details) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        audio.currentTime = Math.min(audio.currentTime + (details.seekOffset || 10), audio.duration || 30);
+        updateMediaSession(currentTrackRef.current, isPlayingRef.current);
+      },
+      seekbackward: (details) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        audio.currentTime = Math.max(audio.currentTime - (details.seekOffset || 10), 0);
+        updateMediaSession(currentTrackRef.current, isPlayingRef.current);
+      },
+      seekto: (details) => {
+        const audio = audioRef.current;
+        if (!audio || details.seekTime == null) return;
+        audio.currentTime = Math.max(0, Math.min(details.seekTime, audio.duration || 30));
+        updateMediaSession(currentTrackRef.current, isPlayingRef.current);
+      },
     };
     for (const [action, handler] of Object.entries(actions)) {
       try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
@@ -150,9 +192,6 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
   const play = useCallback((track) => {
     const audio = audioRef.current;
     if (!audio || !track?.previewUrl) return;
-
-    // Pre-cache artwork as blob URL for reliable lock screen display
-    if (track.albumImage) cacheArtwork(track.albumImage);
 
     // Resume same track
     if (currentTrackRef.current?.id === track.id && !isPlayingRef.current) {
@@ -174,6 +213,17 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     isPlayingRef.current = true;
     setProgress(0);
     updateMediaSession(track, true);
+
+    // Cache artwork blob, then re-set metadata with the blob URL so the
+    // lock screen gets the proper image instead of falling back to the site icon.
+    if (track.albumImage) {
+      cacheArtwork(track.albumImage).then(() => {
+        // Only update if this track is still current
+        if (currentTrackRef.current?.id === track.id) {
+          updateMediaSession(track, isPlayingRef.current);
+        }
+      });
+    }
   }, [updateMediaSession, cacheArtwork]);
 
   const pause = useCallback(() => {
