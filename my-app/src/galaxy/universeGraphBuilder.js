@@ -72,6 +72,12 @@ export function buildClusterGalaxyData(cluster) {
 
   const links = [];
 
+  // Track how many recommendation links each member has received so we
+  // can distribute recommendations across members more evenly.
+  const memberLinkCount = new Map();
+  for (const m of includedMembers) memberLinkCount.set(m.name, 0);
+
+  // Connect recs to their suggestedBy members
   for (const rec of recommendations) {
     for (const suggestorName of (rec.suggestedBy || [])) {
       if (!memberNameSet.has(suggestorName)) continue;
@@ -84,11 +90,51 @@ export function buildClusterGalaxyData(cluster) {
         isChainLink: false,
         isDriftLink: false,
       });
+      memberLinkCount.set(suggestorName, (memberLinkCount.get(suggestorName) || 0) + 1);
     }
   }
 
+  // Distribute additional links to under-connected members so the visual
+  // network doesn't concentrate all connections on a few nodes.
+  if (includedMembers.length > 0 && recommendations.length > 0) {
+    // Sort members by link count ascending — least connected first
+    const sortedMembers = [...includedMembers].sort(
+      (a, b) => (memberLinkCount.get(a.name) || 0) - (memberLinkCount.get(b.name) || 0)
+    );
+    let memberIdx = 0;
+
+    for (const rec of recommendations) {
+      const existingTargets = new Set(rec.suggestedBy || []);
+      // Each rec gets 1-2 extra links to spread connections
+      const extraLinks = existingTargets.size < 2 ? 2 : 1;
+      let added = 0;
+
+      for (let attempt = 0; attempt < sortedMembers.length && added < extraLinks; attempt++) {
+        const candidate = sortedMembers[(memberIdx + attempt) % sortedMembers.length];
+        if (existingTargets.has(candidate.name)) continue;
+
+        links.push({
+          source: `rec-${rec.name}`,
+          target: `member-${candidate.name}`,
+          strength: (rec.matchScore || 0.3) * 0.5,
+          isBridgeLink: false,
+          isDeepCutLink: false,
+          isChainLink: false,
+          isDriftLink: false,
+        });
+        memberLinkCount.set(candidate.name, (memberLinkCount.get(candidate.name) || 0) + 1);
+        added++;
+      }
+      memberIdx = (memberIdx + 1) % sortedMembers.length;
+    }
+  }
+
+  // Member-to-member links (spread across more pairs for better connectivity)
   for (let i = 0; i < includedMembers.length; i++) {
-    for (let j = i + 1; j < Math.min(i + 3, includedMembers.length); j++) {
+    const stride = Math.max(1, Math.floor(includedMembers.length / 6));
+    for (let s = 1; s <= 2; s++) {
+      const j = (i + s * stride) % includedMembers.length;
+      if (j === i) continue;
       links.push({
         source: `member-${includedMembers[i].name}`,
         target: `member-${includedMembers[j].name}`,

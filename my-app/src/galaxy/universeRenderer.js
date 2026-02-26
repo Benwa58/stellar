@@ -18,7 +18,6 @@ function seededRandom(seed) {
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
 
 function getLODFactors(scale) {
-  const badgeFactor = 1 - clamp01((scale - 0.25) / 0.15);
   const labelFactor = clamp01((scale - 0.35) / 0.1);
   const detailFactor = clamp01((scale - 0.9) / 0.2);
   const nodeFactor = clamp01((scale - 0.25) / 0.15);
@@ -26,7 +25,7 @@ function getLODFactors(scale) {
   // Extra-bright boost for the farthest-out overview (< 0.35)
   const overviewBoost = 1 - clamp01((scale - 0.15) / 0.25);
 
-  return { badgeFactor, labelFactor, detailFactor, nodeFactor, hazeFactor, overviewBoost };
+  return { labelFactor, detailFactor, nodeFactor, hazeFactor, overviewBoost };
 }
 
 // ─── Starfield (world-space background) ────────────────────────────────
@@ -280,12 +279,12 @@ export function createUniverseRenderer(canvas, getState) {
           ctx.fillStyle = mid;
           ctx.fill();
 
-          // Hot core — bright, small, saturated
-          const coreR = baseR * 0.35 * breathe;
+          // Core glow — subtle, soft
+          const coreR = baseR * 0.3 * breathe;
           const core = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, coreR);
-          const coreAlpha = 0.2 * brightnessBoost;
-          core.addColorStop(0, `hsla(${ch}, ${Math.min(cs + 20, 100)}%, ${Math.min(cl + 25, 95)}%, ${Math.min(coreAlpha, 0.5)})`);
-          core.addColorStop(0.4, `hsla(${ch}, ${Math.min(cs + 10, 90)}%, ${Math.min(cl + 15, 85)}%, ${Math.min(coreAlpha * 0.5, 0.3)})`);
+          const coreAlpha = 0.1 * brightnessBoost;
+          core.addColorStop(0, `hsla(${ch}, ${Math.min(cs + 15, 95)}%, ${Math.min(cl + 15, 85)}%, ${Math.min(coreAlpha, 0.25)})`);
+          core.addColorStop(0.4, `hsla(${ch}, ${Math.min(cs + 5, 85)}%, ${Math.min(cl + 8, 78)}%, ${Math.min(coreAlpha * 0.4, 0.12)})`);
           core.addColorStop(1, `hsla(${ch}, ${cs}%, ${cl}%, 0)`);
           ctx.beginPath();
           ctx.arc(cm.cx, cm.cy, coreR, 0, Math.PI * 2);
@@ -295,25 +294,25 @@ export function createUniverseRenderer(canvas, getState) {
           ctx.globalAlpha = 1;
         }
 
-        // --- Nucleus point — bright visible center at all haze zoom levels ---
+        // --- Nucleus point — subtle center glow ---
         if (lod.hazeFactor > 0) {
-          const nucleusPulse = 0.85 + 0.15 * Math.sin(time * 0.0006 + cm.cy * 0.01);
-          const nucleusR = Math.max(4, baseR * 0.06) * nucleusPulse;
-          const nucleusAlpha = (0.6 + lod.overviewBoost * 0.4) * lod.hazeFactor;
+          const nucleusPulse = 0.9 + 0.1 * Math.sin(time * 0.0006 + cm.cy * 0.01);
+          const nucleusR = Math.max(3, baseR * 0.04) * nucleusPulse;
+          const nucleusAlpha = (0.3 + lod.overviewBoost * 0.2) * lod.hazeFactor;
 
-          const nGlow = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, nucleusR * 4);
-          nGlow.addColorStop(0, `hsla(${ch}, ${Math.min(cs + 10, 95)}%, ${Math.min(cl + 30, 97)}%, ${nucleusAlpha * 0.7})`);
-          nGlow.addColorStop(0.3, `hsla(${ch}, ${cs}%, ${Math.min(cl + 15, 85)}%, ${nucleusAlpha * 0.25})`);
+          const nGlow = ctx.createRadialGradient(cm.cx, cm.cy, 0, cm.cx, cm.cy, nucleusR * 3);
+          nGlow.addColorStop(0, `hsla(${ch}, ${Math.min(cs + 10, 95)}%, ${Math.min(cl + 20, 90)}%, ${nucleusAlpha * 0.5})`);
+          nGlow.addColorStop(0.4, `hsla(${ch}, ${cs}%, ${Math.min(cl + 10, 80)}%, ${nucleusAlpha * 0.15})`);
           nGlow.addColorStop(1, `hsla(${ch}, ${cs}%, ${cl}%, 0)`);
           ctx.beginPath();
-          ctx.arc(cm.cx, cm.cy, nucleusR * 4, 0, Math.PI * 2);
+          ctx.arc(cm.cx, cm.cy, nucleusR * 3, 0, Math.PI * 2);
           ctx.fillStyle = nGlow;
           ctx.fill();
 
-          // White-hot center point
+          // Soft center point
           ctx.beginPath();
           ctx.arc(cm.cx, cm.cy, nucleusR, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(${ch}, 20%, 95%, ${nucleusAlpha})`;
+          ctx.fillStyle = `hsla(${ch}, 30%, 88%, ${nucleusAlpha * 0.7})`;
           ctx.fill();
         }
 
@@ -480,16 +479,6 @@ export function createUniverseRenderer(canvas, getState) {
       }
     }
 
-    // --- Cluster labels (LOD 1) ---
-    if (lod.badgeFactor > 0) {
-      ctx.globalAlpha = lod.badgeFactor;
-      for (const cm of clusterMetas) {
-        if (!isVisible(cm.cx, cm.cy, cm.visualRadius, transform, w, h)) continue;
-        drawClusterLabel(ctx, cm, scale, time);
-      }
-      ctx.globalAlpha = 1;
-    }
-
     ctx.restore();
     ctx.restore();
 
@@ -617,31 +606,3 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.quadraticCurveTo(x, y, x + r, y);
 }
 
-// ─── Cluster label (LOD 1 — replaces old count badge) ─────────────────
-
-function drawClusterLabel(ctx, cm, viewScale, time) {
-  const { h, s, l } = cm.color;
-
-  // --- Cluster name (primary text) ---
-  const nameFontSize = Math.max(12, Math.min(28, 20 / viewScale));
-  ctx.font = `700 ${nameFontSize}px 'Space Grotesk', sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  const nameY = cm.cy - nameFontSize * 0.3;
-
-  // Subtle text glow for readability against the nebula
-  const glowPulse = 0.8 + 0.2 * Math.sin(time * 0.0005 + cm.cx * 0.01);
-  ctx.shadowColor = `hsla(${h}, ${s}%, ${Math.min(l + 20, 90)}%, ${0.6 * glowPulse})`;
-  ctx.shadowBlur = nameFontSize * 0.6;
-  ctx.fillStyle = `hsla(${h}, ${Math.max(s - 5, 25)}%, ${Math.min(l + 35, 97)}%, 0.95)`;
-  ctx.fillText(cm.label, cm.cx, nameY);
-  ctx.shadowBlur = 0;
-
-  // --- Artist count subtitle ---
-  const countFontSize = Math.max(8, Math.min(16, 12 / viewScale));
-  ctx.font = `500 ${countFontSize}px 'Space Grotesk', sans-serif`;
-  const countY = nameY + nameFontSize * 0.65 + countFontSize * 0.5;
-  ctx.fillStyle = `hsla(${h}, ${Math.max(s - 10, 20)}%, ${Math.min(l + 20, 85)}%, 0.6)`;
-  ctx.fillText(`${cm.totalCount} artists`, cm.cx, countY);
-}
