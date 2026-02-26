@@ -1,14 +1,10 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useDispatch } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
 import { GO_TO_INPUT } from '../state/actions';
-import { findArtistTrack } from '../api/musicClient';
-import { useAudioPreview } from '../hooks/useAudioPreview';
 import Header from './Header';
 import UniverseCanvas from '../galaxy/UniverseCanvas';
-import FavoriteButton from './FavoriteButton';
-import DislikeButton from './DislikeButton';
-import DiscoveredButton from './DiscoveredButton';
+import ArtistDetailPanel from './ArtistDetailPanel';
 import { useBottomBarDetect } from '../hooks/useBottomBarDetect';
 import '../styles/universe.css';
 
@@ -36,8 +32,6 @@ function UniverseView() {
   }, []);
 
   if (!universeData) return null;
-
-  const clusterCenters = universeData.visualization?.clusterCenters || [];
 
   return (
     <div className="universe-view">
@@ -93,144 +87,13 @@ function UniverseView() {
         </button>
       </div>
 
-      {/* Artist detail card */}
+      {/* Artist detail panel */}
       {selectedNode && !selectedNode._isClusterCenter && (
-        <UniverseArtistCard
+        <ArtistDetailPanel
           node={selectedNode}
-          clusterCenters={clusterCenters}
           onClose={handleCloseCard}
         />
       )}
-    </div>
-  );
-}
-
-// --- Artist detail card overlay ---
-
-function UniverseArtistCard({ node, clusterCenters, onClose }) {
-  const [topTrack, setTopTrack] = useState(null);
-  const [loadingTrack, setLoadingTrack] = useState(false);
-  const audio = useAudioPreview();
-
-  const cluster = clusterCenters?.[node.clusterId];
-
-  useEffect(() => {
-    audio.pause();
-    setTopTrack(null);
-    setLoadingTrack(true);
-
-    let cancelled = false;
-    findArtistTrack(node.name)
-      .then((track) => { if (!cancelled) setTopTrack(track); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoadingTrack(false); });
-
-    return () => { cancelled = true; };
-  }, [node]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handlePlayPause = () => {
-    if (!topTrack?.preview) return;
-    if (audio.currentTrack?.id === topTrack.id) {
-      audio.toggle();
-    } else {
-      audio.play(topTrack);
-    }
-  };
-
-  return (
-    <div className="universe-artist-card">
-      <button className="universe-card-close" onClick={onClose}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
-
-      <div className="universe-card-header">
-        {node.image ? (
-          <img className="universe-card-image" src={node.image} alt={node.name} />
-        ) : (
-          <div className="universe-card-image universe-card-image-placeholder">
-            {node.name.charAt(0)}
-          </div>
-        )}
-        <div className="universe-card-info">
-          <h3 className="universe-card-name">{node.name}</h3>
-          <div className="universe-card-badges">
-            {node.isChainLink ? (
-              <span className="universe-card-badge badge-chain">
-                Chain Link
-              </span>
-            ) : node.isHiddenGem ? (
-              <span className="universe-card-badge badge-gem">
-                Hidden Gem
-              </span>
-            ) : node.isRecommendation ? (
-              <span className="universe-card-badge badge-rec">
-                Recommendation
-                {node.matchScore != null && (
-                  <span className="universe-card-score">
-                    {Math.round(node.matchScore * 100)}%
-                  </span>
-                )}
-              </span>
-            ) : (
-              <span className={`universe-card-badge badge-${node.source || 'member'}`}>
-                {node.source === 'favorite' ? 'Favorite' : node.isMember ? 'Member' : 'Discovered'}
-              </span>
-            )}
-            {cluster && (
-              <span className="universe-card-cluster">
-                <span
-                  className="universe-card-cluster-dot"
-                  style={{ background: `hsl(${cluster.color.h}, ${cluster.color.s}%, ${cluster.color.l}%)` }}
-                />
-                {cluster.label}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {node.isChainLink && node.remoteClusters?.length > 0 && (
-        <div className="universe-card-suggested universe-card-chain-info">
-          Connects {node.remoteClusters.length + 1} clusters
-        </div>
-      )}
-
-      {node.isRecommendation && node.suggestedBy?.length > 0 && (
-        <div className="universe-card-suggested">
-          {node.isHiddenGem ? 'Hidden gem \u2014 similar' : 'Suggested'} by {node.suggestedBy.join(', ')}
-        </div>
-      )}
-
-      <div className="universe-card-preview">
-        {loadingTrack ? (
-          <span className="universe-card-preview-loading">Loading preview...</span>
-        ) : topTrack?.preview ? (
-          <button className="universe-card-play-btn" onClick={handlePlayPause}>
-            {audio.isPlaying && audio.currentTrack?.id === topTrack.id ? (
-              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                <polygon points="5,3 19,12 5,21" />
-              </svg>
-            )}
-            <span>{topTrack.title}</span>
-          </button>
-        ) : (
-          <span className="universe-card-preview-none">No preview available</span>
-        )}
-      </div>
-
-      <div className="universe-card-actions">
-        <FavoriteButton artistName={node.name} artistId={null} artistImage={node.image} />
-        <DislikeButton artistName={node.name} artistId={null} artistImage={node.image} />
-        <DiscoveredButton artistName={node.name} artistId={null} artistImage={node.image} />
-      </div>
     </div>
   );
 }
