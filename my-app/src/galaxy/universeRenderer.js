@@ -104,7 +104,7 @@ function buildClusterHazes(clusterMetas) {
   });
 }
 
-// ─── Cosmic filaments between nearby clusters ──────────────────────────
+// ─── Cosmic filaments between clusters ──────────────────────────────────
 function buildFilaments(clusterMetas) {
   const filaments = [];
   for (let i = 0; i < clusterMetas.length; i++) {
@@ -117,29 +117,32 @@ function buildFilaments(clusterMetas) {
       const ri = ci.visualRadius;
       const rj = cj.visualRadius;
 
-      if (dist > (ri + rj) * 4) continue;
+      // Connect much more distant clusters for a web-like network
+      const maxReach = (ri + rj) * 8;
+      if (dist > maxReach) continue;
 
       const filDots = [];
-      const dotCount = Math.floor(dist / 8);
+      // Denser dots for richer filament streams
+      const dotCount = Math.floor(dist / 5);
       const seed = ci.cx * 100 + cj.cy * 7 + i * 50;
 
       for (let k = 0; k < dotCount; k++) {
         const t = (k + 0.5) / dotCount;
-        const noise = (seededRandom(seed + k * 12.9898) - 0.5) * 25;
-        const noiseY = (seededRandom(seed + k * 45.164 + 5) - 0.5) * 10;
+        // Wider lateral spread for organic, fibrous appearance
+        const noise = (seededRandom(seed + k * 12.9898) - 0.5) * 45;
+        const noiseY = (seededRandom(seed + k * 45.164 + 5) - 0.5) * 20;
 
         filDots.push({
           x: ci.cx + dx * t + (-dy / dist) * noise,
           y: ci.cy + dy * t + (dx / dist) * noise + noiseY,
-          size: 0.4 + seededRandom(seed + k * 78.233) * 1.2,
+          size: 0.5 + seededRandom(seed + k * 78.233) * 1.5,
           t,
           h: ci.color.h + (cj.color.h - ci.color.h) * t,
           phase: seededRandom(seed + k * 93.989) * Math.PI * 2,
         });
       }
 
-      const maxDist = (ri + rj) * 4;
-      const proximity = 1 - dist / maxDist;
+      const proximity = 1 - dist / maxReach;
       filaments.push({ dots: filDots, proximity });
     }
   }
@@ -222,15 +225,42 @@ export function createUniverseRenderer(canvas, getState) {
       }
     }
 
+    // --- Central ambient nebula (fills void between clusters) ---
+    if (clusterMetas.length > 1 && lod.hazeFactor > 0) {
+      let cenX = 0, cenY = 0;
+      for (const cm of clusterMetas) { cenX += cm.cx; cenY += cm.cy; }
+      cenX /= clusterMetas.length;
+      cenY /= clusterMetas.length;
+
+      let maxExtent = 0;
+      for (const cm of clusterMetas) {
+        const d = Math.sqrt((cm.cx - cenX) * (cm.cx - cenX) + (cm.cy - cenY) * (cm.cy - cenY)) + cm.visualRadius;
+        if (d > maxExtent) maxExtent = d;
+      }
+
+      const nebulaR = maxExtent * 0.7;
+      const nebulaAlpha = 0.06 * lod.hazeFactor * (1 + lod.overviewBoost * 0.5);
+      const nebula = ctx.createRadialGradient(cenX, cenY, 0, cenX, cenY, nebulaR);
+      nebula.addColorStop(0, `rgba(110, 130, 180, ${Math.min(nebulaAlpha * 1.5, 0.12)})`);
+      nebula.addColorStop(0.5, `rgba(90, 110, 160, ${Math.min(nebulaAlpha * 0.7, 0.06)})`);
+      nebula.addColorStop(1, 'rgba(60, 80, 130, 0)');
+      ctx.beginPath();
+      ctx.arc(cenX, cenY, nebulaR, 0, Math.PI * 2);
+      ctx.fillStyle = nebula;
+      ctx.fill();
+    }
+
     // --- Cosmic filaments ---
     if (filaments && lod.hazeFactor > 0) {
-      const filAlpha = lod.hazeFactor * (1 + lod.overviewBoost * 0.5);
+      const filAlpha = lod.hazeFactor * (1 + lod.overviewBoost * 0.8);
       ctx.globalAlpha = Math.min(filAlpha, 1);
       for (const fil of filaments) {
         for (const d of fil.dots) {
-          const midDist = Math.abs(d.t - 0.5) * 2;
+          // Bright in center, fade near cluster edges
+          const edgeFade = Math.max(0, 1 - Math.abs(d.t - 0.5) * 2.5);
           const twinkle = 0.5 + 0.5 * Math.sin(time * 0.001 + d.phase);
-          const alpha = (0.1 + midDist * 0.2) * twinkle * (0.3 + fil.proximity * 0.7);
+          const alpha = 0.4 * edgeFade * twinkle * (0.3 + fil.proximity * 0.7);
+          if (alpha < 0.02) continue;
           ctx.beginPath();
           ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
           ctx.fillStyle = `hsla(${d.h}, 30%, 72%, ${alpha})`;
@@ -351,10 +381,33 @@ export function createUniverseRenderer(canvas, getState) {
       }
     }
 
+    // --- Inter-cluster bridge links (visible from LOD 2) ---
+    if (lod.nodeFactor > 0 && allLinks) {
+      const bridgeAlpha = lod.nodeFactor * 0.6;
+      ctx.globalAlpha = bridgeAlpha;
+      ctx.setLineDash([3, 5]);
+      for (const link of allLinks) {
+        if (!link.isBridgeLink) continue;
+        const source = link.source;
+        const target = link.target;
+        if (!source || !target || source.x == null || target.x == null) continue;
+
+        ctx.beginPath();
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
+        ctx.strokeStyle = 'rgba(140, 160, 200, 0.15)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+
     // --- Links (LOD 3 only) ---
     if (lod.detailFactor > 0 && allLinks) {
       ctx.globalAlpha = lod.detailFactor;
       for (const link of allLinks) {
+        if (link.isBridgeLink) continue;
         const source = link.source;
         const target = link.target;
         if (!source || !target || source.x == null || target.x == null) continue;

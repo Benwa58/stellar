@@ -159,7 +159,7 @@ export function buildClusterGalaxyData(cluster) {
 
 // ─── Unified universe layout ───────────────────────────────────────────
 
-const CLUSTER_SPACING = 4; // scale server positions to give nodes room
+const CLUSTER_SPACING = 2; // scale server positions to give nodes room
 
 /**
  * Run a d3-force simulation synchronously for a cluster's nodes,
@@ -283,6 +283,45 @@ export function buildUniverseLayout(universeData) {
       labelNames,
       genreClusters: graph.genreClusters,
     });
+  }
+
+  // --- Inter-cluster bridge links ---
+  const bridges = universeData.bridges || [];
+  for (const bridge of bridges) {
+    if (!bridge.clusters || bridge.clusters.length < 2) continue;
+
+    // Find the bridge artist's node
+    const bridgeNode = allNodes.find((n) => n.name === bridge.name);
+    if (!bridgeNode) continue;
+
+    const homeCluster = bridgeNode.clusterId;
+    for (const targetCI of bridge.clusters) {
+      if (targetCI === homeCluster) continue;
+
+      // Find nearest seed node in the target cluster
+      let bestNode = null;
+      let bestDist = Infinity;
+      for (const n of allNodes) {
+        if (n.clusterId !== targetCI || n.type !== 'seed') continue;
+        const ddx = n.x - bridgeNode.x;
+        const ddy = n.y - bridgeNode.y;
+        const d = ddx * ddx + ddy * ddy;
+        if (d < bestDist) {
+          bestDist = d;
+          bestNode = n;
+        }
+      }
+
+      if (bestNode) {
+        allLinks.push({
+          source: bridgeNode,
+          target: bestNode,
+          strength: bridge.strength * 0.3,
+          isBridgeLink: true,
+          opacity: 0.15,
+        });
+      }
+    }
   }
 
   // Compute world bounds

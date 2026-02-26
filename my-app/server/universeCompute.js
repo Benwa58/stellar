@@ -459,7 +459,7 @@ function relaxClusterPositions(clusters, canvasCenter, iterations = 80) {
     const label = clusters[i].label || `c${i}`;
     for (let c = 0; c < label.length; c++) hash = (hash * 31 + label.charCodeAt(c)) & 0xffffffff;
     const a = ((hash & 0xffff) / 0xffff) * Math.PI * 2;
-    const r = 80 + ((hash >>> 16) / 0xffff) * 120;
+    const r = 50 + ((hash >>> 16) / 0xffff) * 70;
     positions.push({
       x: canvasCenter + r * Math.cos(a),
       y: canvasCenter + r * Math.sin(a),
@@ -486,7 +486,7 @@ function relaxClusterPositions(clusters, canvasCenter, iterations = 80) {
         const dx = positions[i].x - positions[j].x;
         const dy = positions[i].y - positions[j].y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const minDist = (weights[i] + weights[j]) * 1.1;
+        const minDist = (weights[i] + weights[j]) * 0.6;
         if (dist < minDist) {
           const force = (minDist - dist) / dist * 0.4 * cooling;
           fx += dx * force;
@@ -497,8 +497,8 @@ function relaxClusterPositions(clusters, canvasCenter, iterations = 80) {
       // Gentle pull toward center (keeps layout compact)
       const dcx = canvasCenter - positions[i].x;
       const dcy = canvasCenter - positions[i].y;
-      fx += dcx * 0.008 * cooling;
-      fy += dcy * 0.008 * cooling;
+      fx += dcx * 0.025 * cooling;
+      fy += dcy * 0.025 * cooling;
 
       positions[i].x += fx;
       positions[i].y += fy;
