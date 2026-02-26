@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallback, onPrev: onPrevCallback } = {}) {
+export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallback, onPrev: onPrevCallback, mediaSession: ownsMediaSession = false } = {}) {
   const audioRef = useRef(null);
   const onEndedRef = useRef(null);
   onEndedRef.current = onEndedCallback;
@@ -30,6 +30,10 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
+  // Capture in ref so the Audio setup effect (which runs once) can read it
+  const ownsMediaSessionRef = useRef(ownsMediaSession);
+  ownsMediaSessionRef.current = ownsMediaSession;
+
   useEffect(() => {
     const audio = new Audio();
     audio.volume = 0.7;
@@ -38,8 +42,8 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     function onTimeUpdate() {
       if (audio.duration) {
         setProgress(audio.currentTime / audio.duration);
-        // Keep lock screen scrubber in sync
-        if ('mediaSession' in navigator && isFinite(audio.duration)) {
+        // Keep lock screen scrubber in sync (only from the primary player)
+        if (ownsMediaSessionRef.current && 'mediaSession' in navigator && isFinite(audio.duration)) {
           try {
             navigator.mediaSession.setPositionState({
               duration: audio.duration,
@@ -70,8 +74,9 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     // Re-apply media session metadata when audio actually starts playing.
     // On iOS, the browser can reset metadata during source transitions,
     // so we need to re-set it once playback genuinely begins.
+    // Only the primary player (ownsMediaSession) should touch metadata.
     function onPlaying() {
-      if (currentTrackRef.current) {
+      if (ownsMediaSessionRef.current && currentTrackRef.current) {
         updateMediaSessionRef.current(currentTrackRef.current);
       }
     }
@@ -122,7 +127,7 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
   // to the site icon. Letting the browser infer state from the audio element
   // keeps the widget alive with a play button when paused.
   const updateMediaSession = useCallback((track) => {
-    if (!('mediaSession' in navigator)) return;
+    if (!ownsMediaSessionRef.current || !('mediaSession' in navigator)) return;
     if (!track) {
       navigator.mediaSession.metadata = null;
       return;
@@ -151,9 +156,12 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
   }, []);
   updateMediaSessionRef.current = updateMediaSession;
 
-  // Wire up MediaSession action handlers (play, pause, seek)
+  // Wire up MediaSession action handlers (play, pause, next, prev, seek).
+  // Only the primary player instance (ownsMediaSession) should register these —
+  // otherwise secondary instances (ArtistDetailPanel, etc.) overwrite the handlers
+  // and lock screen controls route to the wrong audio element.
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
+    if (!ownsMediaSession || !('mediaSession' in navigator)) return;
     const actions = {
       play: () => {
         if (currentTrackRef.current && !isPlayingRef.current) {
@@ -184,12 +192,16 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     for (const [action, handler] of Object.entries(actions)) {
       try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
     }
+    // Explicitly remove seek-forward/backward so iOS shows next/prev arrows
+    // instead of +/-10s buttons
+    try { navigator.mediaSession.setActionHandler('seekforward', null); } catch {}
+    try { navigator.mediaSession.setActionHandler('seekbackward', null); } catch {}
     return () => {
       for (const action of Object.keys(actions)) {
         try { navigator.mediaSession.setActionHandler(action, null); } catch {}
       }
     };
-  }, [updateMediaSession]);
+  }, [ownsMediaSession, updateMediaSession]);
 
   const play = useCallback((track) => {
     const audio = audioRef.current;

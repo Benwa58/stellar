@@ -77,7 +77,7 @@ function GalaxyPlayerController({ canvasRef }) {
     setCurrentIndex((prev) => (prev - 1 >= 0 ? prev - 1 : playlist.length - 1));
   }, [getPlaylist]);
 
-  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev });
+  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev, mediaSession: true });
 
   // Clear playlists when galaxy data changes (will rebuild on play start)
   useEffect(() => {
