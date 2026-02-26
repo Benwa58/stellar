@@ -70,9 +70,9 @@ export function createRenderer(canvas, getState) {
     // Nodes (with dimming for known artists)
     drawNodes(ctx, nodes, hoveredNode, selectedNode, time, state.expandTransition, knownNames);
 
-    // Discovered indicators (gold gradient ring)
+    // Discovered indicators (animated gold sparkle ring)
     if (discoveredNames && discoveredNames.size > 0) {
-      drawDiscoveredIndicators(ctx, nodes, discoveredNames);
+      drawDiscoveredIndicators(ctx, nodes, discoveredNames, time);
     }
 
     // Favorite indicators (drawn after discovered so favorites take visual priority)
@@ -595,26 +595,78 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
   }
 }
 
-function drawDiscoveredIndicators(ctx, nodes, discoveredNames) {
+function drawDiscoveredIndicators(ctx, nodes, discoveredNames, time) {
   if (!nodes) return;
   for (const node of nodes) {
     if (node.x == null || node.y == null) continue;
     if (!discoveredNames.has(node.name)) continue;
 
-    // Gold gradient ring around the node
-    const ringRadius = node.radius + 3;
-    const grad = ctx.createLinearGradient(
-      node.x - ringRadius, node.y - ringRadius,
-      node.x + ringRadius, node.y + ringRadius
-    );
-    grad.addColorStop(0, 'rgba(255, 215, 0, 0.9)');     // bright gold
-    grad.addColorStop(0.5, 'rgba(255, 190, 0, 0.95)');   // warm gold
-    grad.addColorStop(1, 'rgba(218, 165, 32, 0.9)');     // deep goldenrod
+    const { x, y, radius } = node;
+
+    // --- 1. Pulsing outer glow ---
+    const pulse = 0.7 + 0.3 * Math.sin(time * 0.002 + x * 0.01);
+    const glowRadius = (radius + 8) * pulse + radius;
+    const glow = ctx.createRadialGradient(x, y, radius, x, y, glowRadius);
+    glow.addColorStop(0, `rgba(255, 200, 50, ${0.25 * pulse})`);
+    glow.addColorStop(0.5, `rgba(255, 170, 0, ${0.1 * pulse})`);
+    glow.addColorStop(1, 'rgba(255, 150, 0, 0)');
     ctx.beginPath();
-    ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = grad;
+    ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
+    // --- 2. Rotating gradient ring ---
+    const angle = time * 0.001;
+    const ringRadius = radius + 3;
+    const gx = x + Math.cos(angle) * ringRadius;
+    const gy = y + Math.sin(angle) * ringRadius;
+    const gx2 = x + Math.cos(angle + Math.PI) * ringRadius;
+    const gy2 = y + Math.sin(angle + Math.PI) * ringRadius;
+    const ringGrad = ctx.createLinearGradient(gx, gy, gx2, gy2);
+    ringGrad.addColorStop(0, 'rgba(255, 230, 100, 1)');    // bright yellow-gold
+    ringGrad.addColorStop(0.25, 'rgba(255, 190, 0, 0.95)'); // warm gold
+    ringGrad.addColorStop(0.5, 'rgba(255, 140, 0, 0.9)');   // deep amber
+    ringGrad.addColorStop(0.75, 'rgba(255, 200, 50, 0.95)'); // light gold
+    ringGrad.addColorStop(1, 'rgba(255, 230, 100, 1)');     // back to bright
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = ringGrad;
     ctx.lineWidth = 2.5;
     ctx.stroke();
+
+    // --- 3. Orbiting sparkle particles ---
+    const sparkleCount = 4;
+    for (let i = 0; i < sparkleCount; i++) {
+      const sparkleAngle = angle * 1.5 + (Math.PI * 2 * i) / sparkleCount;
+      const sparkleR = ringRadius + 1;
+      const sx = x + Math.cos(sparkleAngle) * sparkleR;
+      const sy = y + Math.sin(sparkleAngle) * sparkleR;
+      const sparkleAlpha = 0.5 + 0.5 * Math.sin(time * 0.004 + i * 1.5);
+      const sparkleSize = 1.2 + 0.6 * sparkleAlpha;
+
+      // 4-pointed star sparkle
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(sparkleAngle);
+      ctx.beginPath();
+      ctx.moveTo(0, -sparkleSize * 2);
+      ctx.lineTo(sparkleSize * 0.4, 0);
+      ctx.lineTo(0, sparkleSize * 2);
+      ctx.lineTo(-sparkleSize * 0.4, 0);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255, 240, 180, ${sparkleAlpha * 0.9})`;
+      ctx.fill();
+      // Cross arm
+      ctx.beginPath();
+      ctx.moveTo(-sparkleSize * 2, 0);
+      ctx.lineTo(0, sparkleSize * 0.4);
+      ctx.lineTo(sparkleSize * 2, 0);
+      ctx.lineTo(0, -sparkleSize * 0.4);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255, 240, 180, ${sparkleAlpha * 0.7})`;
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }
 
