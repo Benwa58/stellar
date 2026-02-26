@@ -15,9 +15,11 @@ import GalaxyLegend from './GalaxyLegend';
 import ExportDrawer from './ExportDrawer';
 import ShareGalaxyDrawer from './ShareGalaxyDrawer';
 import ReleaseNotesModal from './ReleaseNotesModal';
+import { useBottomBarDetect } from '../hooks/useBottomBarDetect';
 import '../styles/galaxy.css';
 
 function GalaxyView() {
+  useBottomBarDetect();
   const { selectedNode, seedArtists, galaxyData, pendingSeedQueue, currentMapName } = useAppState();
   const dispatch = useDispatch();
   const { user, favorites, dislikes, knownArtists, discoveredArtists } = useAuth();

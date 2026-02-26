@@ -9,9 +9,11 @@ import UniverseCanvas from '../galaxy/UniverseCanvas';
 import FavoriteButton from './FavoriteButton';
 import DislikeButton from './DislikeButton';
 import DiscoveredButton from './DiscoveredButton';
+import { useBottomBarDetect } from '../hooks/useBottomBarDetect';
 import '../styles/universe.css';
 
 function UniverseView() {
+  useBottomBarDetect();
   const dispatch = useDispatch();
   const { user, universeData } = useAuth();
   const canvasRef = useRef(null);
