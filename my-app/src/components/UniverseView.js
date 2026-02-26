@@ -11,7 +11,7 @@ import '../styles/universe.css';
 function UniverseView() {
   useBottomBarDetect();
   const dispatch = useDispatch();
-  const { user, universeData } = useAuth();
+  const { user, universeData, favorites, discoveredArtists, dislikes } = useAuth();
   const canvasRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
@@ -48,6 +48,9 @@ function UniverseView() {
       <UniverseCanvas
         ref={canvasRef}
         universeData={universeData}
+        favorites={favorites}
+        discoveredArtists={discoveredArtists}
+        dislikes={dislikes}
         onSelectNode={handleSelectNode}
         onHoverNode={handleHoverNode}
       />
