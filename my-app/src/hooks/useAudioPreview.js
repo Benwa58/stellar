@@ -12,6 +12,7 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
   // Use refs so play/toggle callbacks stay stable
   const currentTrackRef = useRef(null);
   const isPlayingRef = useRef(false);
+  const updateMediaSessionRef = useRef(null);
 
   useEffect(() => {
     currentTrackRef.current = currentTrack;
@@ -48,16 +49,27 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       isPlayingRef.current = false;
     }
 
+    // Re-apply media session metadata when audio actually starts playing.
+    // On iOS, the browser can reset metadata during source transitions,
+    // so we need to re-set it once playback genuinely begins.
+    function onPlaying() {
+      if (currentTrackRef.current) {
+        updateMediaSessionRef.current(currentTrackRef.current, true);
+      }
+    }
+
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('error', onError);
+    audio.addEventListener('playing', onPlaying);
 
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
+      audio.removeEventListener('playing', onPlaying);
       audio.pause();
       audio.src = '';
     };
@@ -78,6 +90,7 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     });
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   }, []);
+  updateMediaSessionRef.current = updateMediaSession;
 
   // Wire up MediaSession action handlers
   useEffect(() => {
@@ -151,8 +164,9 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audioRef.current?.play().catch(() => {});
       setIsPlaying(true);
       isPlayingRef.current = true;
+      updateMediaSession(currentTrackRef.current, true);
     }
-  }, [pause]); // Stable — pause is stable, reads from refs
+  }, [pause, updateMediaSession]);
 
   const seek = useCallback((fraction) => {
     const audio = audioRef.current;

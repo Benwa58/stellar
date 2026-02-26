@@ -70,9 +70,9 @@ export function createRenderer(canvas, getState) {
     // Nodes (with dimming for known artists)
     drawNodes(ctx, nodes, hoveredNode, selectedNode, time, state.expandTransition, knownNames);
 
-    // Discovered indicators (animated gold sparkle ring)
+    // Discovered indicators (gold gradient ring)
     if (discoveredNames && discoveredNames.size > 0) {
-      drawDiscoveredIndicators(ctx, nodes, discoveredNames, time);
+      drawDiscoveredIndicators(ctx, nodes, discoveredNames);
     }
 
     // Favorite indicators (drawn after discovered so favorites take visual priority)
@@ -329,36 +329,36 @@ function drawNodes(ctx, nodes, hoveredNode, selectedNode, time, expandT, knownNa
 function drawSeedNode(ctx, node, isActive) {
   const { x, y, radius } = node;
 
-  // Subtle glow
-  const glowRadius = radius * 2;
+  // Outer glow
+  const glowRadius = radius * 3;
   const glow = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
-  glow.addColorStop(0, 'rgba(160, 170, 200, 0.15)');
-  glow.addColorStop(0.5, 'rgba(140, 150, 180, 0.05)');
-  glow.addColorStop(1, 'rgba(140, 150, 180, 0)');
+  glow.addColorStop(0, 'rgba(255, 215, 0, 0.6)');
+  glow.addColorStop(0.3, 'rgba(255, 215, 0, 0.2)');
+  glow.addColorStop(0.7, 'rgba(255, 215, 0, 0.05)');
+  glow.addColorStop(1, 'rgba(255, 215, 0, 0)');
   ctx.beginPath();
   ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
   ctx.fillStyle = glow;
   ctx.fill();
 
-  // Body - muted blue-gray
+  // Body
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(150, 165, 195, 0.6)';
+  ctx.fillStyle = '#FFD700';
   ctx.fill();
 
-  // Thin ring outline
+  // Core
   ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(180, 195, 220, 0.35)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  ctx.arc(x, y, radius * 0.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFFBE6';
+  ctx.fill();
 
   // Active ring
   if (isActive) {
     ctx.beginPath();
-    ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(200, 210, 235, 0.6)';
-    ctx.lineWidth = 1.2;
+    ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
   }
 }
@@ -578,31 +578,42 @@ function drawFavoriteIndicators(ctx, nodes, favoriteNames) {
     if (node.x == null || node.y == null) continue;
     if (!favoriteNames.has(node.name)) continue;
 
-    // Subtle thin ring
-    const ringRadius = node.radius + 2;
+    // Dark blue gradient ring around the node
+    const ringRadius = node.radius + 3;
+    const grad = ctx.createLinearGradient(
+      node.x - ringRadius, node.y - ringRadius,
+      node.x + ringRadius, node.y + ringRadius
+    );
+    grad.addColorStop(0, 'rgba(30, 64, 175, 0.95)');   // deep blue
+    grad.addColorStop(0.5, 'rgba(59, 130, 246, 0.95)'); // mid blue
+    grad.addColorStop(1, 'rgba(30, 58, 138, 0.95)');    // navy blue
     ctx.beginPath();
     ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(100, 130, 180, 0.4)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
   }
 }
 
-function drawDiscoveredIndicators(ctx, nodes, discoveredNames, time) {
+function drawDiscoveredIndicators(ctx, nodes, discoveredNames) {
   if (!nodes) return;
   for (const node of nodes) {
     if (node.x == null || node.y == null) continue;
     if (!discoveredNames.has(node.name)) continue;
 
-    const { x, y, radius } = node;
-
-    // Gentle pulsing ring - no sparkles
-    const pulse = 0.65 + 0.35 * Math.sin(time * 0.0015 + x * 0.01);
-    const ringRadius = radius + 2;
+    // Gold gradient ring around the node
+    const ringRadius = node.radius + 3;
+    const grad = ctx.createLinearGradient(
+      node.x - ringRadius, node.y - ringRadius,
+      node.x + ringRadius, node.y + ringRadius
+    );
+    grad.addColorStop(0, 'rgba(255, 215, 0, 0.9)');     // bright gold
+    grad.addColorStop(0.5, 'rgba(255, 190, 0, 0.95)');   // warm gold
+    grad.addColorStop(1, 'rgba(218, 165, 32, 0.9)');     // deep goldenrod
     ctx.beginPath();
-    ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(180, 165, 110, ${0.35 * pulse})`;
-    ctx.lineWidth = 1.5;
+    ctx.arc(node.x, node.y, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
   }
 }
