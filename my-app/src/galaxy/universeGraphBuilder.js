@@ -1,16 +1,16 @@
 import { getGenreColor } from '../utils/colorUtils';
+import { buildGalaxyGraph } from './galaxyLayout';
+import {
+  forceSimulation,
+  forceLink,
+  forceManyBody,
+  forceCenter,
+  forceCollide,
+} from 'd3-force';
 
 /**
  * Convert a single universe cluster into the galaxy graph format
  * expected by buildGalaxyGraph().
- *
- * Cluster data (from universeData.clusters[i]):
- *   { id, label, color: {h,s,l}, members: [{name, source, image}],
- *     recommendations: [{name, score, matchScore, suggestedBy}],
- *     topTags: string[] }
- *
- * Output matches galaxyLayout.js input:
- *   { nodes, links, genreClusters }
  */
 
 const MAX_CLUSTER_NODES = 150;
@@ -20,9 +20,6 @@ export function buildClusterGalaxyData(cluster) {
 
   const { members = [], recommendations = [], topTags = [], color, label } = cluster;
 
-  // --- Cap logic ---
-  // Prioritize: all favorites first, then discovered (most recent first), then recs.
-  // If members + recs > MAX_CLUSTER_NODES, truncate discovered to fit.
   const favorites = members.filter((m) => m.source === 'favorite');
   const discovered = members.filter((m) => m.source !== 'favorite');
 
@@ -31,13 +28,10 @@ export function buildClusterGalaxyData(cluster) {
   const totalUncapped = favorites.length + discovered.length + recsSlots;
 
   if (totalUncapped > MAX_CLUSTER_NODES) {
-    // All favorites always included, all recs always included
     const memberBudget = MAX_CLUSTER_NODES - recsSlots;
     if (memberBudget <= favorites.length) {
-      // Extreme case: just favorites (truncated if needed)
       includedMembers = favorites.slice(0, Math.max(memberBudget, 0));
     } else {
-      // All favorites + as many discovered as fit
       const discoveredBudget = memberBudget - favorites.length;
       includedMembers = [...favorites, ...discovered.slice(0, discoveredBudget)];
     }
@@ -47,10 +41,8 @@ export function buildClusterGalaxyData(cluster) {
 
   const memberNameSet = new Set(includedMembers.map((m) => m.name));
 
-  // --- Build nodes ---
   const nodes = [];
 
-  // Member nodes → type: 'seed' (gold stars, same visual as galaxy map seeds)
   for (const m of includedMembers) {
     nodes.push({
       id: `member-${m.name}`,
@@ -64,7 +56,6 @@ export function buildClusterGalaxyData(cluster) {
     });
   }
 
-  // Recommendation nodes → type: 'recommendation' (genre-colored, sized by matchScore)
   for (const rec of recommendations) {
     nodes.push({
       id: `rec-${rec.name}`,
@@ -79,10 +70,8 @@ export function buildClusterGalaxyData(cluster) {
     });
   }
 
-  // --- Build links ---
   const links = [];
 
-  // suggestedBy relationships: rec → member links
   for (const rec of recommendations) {
     for (const suggestorName of (rec.suggestedBy || [])) {
       if (!memberNameSet.has(suggestorName)) continue;
@@ -98,8 +87,6 @@ export function buildClusterGalaxyData(cluster) {
     }
   }
 
-  // Within-cluster member connections (weaker strength, connecting nearby members)
-  // Connect each member to its 2 nearest neighbors by list proximity
   for (let i = 0; i < includedMembers.length; i++) {
     for (let j = i + 1; j < Math.min(i + 3, includedMembers.length); j++) {
       links.push({
@@ -114,14 +101,169 @@ export function buildClusterGalaxyData(cluster) {
     }
   }
 
-  // --- Build genreClusters (for nebula rendering) ---
-  // Group all nodes under the cluster's genre color
   const genreClusters = [{
     genre: label || 'cluster',
     color: color || getGenreColor(topTags),
-    nodes: nodes, // refs will be updated after simulation positions
+    nodes: nodes,
     label: label,
   }];
 
   return { nodes, links, genreClusters };
+}
+
+// ─── Unified universe layout ───────────────────────────────────────────
+
+const CLUSTER_SPACING = 4; // scale server positions to give nodes room
+
+/**
+ * Run a d3-force simulation synchronously for a cluster's nodes,
+ * centering around (0, 0). Returns when settled.
+ */
+function settleClusterLayout(nodes, links, simSize) {
+  const sim = forceSimulation(nodes)
+    .force(
+      'link',
+      forceLink(links)
+        .id((d) => d.id)
+        .distance((d) => {
+          const srcSeed = typeof d.source === 'string' || d.source.type === 'seed';
+          const tgtSeed = typeof d.target === 'string' || d.target.type === 'seed';
+          if (srcSeed && tgtSeed) return 120;
+          if (srcSeed || tgtSeed) return 80;
+          return 60;
+        })
+        .strength((d) => d.strength || 0.3)
+    )
+    .force('charge', forceManyBody().strength((d) => (d.type === 'seed' ? -180 : -80)))
+    .force('center', forceCenter(0, 0).strength(0.05))
+    .force('collision', forceCollide().radius((d) => (d.radius || 8) + 3))
+    .stop();
+
+  // Run synchronously
+  const ticks = 300;
+  for (let i = 0; i < ticks; i++) {
+    sim.tick();
+  }
+}
+
+/**
+ * Build the full universe layout: all clusters positioned on a single
+ * coordinate space. Each cluster's nodes are force-settled locally then
+ * offset to their cluster center position.
+ *
+ * Returns { allNodes, allLinks, clusterMetas, worldBounds }
+ */
+export function buildUniverseLayout(universeData) {
+  if (!universeData?.clusters || !universeData?.visualization) {
+    return { allNodes: [], allLinks: [], clusterMetas: [], worldBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 } };
+  }
+
+  const viz = universeData.visualization;
+  const clusterCenters = viz.clusterCenters || [];
+  const clusters = universeData.clusters;
+
+  const allNodes = [];
+  const allLinks = [];
+  const clusterMetas = [];
+
+  for (let ci = 0; ci < clusters.length; ci++) {
+    const cluster = clusters[ci];
+    const center = clusterCenters[ci];
+    if (!center) continue;
+
+    // World-space center for this cluster
+    const cx = center.x * CLUSTER_SPACING;
+    const cy = center.y * CLUSTER_SPACING;
+
+    // Build galaxy data and style it
+    const clusterGalaxyData = buildClusterGalaxyData(cluster);
+    const graph = buildGalaxyGraph(clusterGalaxyData);
+
+    // Prefix IDs for cross-cluster uniqueness
+    const prefixedNodes = graph.nodes.map((n) => ({
+      ...n,
+      id: `c${ci}_${n.id}`,
+      clusterId: ci,
+    }));
+
+    const idMap = {};
+    for (const n of graph.nodes) {
+      idMap[n.id] = `c${ci}_${n.id}`;
+    }
+
+    const prefixedLinks = graph.links.map((l) => ({
+      ...l,
+      source: idMap[typeof l.source === 'string' ? l.source : l.source.id] || l.source,
+      target: idMap[typeof l.target === 'string' ? l.target : l.target.id] || l.target,
+    }));
+
+    // Settle the cluster around (0,0)
+    const simSize = 400 + prefixedNodes.length * 3;
+    settleClusterLayout(prefixedNodes, prefixedLinks, simSize);
+
+    // Compute cluster visual radius (max distance from center of any node)
+    let maxDist = 0;
+    for (const n of prefixedNodes) {
+      const d = Math.sqrt(n.x * n.x + n.y * n.y);
+      if (d + (n.radius || 5) > maxDist) maxDist = d + (n.radius || 5);
+    }
+    const visualRadius = Math.max(maxDist, 60);
+
+    // Offset all nodes to world position
+    for (const n of prefixedNodes) {
+      n.x += cx;
+      n.y += cy;
+    }
+
+    allNodes.push(...prefixedNodes);
+    allLinks.push(...prefixedLinks);
+
+    // Pick representative artist names for LOD 2 labels (top 3 seeds by score)
+    const seeds = prefixedNodes
+      .filter((n) => n.type === 'seed')
+      .sort((a, b) => (b.compositeScore || 0) - (a.compositeScore || 0));
+    const labelNames = seeds.slice(0, 3).map((n) => n.name);
+
+    clusterMetas.push({
+      index: ci,
+      cx,
+      cy,
+      visualRadius,
+      label: cluster.label || `Cluster ${ci + 1}`,
+      color: center.color || cluster.color || { h: 220, s: 50, l: 60 },
+      memberCount: cluster.members?.length || 0,
+      recCount: cluster.recommendations?.length || 0,
+      totalCount: prefixedNodes.length,
+      labelNames,
+      genreClusters: graph.genreClusters,
+    });
+  }
+
+  // Compute world bounds
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of allNodes) {
+    const r = n.radius || 5;
+    if (n.x - r < minX) minX = n.x - r;
+    if (n.y - r < minY) minY = n.y - r;
+    if (n.x + r > maxX) maxX = n.x + r;
+    if (n.y + r > maxY) maxY = n.y + r;
+  }
+  // Also include cluster metas for padding
+  for (const cm of clusterMetas) {
+    if (cm.cx - cm.visualRadius < minX) minX = cm.cx - cm.visualRadius;
+    if (cm.cy - cm.visualRadius < minY) minY = cm.cy - cm.visualRadius;
+    if (cm.cx + cm.visualRadius > maxX) maxX = cm.cx + cm.visualRadius;
+    if (cm.cy + cm.visualRadius > maxY) maxY = cm.cy + cm.visualRadius;
+  }
+
+  if (!isFinite(minX)) {
+    minX = 0; minY = 0; maxX = 100; maxY = 100;
+  }
+
+  return {
+    allNodes,
+    allLinks,
+    clusterMetas,
+    worldBounds: { minX, minY, maxX, maxY },
+  };
 }
