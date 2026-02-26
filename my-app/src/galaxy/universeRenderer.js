@@ -195,6 +195,16 @@ export function createUniverseRenderer(canvas, getState) {
 
     ensureCaches(clusterMetas, worldBounds);
 
+    // --- Gentle orbital drift for living-map feel ---
+    if (allNodes) {
+      for (const node of allNodes) {
+        if (node.homeX == null) continue;
+        const t = time * node.driftSpeed + node.driftPhase;
+        node.x = node.homeX + Math.sin(t) * node.driftRadius;
+        node.y = node.homeY + Math.cos(t * 0.7 + 1.3) * node.driftRadius;
+      }
+    }
+
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
