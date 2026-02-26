@@ -6,6 +6,25 @@ export function setupInteractions(canvas, getNodes, getTransform, callbacks) {
   let dragStartY = 0;
   let didDrag = false;
 
+  // Cache bounding rect — refreshed on scroll/resize, not per event
+  let cachedRect = canvas.getBoundingClientRect();
+  function refreshRect() { cachedRect = canvas.getBoundingClientRect(); }
+  window.addEventListener('resize', refreshRect);
+  window.addEventListener('scroll', refreshRect, true);
+
+  // Throttle hover detection to ~30fps
+  let hoverRafId = null;
+  let pendingHoverX = 0;
+  let pendingHoverY = 0;
+  let hoverScheduled = false;
+
+  function processHover() {
+    hoverScheduled = false;
+    const node = findNodeAt(pendingHoverX, pendingHoverY);
+    callbacks.onHover(node);
+    canvas.style.cursor = node ? 'pointer' : 'grab';
+  }
+
   function screenToGraph(sx, sy) {
     const t = getTransform();
     return {
@@ -37,10 +56,9 @@ export function setupInteractions(canvas, getNodes, getTransform, callbacks) {
   }
 
   function getCanvasCoords(e) {
-    const rect = canvas.getBoundingClientRect();
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: e.clientX - cachedRect.left,
+      y: e.clientY - cachedRect.top,
     };
   }
 
@@ -57,13 +75,18 @@ export function setupInteractions(canvas, getNodes, getTransform, callbacks) {
       return;
     }
 
-    const node = findNodeAt(x, y);
-    callbacks.onHover(node);
-    canvas.style.cursor = node ? 'pointer' : 'grab';
+    // Throttle hover: schedule one rAF per move burst
+    pendingHoverX = x;
+    pendingHoverY = y;
+    if (!hoverScheduled) {
+      hoverScheduled = true;
+      hoverRafId = requestAnimationFrame(processHover);
+    }
   }
 
   function handleMouseDown(e) {
     if (e.button !== 0) return;
+    refreshRect(); // Ensure rect is fresh for drag operations
     const { x, y } = getCanvasCoords(e);
     isDragging = true;
     didDrag = false;
@@ -102,6 +125,7 @@ export function setupInteractions(canvas, getNodes, getTransform, callbacks) {
   let lastTouchCenter = null;
 
   function handleTouchStart(e) {
+    refreshRect(); // Ensure rect is fresh for touch operations
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       const { x, y } = getCanvasCoords(touch);
@@ -114,10 +138,9 @@ export function setupInteractions(canvas, getNodes, getTransform, callbacks) {
       const t0 = e.touches[0];
       const t1 = e.touches[1];
       lastTouchDist = distance(t0.clientX, t0.clientY, t1.clientX, t1.clientY);
-      const rect = canvas.getBoundingClientRect();
       lastTouchCenter = {
-        x: (t0.clientX + t1.clientX) / 2 - rect.left,
-        y: (t0.clientY + t1.clientY) / 2 - rect.top,
+        x: (t0.clientX + t1.clientX) / 2 - cachedRect.left,
+        y: (t0.clientY + t1.clientY) / 2 - cachedRect.top,
       };
     }
   }
@@ -142,10 +165,9 @@ export function setupInteractions(canvas, getNodes, getTransform, callbacks) {
         callbacks.onZoom(delta, lastTouchCenter.x, lastTouchCenter.y);
       }
       lastTouchDist = dist;
-      const rect = canvas.getBoundingClientRect();
       lastTouchCenter = {
-        x: (t0.clientX + t1.clientX) / 2 - rect.left,
-        y: (t0.clientY + t1.clientY) / 2 - rect.top,
+        x: (t0.clientX + t1.clientX) / 2 - cachedRect.left,
+        y: (t0.clientY + t1.clientY) / 2 - cachedRect.top,
       };
     }
   }
@@ -181,5 +203,8 @@ export function setupInteractions(canvas, getNodes, getTransform, callbacks) {
     canvas.removeEventListener('touchstart', handleTouchStart);
     canvas.removeEventListener('touchmove', handleTouchMove);
     canvas.removeEventListener('touchend', handleTouchEnd);
+    window.removeEventListener('resize', refreshRect);
+    window.removeEventListener('scroll', refreshRect, true);
+    if (hoverRafId) cancelAnimationFrame(hoverRafId);
   };
 }
