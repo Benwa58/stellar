@@ -23,6 +23,7 @@ export function useBottomBarDetect() {
 
     if (!isIOS) {
       document.documentElement.style.setProperty('--browser-bar-offset', '0px');
+      document.documentElement.classList.remove('has-browser-bar');
       return;
     }
 
@@ -47,10 +48,14 @@ export function useBottomBarDetect() {
       document.body.removeChild(probe);
 
       const diff = cssVh - window.innerHeight;
+      const hasBrowserBar = diff > 20;
       document.documentElement.style.setProperty(
         '--browser-bar-offset',
-        diff > 20 ? diff + 'px' : '0px'
+        hasBrowserBar ? diff + 'px' : '0px'
       );
+      // Signal to CSS that the browser bar is covering the safe area, so
+      // elements should NOT also add env(safe-area-inset-bottom) padding.
+      document.documentElement.classList.toggle('has-browser-bar', hasBrowserBar);
     }
 
     detect();
@@ -67,6 +72,7 @@ export function useBottomBarDetect() {
       window.removeEventListener('resize', handleChange);
       mq.removeEventListener('change', handleChange);
       document.documentElement.style.removeProperty('--browser-bar-offset');
+      document.documentElement.classList.remove('has-browser-bar');
     };
   }, []);
 }
