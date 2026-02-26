@@ -87,8 +87,8 @@ function LandingPage() {
           />
         </div>
 
-        <SavedMapsSection />
         <MyUniverseSection />
+        <SavedMapsSection />
         <DiscoveredSection />
         <FavoritesSection />
         <ImportLocalMapsPrompt />

@@ -265,10 +265,19 @@ export function buildUniverseLayout(universeData) {
     }
     const visualRadius = Math.max(maxDist, 60);
 
-    // Offset all nodes to world position
+    // Offset all nodes to world position and assign drift parameters
     for (const n of prefixedNodes) {
       n.x += cx;
       n.y += cy;
+      // Store home position for gentle orbital drift animation
+      n.homeX = n.x;
+      n.homeY = n.y;
+      // Per-node drift: seeds drift less (1-2px), recs drift more (2-4px)
+      const isSeed = n.type === 'seed';
+      const hash = Math.abs(Math.sin(n.x * 12.9898 + n.y * 78.233) * 43758.5453) % 1;
+      n.driftRadius = isSeed ? 1 + hash * 1.5 : 2 + hash * 2;
+      n.driftSpeed = 0.0003 + hash * 0.0004;
+      n.driftPhase = hash * Math.PI * 2;
     }
 
     allNodes.push(...prefixedNodes);
