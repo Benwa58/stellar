@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import '../styles/player.css';
 
 function PreviewPlayer({
@@ -15,6 +15,35 @@ function PreviewPlayer({
   currentIndex,
   totalCount,
 }) {
+  const playerRef = useRef(null);
+
+  // Expose the player's top-edge position as a CSS variable so sibling
+  // elements (toolbar, zoom, regenerate, legend) can position themselves
+  // a fixed distance above the player — avoiding double-counted offsets.
+  useEffect(() => {
+    const el = playerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const height = el.offsetHeight;
+      const bottom = parseFloat(getComputedStyle(el).bottom) || 0;
+      el.parentElement?.style.setProperty('--preview-player-top', `${bottom + height}px`);
+    };
+
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    update();
+
+    // Re-measure when --browser-bar-offset changes via window resize
+    window.addEventListener('resize', update);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+      el.parentElement?.style.removeProperty('--preview-player-top');
+    };
+  }, []);
+
   const handleSeek = useCallback(
     (e) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -33,7 +62,7 @@ function PreviewPlayer({
   const fmtRemaining = `-${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}`;
 
   return (
-    <div className="preview-player">
+    <div ref={playerRef} className="preview-player">
       {/* Full-width progress bar across the top */}
       <div className="player-progress-bar" onClick={handleSeek}>
         <div
