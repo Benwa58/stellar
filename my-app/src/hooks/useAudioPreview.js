@@ -68,7 +68,7 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
     // so we need to re-set it once playback genuinely begins.
     function onPlaying() {
       if (currentTrackRef.current) {
-        updateMediaSessionRef.current(currentTrackRef.current, true);
+        updateMediaSessionRef.current(currentTrackRef.current);
       }
     }
 
@@ -108,10 +108,16 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
   }, []);
 
   // Update lock screen / MediaSession metadata.
-  // Always recreate MediaMetadata on both play and pause — using a cached blob
-  // URL for the artwork so iOS doesn't need to re-fetch (which causes the
-  // Now Playing widget to fall back to the Stellar site icon).
-  const updateMediaSession = useCallback((track, playing) => {
+  // Always recreate MediaMetadata — using a cached blob URL for the artwork
+  // so iOS doesn't need to re-fetch (which causes the Now Playing widget to
+  // fall back to the Stellar site icon).
+  //
+  // IMPORTANT: We do NOT explicitly set navigator.mediaSession.playbackState.
+  // On iOS Safari, setting playbackState to 'paused' signals the system to
+  // tear down the Now Playing widget entirely, causing the metadata to revert
+  // to the site icon. Letting the browser infer state from the audio element
+  // keeps the widget alive with a play button when paused.
+  const updateMediaSession = useCallback((track) => {
     if (!('mediaSession' in navigator)) return;
     if (!track) {
       navigator.mediaSession.metadata = null;
@@ -126,7 +132,6 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       album: track.albumName || '',
       ...(artworkUrl ? { artwork: [{ src: artworkUrl, sizes: '256x256', type: 'image/jpeg' }] } : {}),
     });
-    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
 
     // Keep lock screen position indicator in sync
     const audio = audioRef.current;
@@ -151,32 +156,32 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
           audioRef.current?.play().catch(() => {});
           setIsPlaying(true);
           isPlayingRef.current = true;
-          updateMediaSession(currentTrackRef.current, true);
+          updateMediaSession(currentTrackRef.current);
         }
       },
       pause: () => {
         audioRef.current?.pause();
         setIsPlaying(false);
         isPlayingRef.current = false;
-        updateMediaSession(currentTrackRef.current, false);
+        updateMediaSession(currentTrackRef.current);
       },
       seekforward: (details) => {
         const audio = audioRef.current;
         if (!audio) return;
         audio.currentTime = Math.min(audio.currentTime + (details.seekOffset || 10), audio.duration || 30);
-        updateMediaSession(currentTrackRef.current, isPlayingRef.current);
+        updateMediaSession(currentTrackRef.current);
       },
       seekbackward: (details) => {
         const audio = audioRef.current;
         if (!audio) return;
         audio.currentTime = Math.max(audio.currentTime - (details.seekOffset || 10), 0);
-        updateMediaSession(currentTrackRef.current, isPlayingRef.current);
+        updateMediaSession(currentTrackRef.current);
       },
       seekto: (details) => {
         const audio = audioRef.current;
         if (!audio || details.seekTime == null) return;
         audio.currentTime = Math.max(0, Math.min(details.seekTime, audio.duration || 30));
-        updateMediaSession(currentTrackRef.current, isPlayingRef.current);
+        updateMediaSession(currentTrackRef.current);
       },
     };
     for (const [action, handler] of Object.entries(actions)) {
@@ -198,29 +203,32 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audio.play().catch(() => {});
       setIsPlaying(true);
       isPlayingRef.current = true;
-      updateMediaSession(track, true);
+      updateMediaSession(track);
       return;
     }
 
-    // Play new track
-    audio.pause();
+    // Play new track — do NOT call audio.pause() first; setting src directly
+    // transitions the audio element without triggering iOS to deactivate the
+    // media session (which causes the Now Playing widget to revert to the site icon).
     audio.src = track.previewUrl;
     audio.load();
-    audio.play().catch(() => {});
     setCurrentTrack(track);
     currentTrackRef.current = track;
     setIsPlaying(true);
     isPlayingRef.current = true;
     setProgress(0);
-    updateMediaSession(track, true);
+
+    // Set metadata after play() resolves so iOS sees an active session
+    audio.play()
+      .then(() => updateMediaSession(track))
+      .catch(() => {});
 
     // Cache artwork blob, then re-set metadata with the blob URL so the
     // lock screen gets the proper image instead of falling back to the site icon.
     if (track.albumImage) {
       cacheArtwork(track.albumImage).then(() => {
-        // Only update if this track is still current
         if (currentTrackRef.current?.id === track.id) {
-          updateMediaSession(track, isPlayingRef.current);
+          updateMediaSession(track);
         }
       });
     }
@@ -232,7 +240,7 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audio.pause();
       setIsPlaying(false);
       isPlayingRef.current = false;
-      updateMediaSession(currentTrackRef.current, false);
+      updateMediaSession(currentTrackRef.current);
     }
   }, [updateMediaSession]);
 
@@ -243,7 +251,7 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audioRef.current?.play().catch(() => {});
       setIsPlaying(true);
       isPlayingRef.current = true;
-      updateMediaSession(currentTrackRef.current, true);
+      updateMediaSession(currentTrackRef.current);
     }
   }, [pause, updateMediaSession]);
 
