@@ -120,7 +120,7 @@ function MyUniverseSection() {
               <span>Tap to explore</span>
             </div>
           </div>
-          <span className="universe-artist-count">{universeData.artistCount} artists</span>
+          <span className="universe-artist-count">{favorites.length + discoveredArtists.length} artists</span>
         </div>
       )}
     </div>

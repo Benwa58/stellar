@@ -491,6 +491,49 @@ export function createUniverseRenderer(canvas, getState) {
           drawRecNode(ctx, node, isActive);
         }
       }
+
+      // Gold/blue glow on discovered/favorited nodes at LOD 2 (visible before full detail rings)
+      if (lod.detailFactor < 1) {
+        const glowAlpha = lod.nodeFactor * (1 - lod.detailFactor);
+        if (glowAlpha > 0) {
+          ctx.globalAlpha = glowAlpha;
+
+          if (discoveredNames && discoveredNames.size > 0) {
+            for (const node of allNodes) {
+              if (node.x == null || !discoveredNames.has(node.name)) continue;
+              if (!isVisible(node.x, node.y, (node.radius || 5) * 4, transform, w, h)) continue;
+              const r = node.radius || 5;
+              const glowR = r * 3.5;
+              const glow = ctx.createRadialGradient(node.x, node.y, r * 0.5, node.x, node.y, glowR);
+              glow.addColorStop(0, 'rgba(255, 200, 50, 0.5)');
+              glow.addColorStop(0.4, 'rgba(255, 180, 0, 0.15)');
+              glow.addColorStop(1, 'rgba(255, 150, 0, 0)');
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, glowR, 0, Math.PI * 2);
+              ctx.fillStyle = glow;
+              ctx.fill();
+            }
+          }
+
+          if (favoriteNames && favoriteNames.size > 0) {
+            for (const node of allNodes) {
+              if (node.x == null || !favoriteNames.has(node.name)) continue;
+              if (!isVisible(node.x, node.y, (node.radius || 5) * 4, transform, w, h)) continue;
+              const r = node.radius || 5;
+              const glowR = r * 3.5;
+              const glow = ctx.createRadialGradient(node.x, node.y, r * 0.5, node.x, node.y, glowR);
+              glow.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
+              glow.addColorStop(0.4, 'rgba(30, 64, 175, 0.15)');
+              glow.addColorStop(1, 'rgba(30, 58, 138, 0)');
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, glowR, 0, Math.PI * 2);
+              ctx.fillStyle = glow;
+              ctx.fill();
+            }
+          }
+        }
+      }
+
       ctx.globalAlpha = 1;
     }
 

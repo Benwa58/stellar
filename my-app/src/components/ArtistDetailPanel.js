@@ -147,10 +147,10 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
         <div className="panel-info-col">
           <div className="panel-name-row">
             <h3 className="panel-artist-name">{node.name}</h3>
-            <FavoriteButton artistName={node.name} artistId={node.id} artistImage={node.image} />
-            <DislikeButton artistName={node.name} artistId={node.id} artistImage={node.image} />
-            <KnownButton artistName={node.name} artistId={node.id} artistImage={node.image} />
-            <DiscoveredButton artistName={node.name} artistId={node.id} artistImage={node.image} />
+            <FavoriteButton artistName={node.name} artistId={node.id || enrichedDeezerId} artistImage={node.image || enrichedImage} />
+            <DislikeButton artistName={node.name} artistId={node.id || enrichedDeezerId} artistImage={node.image || enrichedImage} />
+            <KnownButton artistName={node.name} artistId={node.id || enrichedDeezerId} artistImage={node.image || enrichedImage} />
+            <DiscoveredButton artistName={node.name} artistId={node.id || enrichedDeezerId} artistImage={node.image || enrichedImage} />
           </div>
 
           <span className={`panel-type-badge ${badge.className}`}>
