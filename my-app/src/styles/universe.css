@@ -245,7 +245,7 @@
 /* Zoom controls */
 .universe-zoom-controls {
   position: absolute;
-  right: 12px;
+  left: 12px;
   bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--browser-bar-offset, 0px));
   z-index: 15;
   display: flex;
