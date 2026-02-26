@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
+import { useAuthActions } from '../state/AuthContext';
 import { GO_TO_INPUT } from '../state/actions';
 import Header from './Header';
 import UniverseCanvas from '../galaxy/UniverseCanvas';
@@ -11,9 +12,17 @@ import '../styles/universe.css';
 function UniverseView() {
   useBottomBarDetect();
   const dispatch = useDispatch();
-  const { user, universeData, favorites, discoveredArtists, dislikes } = useAuth();
+  const { user, universeData, universeStatus, favorites, discoveredArtists, dislikes } = useAuth();
+  const { refreshUniverse } = useAuthActions();
   const canvasRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
+
+  // Auto-trigger recompute when universe is marked stale (e.g. after favorite/discover)
+  useEffect(() => {
+    if (user && universeStatus === 'stale') {
+      refreshUniverse();
+    }
+  }, [user, universeStatus, refreshUniverse]);
 
   const universeLabel = user?.displayName ? `${user.displayName}\u2019s Universe` : 'My Universe';
 
