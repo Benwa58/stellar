@@ -497,8 +497,11 @@ async function classifyHiddenGems(enrichedClusters) {
 
 // --- Chain link discovery ---
 
-function discoverChainLinks(enrichedClusters, clusterCandidatePools, seedCount) {
-  const maxChains = Math.max(1, Math.floor(seedCount * 0.05));
+function discoverChainLinks(enrichedClusters, clusterCandidatePools) {
+  const totalNodes = enrichedClusters.reduce(
+    (sum, c) => sum + (c.members?.length || 0) + (c.recommendations?.length || 0), 0
+  );
+  const maxChains = Math.max(1, Math.floor(totalNodes * 0.10));
   const chainLinks = [];
 
   // Build a map of candidate name → which clusters they appear in
@@ -860,7 +863,7 @@ async function computeUniverse(userId, db) {
   await classifyHiddenGems(enrichedClusters);
 
   // Discover chain links (cross-cluster recommendation overlaps)
-  const chainLinks = discoverChainLinks(enrichedClusters, clusterCandidatePools, allArtists.length);
+  const chainLinks = discoverChainLinks(enrichedClusters, clusterCandidatePools);
 
   // Mark chain link recommendations in their home clusters.
   // If the candidate isn't in the top 20 recs, inject it so it appears as a node.

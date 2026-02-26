@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { findArtistTrack } from '../api/musicClient';
-import { getArtistTopTracks } from '../api/deezerClient';
+import { getArtistTopTracks, findArtistByName } from '../api/deezerClient';
 import { getArtistInfo } from '../api/lastfmClient';
 import { useAudioPreview } from '../hooks/useAudioPreview';
 import { buildSpotifySearchUrl } from '../utils/exportUtils';
@@ -24,12 +24,38 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
   const [listeners, setListeners] = useState(null);
   const [moreTracks, setMoreTracks] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [enrichedImage, setEnrichedImage] = useState(null);
+  const [enrichedDeezerId, setEnrichedDeezerId] = useState(null);
   const audio = useAudioPreview();
 
   // Stop panel audio when node changes
   useEffect(() => {
     audio.pause();
   }, [node]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Enrich image + Deezer ID from Deezer when the node doesn't have them
+  useEffect(() => {
+    if (!node) return;
+    setEnrichedImage(null);
+    setEnrichedDeezerId(null);
+
+    if (node.imageLarge || node.image) return; // already have image
+
+    let cancelled = false;
+    findArtistByName(node.name)
+      .then((deezerArtist) => {
+        if (!cancelled && deezerArtist) {
+          setEnrichedImage(deezerArtist.imageLarge || deezerArtist.image);
+          setEnrichedDeezerId(deezerArtist.id);
+        }
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [node]);
+
+  // Determine the best available Deezer ID for track fetching
+  const effectiveDeezerId = /^\d+$/.test(node?.id) ? node.id : enrichedDeezerId;
 
   useEffect(() => {
     if (!node) return;
@@ -40,7 +66,7 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
 
     let cancelled = false;
 
-    findArtistTrack(node.name, node.id)
+    findArtistTrack(node.name, effectiveDeezerId)
       .then((track) => {
         if (!cancelled) setTopTrack(track);
       })
@@ -52,7 +78,7 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
     return () => {
       cancelled = true;
     };
-  }, [node]);
+  }, [node, effectiveDeezerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!node) return;
@@ -72,10 +98,11 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
   }, [node]);
 
   const loadMoreSongs = async () => {
-    if (!node?.id || !/^\d+$/.test(node.id)) return;
+    const deezerId = /^\d+$/.test(node?.id) ? node.id : enrichedDeezerId;
+    if (!deezerId) return;
     setLoadingMore(true);
     try {
-      const tracks = await getArtistTopTracks(node.id, 10);
+      const tracks = await getArtistTopTracks(deezerId, 10);
       const additional = tracks.filter(t => t.id !== topTrack?.id).slice(0, 5);
       setMoreTracks(additional);
     } catch {
@@ -104,10 +131,10 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
 
       <div className="panel-content">
         <div className="panel-artist-image-wrapper">
-          {node.imageLarge || node.image ? (
+          {node.imageLarge || node.image || enrichedImage ? (
             <img
               className="panel-artist-image"
-              src={node.imageLarge || node.image}
+              src={node.imageLarge || node.image || enrichedImage}
               alt={node.name}
             />
           ) : (
@@ -293,7 +320,7 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
           )}
 
           {/* More Songs */}
-          {topTrack && moreTracks === null && !loadingMore && /^\d+$/.test(node.id) && (
+          {topTrack && moreTracks === null && !loadingMore && (/^\d+$/.test(node.id) || enrichedDeezerId) && (
             <button className="panel-more-songs-btn" onClick={loadMoreSongs}>
               More Songs
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
