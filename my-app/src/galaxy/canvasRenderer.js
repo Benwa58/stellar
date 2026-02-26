@@ -5,6 +5,7 @@ export function createRenderer(canvas, getState) {
   const ctx = canvas.getContext('2d');
   let frameId = null;
   let nebulaCanvas = null;
+  let superclusterContext = null;
 
   function setNebulaCanvas(nc) {
     nebulaCanvas = nc;
@@ -12,6 +13,10 @@ export function createRenderer(canvas, getState) {
 
   function setSettled() {
     // reserved for future optimization (stop animation loop when settled)
+  }
+
+  function setSuperclusterContext(data) {
+    superclusterContext = data;
   }
 
   function render() {
@@ -35,6 +40,11 @@ export function createRenderer(canvas, getState) {
 
     // Background
     drawBackground(ctx, w, h, state.expandTransition, state.driftOrbit, transform);
+
+    // Supercluster context (screen-space hazes of neighboring clusters)
+    if (superclusterContext) {
+      drawSuperclusterContext(ctx, w, h, superclusterContext, time);
+    }
 
     // Apply camera transform
     ctx.save();
@@ -104,7 +114,7 @@ export function createRenderer(canvas, getState) {
     }
   }
 
-  return { start, stop, setNebulaCanvas, setSettled };
+  return { start, stop, setNebulaCanvas, setSettled, setSuperclusterContext };
 }
 
 function drawBackground(ctx, w, h, expandT, driftOrbit, transform) {
@@ -140,6 +150,61 @@ function drawBackground(ctx, w, h, expandT, driftOrbit, transform) {
     driftGrad.addColorStop(1, `rgba(60, 22, 10, ${0.04 * ease})`);
     ctx.fillStyle = driftGrad;
     ctx.fillRect(0, 0, w, h);
+  }
+}
+
+/**
+ * Draw faint hazes and filament traces for neighboring clusters,
+ * giving the galaxy view a sense of being part of the broader supercluster.
+ */
+function drawSuperclusterContext(ctx, w, h, context, time) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const maxDim = Math.max(w, h);
+
+  for (const neighbor of context.neighbors) {
+    const { angle, distance, color } = neighbor;
+    const normalizedDist = Math.min(distance / (context.maxDistance || 1), 1);
+
+    // Closer neighbors produce brighter hazes
+    const baseAlpha = 0.06 * (1 - normalizedDist * 0.6);
+
+    // Position glow source beyond screen edge in the neighbor's direction
+    const edgeDist = maxDim * 0.6;
+    const glowX = cx + Math.cos(angle) * edgeDist;
+    const glowY = cy + Math.sin(angle) * edgeDist;
+    const glowR = maxDim * 0.4;
+
+    // Radial haze colored by the neighbor cluster
+    const haze = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, glowR);
+    haze.addColorStop(0, `hsla(${color.h}, ${color.s}%, ${color.l}%, ${baseAlpha})`);
+    haze.addColorStop(0.4, `hsla(${color.h}, ${color.s}%, ${color.l}%, ${baseAlpha * 0.3})`);
+    haze.addColorStop(1, `hsla(${color.h}, ${color.s}%, ${color.l}%, 0)`);
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle filament trace dots extending from galaxy center toward the neighbor
+    const traceCount = 12;
+    for (let i = 0; i < traceCount; i++) {
+      const t = (i + 1) / (traceCount + 1);
+      const dist = maxDim * 0.12 + t * maxDim * 0.4;
+      const x = cx + Math.cos(angle) * dist;
+      const y = cy + Math.sin(angle) * dist;
+
+      // Perpendicular wobble for organic feel
+      const wobble = Math.sin(time * 0.0006 + i * 1.7 + angle * 3) * 6;
+      const wx = x + Math.cos(angle + Math.PI / 2) * wobble;
+      const wy = y + Math.sin(angle + Math.PI / 2) * wobble;
+
+      const twinkle = 0.6 + 0.4 * Math.sin(time * 0.0008 + i * 0.9);
+      const dotAlpha = baseAlpha * (0.5 + t * 0.5) * twinkle;
+      const dotSize = 0.5 + (1 - t) * 0.8;
+
+      ctx.beginPath();
+      ctx.arc(wx, wy, dotSize, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${color.h}, ${Math.max(color.s - 15, 20)}%, ${Math.min(color.l + 15, 80)}%, ${dotAlpha})`;
+      ctx.fill();
+    }
   }
 }
 
