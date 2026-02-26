@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useMemo, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { useDispatch } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
 import { GO_TO_INPUT } from '../state/actions';
@@ -18,29 +18,8 @@ function UniverseView() {
   const { user, universeData } = useAuth();
   const canvasRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [focusedCluster, setFocusedCluster] = useState(null);
 
   const universeLabel = user?.displayName ? `${user.displayName}\u2019s Universe` : 'My Universe';
-
-  // Build enriched node array from universe visualization data
-  const { nodes, clusterCenters, bridgeLinks, recLinks } = useMemo(() => {
-    if (!universeData?.visualization) return { nodes: [], clusterCenters: [], bridgeLinks: [], recLinks: [] };
-
-    const viz = universeData.visualization;
-
-    // Add radius field for hit testing (setupInteractions expects node.radius)
-    const enrichedNodes = viz.nodes.map((n) => ({
-      ...n,
-      radius: n.size,
-    }));
-
-    return {
-      nodes: enrichedNodes,
-      clusterCenters: viz.clusterCenters || [],
-      bridgeLinks: viz.bridgeLinks || [],
-      recLinks: viz.recLinks || [],
-    };
-  }, [universeData]);
 
   const handleBack = useCallback(() => {
     dispatch({ type: GO_TO_INPUT });
@@ -50,53 +29,15 @@ function UniverseView() {
     setSelectedNode(node);
   }, []);
 
-  const handleHoverNode = useCallback(() => {
-    // Hover state is managed in canvas stateRef
-  }, []);
+  const handleHoverNode = useCallback(() => {}, []);
 
   const handleCloseCard = useCallback(() => {
     setSelectedNode(null);
   }, []);
 
-  // Called by canvas when cluster transition completes
-  const handleClusterFocus = useCallback((clusterId) => {
-    setFocusedCluster(clusterId);
-    setSelectedNode(null);
-  }, []);
-
-  const handleZoomToCluster = useCallback((clusterId) => {
-    canvasRef.current?.zoomToCluster(clusterId);
-  }, []);
-
-  const handleBackToOverview = useCallback(() => {
-    canvasRef.current?.backToOverview();
-  }, []);
-
-  // Compute stats — show focused cluster info when zoomed in
-  const stats = useMemo(() => {
-    if (!universeData) return null;
-
-    if (focusedCluster != null && universeData.clusters?.[focusedCluster]) {
-      const cluster = universeData.clusters[focusedCluster];
-      return {
-        label: cluster.label,
-        artists: cluster.members.length,
-        recs: cluster.recommendations?.length || 0,
-        isFocused: true,
-      };
-    }
-
-    const recCount = universeData.visualization?.totalRecs || 0;
-    return {
-      artists: universeData.artistCount || 0,
-      clusters: universeData.clusters?.length || 0,
-      recs: recCount,
-      bridges: universeData.bridges?.length || 0,
-      isFocused: false,
-    };
-  }, [universeData, focusedCluster]);
-
   if (!universeData) return null;
+
+  const clusterCenters = universeData.visualization?.clusterCenters || [];
 
   return (
     <div className="universe-view">
@@ -112,52 +53,18 @@ function UniverseView() {
       {/* Canvas */}
       <UniverseCanvas
         ref={canvasRef}
-        nodes={nodes}
-        clusterCenters={clusterCenters}
-        bridgeLinks={bridgeLinks}
-        recLinks={recLinks}
-        clusters={universeData.clusters || []}
+        universeData={universeData}
         onSelectNode={handleSelectNode}
         onHoverNode={handleHoverNode}
-        onClusterFocus={handleClusterFocus}
       />
-
-      {/* Stats bar */}
-      {stats && (
-        <div className="universe-stats-bar">
-          {stats.isFocused ? (
-            <>
-              <span className="universe-stat-item universe-stat-cluster-name">{stats.label}</span>
-              <span className="universe-stat-sep">&middot;</span>
-              <span className="universe-stat-item">{stats.artists} artists</span>
-              <span className="universe-stat-sep">&middot;</span>
-              <span className="universe-stat-item">{stats.recs} recommendations</span>
-            </>
-          ) : (
-            <>
-              <span className="universe-stat-item">{stats.artists} artists</span>
-              <span className="universe-stat-sep">&middot;</span>
-              <span className="universe-stat-item">{stats.clusters} clouds</span>
-              <span className="universe-stat-sep">&middot;</span>
-              <span className="universe-stat-item">{stats.recs} recommendations</span>
-              {stats.bridges > 0 && (
-                <>
-                  <span className="universe-stat-sep">&middot;</span>
-                  <span className="universe-stat-item">{stats.bridges} bridges</span>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
       {/* Cluster chips — tap to zoom */}
       <div className="universe-cluster-chips">
         {clusterCenters.map((c, i) => (
           <button
             key={i}
-            className={`universe-cluster-chip ${focusedCluster === i ? 'active' : ''}`}
-            onClick={() => handleZoomToCluster(i)}
+            className="universe-cluster-chip"
+            onClick={() => canvasRef.current?.zoomToCluster(i)}
             style={{ borderColor: `hsla(${c.color.h}, ${c.color.s}%, ${c.color.l}%, 0.5)` }}
           >
             <span
@@ -169,21 +76,20 @@ function UniverseView() {
         ))}
       </div>
 
-      {/* Back to overview button */}
-      {focusedCluster !== null && (
-        <button className="universe-back-overview-btn" onClick={handleBackToOverview}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+      {/* Zoom controls */}
+      <div className="universe-zoom-controls">
+        <button
+          className="zoom-btn"
+          onClick={() => canvasRef.current?.resetView()}
+          title="Fit all"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
             <path d="M15 3h6v6" />
             <path d="M9 21H3v-6" />
             <path d="M21 3l-7 7" />
             <path d="M3 21l7-7" />
           </svg>
-          <span>Overview</span>
         </button>
-      )}
-
-      {/* Zoom controls */}
-      <div className="universe-zoom-controls">
         <button
           className="zoom-btn"
           onClick={() => canvasRef.current?.zoomBy(1.4)}
@@ -206,14 +112,10 @@ function UniverseView() {
       </div>
 
       {/* Artist detail card */}
-      {selectedNode && (
+      {selectedNode && !selectedNode._isClusterCenter && (
         <UniverseArtistCard
           node={selectedNode}
-          cluster={
-            focusedCluster != null
-              ? clusterCenters[focusedCluster]
-              : clusterCenters[selectedNode.clusterId]
-          }
+          clusterCenters={clusterCenters}
           onClose={handleCloseCard}
         />
       )}
@@ -223,12 +125,13 @@ function UniverseView() {
 
 // --- Artist detail card overlay ---
 
-function UniverseArtistCard({ node, cluster, onClose }) {
+function UniverseArtistCard({ node, clusterCenters, onClose }) {
   const [topTrack, setTopTrack] = useState(null);
   const [loadingTrack, setLoadingTrack] = useState(false);
   const audio = useAudioPreview();
 
-  // Fetch preview track
+  const cluster = clusterCenters?.[node.clusterId];
+
   useEffect(() => {
     audio.pause();
     setTopTrack(null);
@@ -299,14 +202,12 @@ function UniverseArtistCard({ node, cluster, onClose }) {
         </div>
       </div>
 
-      {/* Suggested by (for recommendations) */}
       {node.isRecommendation && node.suggestedBy?.length > 0 && (
         <div className="universe-card-suggested">
           Suggested by {node.suggestedBy.join(', ')}
         </div>
       )}
 
-      {/* Audio preview */}
       <div className="universe-card-preview">
         {loadingTrack ? (
           <span className="universe-card-preview-loading">Loading preview...</span>
@@ -329,7 +230,6 @@ function UniverseArtistCard({ node, cluster, onClose }) {
         )}
       </div>
 
-      {/* Action buttons */}
       <div className="universe-card-actions">
         <FavoriteButton artistName={node.name} artistId={null} artistImage={node.image} />
         <DislikeButton artistName={node.name} artistId={null} artistImage={node.image} />
