@@ -197,9 +197,11 @@
   transform: scale(0.97);
 }
 
-/* Shift toolbar up when player bar is visible */
+/* Shift toolbar up when player bar is visible.
+   --preview-player-top is set by PreviewPlayer's ResizeObserver and equals
+   the player's CSS bottom + offsetHeight, so sibling elements just add a gap. */
 .galaxy-view:has(.preview-player) .galaxy-toolbar {
-  bottom: calc(84px + env(safe-area-inset-bottom) + var(--browser-bar-offset, 0px));
+  bottom: calc(var(--preview-player-top, 84px) + 8px);
 }
 
 /* ===== Info modal ===== */
@@ -469,7 +471,7 @@
 
 /* Player-visible legend card shift */
 .galaxy-view:has(.preview-player) .galaxy-legend-card {
-  bottom: calc(134px + env(safe-area-inset-bottom));
+  bottom: calc(var(--preview-player-top, 84px) + 58px);
 }
 
 /* ===== Save modal ===== */
@@ -584,7 +586,7 @@
 
 /* Shift zoom controls up when player bar is visible */
 .galaxy-view:has(.preview-player) .zoom-controls {
-  bottom: calc(134px + env(safe-area-inset-bottom));
+  bottom: calc(var(--preview-player-top, 84px) + 58px);
 }
 
 /* ===== Unknown artists badge ===== */
@@ -742,7 +744,7 @@
 
 /* Shift up when player bar is visible */
 .galaxy-view:has(.preview-player) .regenerate-queue-btn {
-  bottom: calc(134px + env(safe-area-inset-bottom) + var(--browser-bar-offset, 0px));
+  bottom: calc(var(--preview-player-top, 84px) + 58px);
 }
 
 /* Hide when drawers are open */
@@ -790,11 +792,11 @@
   }
 
   .galaxy-view:has(.preview-player) .galaxy-legend-card {
-    bottom: calc(206px + env(safe-area-inset-bottom) + var(--browser-bar-offset, 0px));
+    bottom: calc(var(--preview-player-top, 130px) + 84px);
   }
 
   .galaxy-view:has(.preview-player) .galaxy-toolbar {
-    bottom: calc(130px + env(safe-area-inset-bottom) + var(--browser-bar-offset, 0px));
+    bottom: calc(var(--preview-player-top, 130px) + 8px);
   }
 
   .zoom-controls {
@@ -808,7 +810,7 @@
   }
 
   .galaxy-view:has(.preview-player) .regenerate-queue-btn {
-    bottom: calc(206px + env(safe-area-inset-bottom) + var(--browser-bar-offset, 0px));
+    bottom: calc(var(--preview-player-top, 130px) + 84px);
   }
 
   .expand-universe-btn {

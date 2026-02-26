@@ -82,12 +82,17 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       navigator.mediaSession.metadata = null;
       return;
     }
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: track.name || '',
-      artist: track.artistName || '',
-      album: track.albumName || '',
-      ...(track.albumImage ? { artwork: [{ src: track.albumImage, sizes: '256x256', type: 'image/jpeg' }] } : {}),
-    });
+    // On pause, only update playbackState — avoid re-creating MediaMetadata
+    // which causes iOS to re-fetch artwork and momentarily clear the Now Playing
+    // widget, falling back to the site icon and title.
+    if (playing || !navigator.mediaSession.metadata) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.name || '',
+        artist: track.artistName || '',
+        album: track.albumName || '',
+        ...(track.albumImage ? { artwork: [{ src: track.albumImage, sizes: '256x256', type: 'image/jpeg' }] } : {}),
+      });
+    }
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   }, []);
   updateMediaSessionRef.current = updateMediaSession;
