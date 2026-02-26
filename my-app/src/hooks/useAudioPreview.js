@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
+export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallback, onPrev: onPrevCallback } = {}) {
   const audioRef = useRef(null);
   const onEndedRef = useRef(null);
   onEndedRef.current = onEndedCallback;
+  const onNextRef = useRef(null);
+  onNextRef.current = onNextCallback;
+  const onPrevRef = useRef(null);
+  onPrevRef.current = onPrevCallback;
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -163,19 +167,12 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
         audioRef.current?.pause();
         setIsPlaying(false);
         isPlayingRef.current = false;
-        updateMediaSession(currentTrackRef.current);
       },
-      seekforward: (details) => {
-        const audio = audioRef.current;
-        if (!audio) return;
-        audio.currentTime = Math.min(audio.currentTime + (details.seekOffset || 10), audio.duration || 30);
-        updateMediaSession(currentTrackRef.current);
+      nexttrack: () => {
+        if (onNextRef.current) onNextRef.current();
       },
-      seekbackward: (details) => {
-        const audio = audioRef.current;
-        if (!audio) return;
-        audio.currentTime = Math.max(audio.currentTime - (details.seekOffset || 10), 0);
-        updateMediaSession(currentTrackRef.current);
+      previoustrack: () => {
+        if (onPrevRef.current) onPrevRef.current();
       },
       seekto: (details) => {
         const audio = audioRef.current;
@@ -240,9 +237,11 @@ export function useAudioPreview({ onEnded: onEndedCallback } = {}) {
       audio.pause();
       setIsPlaying(false);
       isPlayingRef.current = false;
-      updateMediaSession(currentTrackRef.current);
+      // Do NOT call updateMediaSession here — on iOS, recreating MediaMetadata
+      // while paused causes the Now Playing widget to tear down and show the
+      // site icon instead of album artwork.
     }
-  }, [updateMediaSession]);
+  }, []);
 
   const toggle = useCallback(() => {
     if (isPlayingRef.current) {
