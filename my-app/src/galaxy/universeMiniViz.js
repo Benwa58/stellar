@@ -4,6 +4,8 @@
  * matching the full-page universe view.
  * Returns a cleanup function to cancel the animation loop.
  */
+const MINI_FRAME_BUDGET = 1000 / 15; // ~15fps is plenty for this small preview
+
 export function renderUniverseMiniViz(canvas, universeData) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
@@ -22,6 +24,7 @@ export function renderUniverseMiniViz(canvas, universeData) {
 
   let frameId = null;
   const startTime = performance.now();
+  let lastFrameTime = 0;
 
   // Background stars
   const stars = [];
@@ -36,8 +39,31 @@ export function renderUniverseMiniViz(canvas, universeData) {
     });
   }
 
+  // Pre-sort nodes once
+  const members = [];
+  const recs = [];
+  for (const node of viz.nodes) {
+    if (node.isRecommendation) recs.push(node);
+    else members.push(node);
+  }
+
   function render() {
-    const time = performance.now() - startTime;
+    const now = performance.now();
+
+    // Frame pacing: ~15fps
+    if (now - lastFrameTime < MINI_FRAME_BUDGET - 1) {
+      frameId = requestAnimationFrame(render);
+      return;
+    }
+    lastFrameTime = now;
+
+    // Skip when tab not visible
+    if (document.hidden) {
+      frameId = requestAnimationFrame(render);
+      return;
+    }
+
+    const time = now - startTime;
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -132,14 +158,6 @@ export function renderUniverseMiniViz(canvas, universeData) {
         ctx.stroke();
       }
       ctx.setLineDash([]);
-    }
-
-    // Nodes — members first, then recs on top
-    const members = [];
-    const recs = [];
-    for (const node of viz.nodes) {
-      if (node.isRecommendation) recs.push(node);
-      else members.push(node);
     }
 
     // Member nodes

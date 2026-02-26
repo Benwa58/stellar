@@ -28,6 +28,12 @@ function getLODFactors(scale) {
   return { labelFactor, detailFactor, nodeFactor, hazeFactor, overviewBoost };
 }
 
+// ─── Detect mobile for adaptive framerate ──────────────────────────────
+const IS_MOBILE = typeof navigator !== 'undefined' &&
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const TARGET_FPS = IS_MOBILE ? 30 : 60;
+const FRAME_BUDGET = 1000 / TARGET_FPS;
+
 // ─── Starfield (world-space background) ────────────────────────────────
 function generateStars(worldBounds, count) {
   const pad = 200;
@@ -155,19 +161,38 @@ export function createUniverseRenderer(canvas, getState) {
   const ctx = canvas.getContext('2d');
   let frameId = null;
   const startTime = performance.now();
+  let lastFrameTime = 0;
+  let isDocumentVisible = true;
 
   let stars = null;
   let hazes = null;
   let filaments = null;
   let lastMetasKey = null;
 
+  // Label lookup cache — avoids O(n) .find() per label per frame
+  let labelMap = null;
+  let labelMapKey = null;
+
   function ensureCaches(clusterMetas, worldBounds) {
     const key = clusterMetas.map((c) => `${c.cx},${c.cy},${c.totalCount}`).join('|');
     if (key === lastMetasKey) return;
     lastMetasKey = key;
-    stars = generateStars(worldBounds, 500);
+    stars = generateStars(worldBounds, IS_MOBILE ? 300 : 500);
     hazes = buildClusterHazes(clusterMetas);
     filaments = buildFilaments(clusterMetas);
+    labelMap = null; // invalidate label cache
+  }
+
+  function ensureLabelMap(allNodes, clusterMetas) {
+    const key = allNodes.length + '|' + clusterMetas.length;
+    if (labelMap && labelMapKey === key) return;
+    labelMapKey = key;
+    labelMap = new Map();
+    for (const node of allNodes) {
+      if (node.x == null) continue;
+      const k = node.name + '|' + node.clusterId;
+      labelMap.set(k, node);
+    }
   }
 
   function isVisible(wx, wy, radius, transform, vw, vh) {
@@ -177,7 +202,31 @@ export function createUniverseRenderer(canvas, getState) {
     return sx + sr > -50 && sx - sr < vw + 50 && sy + sr > -50 && sy - sr < vh + 50;
   }
 
+  // Pause when tab is not visible
+  function handleVisibilityChange() {
+    isDocumentVisible = !document.hidden;
+    if (isDocumentVisible && frameId === null) {
+      lastFrameTime = performance.now();
+      frameId = requestAnimationFrame(render);
+    }
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
   function render() {
+    // Frame pacing — skip if we're ahead of the target framerate
+    const now = performance.now();
+    if (now - lastFrameTime < FRAME_BUDGET - 1) {
+      frameId = requestAnimationFrame(render);
+      return;
+    }
+    lastFrameTime = now;
+
+    // Pause rendering while tab is hidden
+    if (!isDocumentVisible) {
+      frameId = null;
+      return;
+    }
+
     const state = getState();
     if (!state || !state.clusterMetas || state.clusterMetas.length === 0) {
       frameId = requestAnimationFrame(render);
@@ -186,7 +235,7 @@ export function createUniverseRenderer(canvas, getState) {
 
     const { clusterMetas, allNodes, allLinks, transform, worldBounds,
             hoveredNode, selectedNode, favoriteNames, dislikeNames, discoveredNames } = state;
-    const time = performance.now() - startTime;
+    const time = now - startTime;
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
@@ -195,10 +244,12 @@ export function createUniverseRenderer(canvas, getState) {
 
     ensureCaches(clusterMetas, worldBounds);
 
-    // --- Gentle orbital drift for living-map feel ---
+    // --- Gentle orbital drift for living-map feel (only for visible nodes) ---
     if (allNodes) {
       for (const node of allNodes) {
         if (node.homeX == null) continue;
+        // Skip trig for nodes that are far off-screen
+        if (!isVisible(node.homeX, node.homeY, (node.driftRadius || 0) + (node.radius || 5) * 3, transform, w, h)) continue;
         const t = time * node.driftSpeed + node.driftPhase;
         node.x = node.homeX + Math.sin(t) * node.driftRadius;
         node.y = node.homeY + Math.cos(t * 0.7 + 1.3) * node.driftRadius;
@@ -244,7 +295,9 @@ export function createUniverseRenderer(canvas, getState) {
 
       let maxExtent = 0;
       for (const cm of clusterMetas) {
-        const d = Math.sqrt((cm.cx - cenX) * (cm.cx - cenX) + (cm.cy - cenY) * (cm.cy - cenY)) + cm.visualRadius;
+        const dx = cm.cx - cenX;
+        const dy = cm.cy - cenY;
+        const d = Math.sqrt(dx * dx + dy * dy) + cm.visualRadius;
         if (d > maxExtent) maxExtent = d;
       }
 
@@ -364,14 +417,14 @@ export function createUniverseRenderer(canvas, getState) {
             const alpha = Math.min(d.baseBrightness * twinkle * dotAlphaScale, 1);
             if (alpha < 0.03) continue;
 
-            const glow = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.glowSize * breathe);
-            glow.addColorStop(0, `hsla(${d.h}, ${d.s}%, ${Math.min(d.l + 35, 97)}%, ${Math.min(alpha * 0.7, 0.9)})`);
-            glow.addColorStop(0.3, `hsla(${d.h}, ${d.s}%, ${Math.min(d.l + 20, 85)}%, ${Math.min(alpha * 0.25, 0.5)})`);
-            glow.addColorStop(1, `hsla(${d.h}, ${d.s}%, ${d.l}%, 0)`);
+            // Simplified BCG: solid glow circle instead of per-particle gradient
+            const glowR = d.glowSize * breathe;
+            ctx.globalAlpha = Math.min(alpha * 0.4, 0.6);
             ctx.beginPath();
-            ctx.arc(d.x, d.y, d.glowSize * breathe, 0, Math.PI * 2);
-            ctx.fillStyle = glow;
+            ctx.arc(d.x, d.y, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = `hsla(${d.h}, ${d.s}%, ${Math.min(d.l + 25, 90)}%, 0.5)`;
             ctx.fill();
+            ctx.globalAlpha = 1;
 
             ctx.beginPath();
             ctx.arc(d.x, d.y, d.size * 0.6, 0, Math.PI * 2);
@@ -537,16 +590,23 @@ export function createUniverseRenderer(canvas, getState) {
       ctx.globalAlpha = 1;
     }
 
-    // --- Indicators (LOD 3 only) ---
+    // --- Indicators (LOD 3 only) — single pass over allNodes ---
     if (lod.detailFactor > 0 && allNodes) {
       ctx.globalAlpha = lod.detailFactor;
 
-      if (discoveredNames && discoveredNames.size > 0) {
-        for (const node of allNodes) {
-          if (node.x == null || !discoveredNames.has(node.name)) continue;
+      const hasFavs = favoriteNames && favoriteNames.size > 0;
+      const hasDislikes = dislikeNames && dislikeNames.size > 0;
+      const hasDiscovered = discoveredNames && discoveredNames.size > 0;
+      const angle = time * 0.001;
+
+      for (const node of allNodes) {
+        if (node.x == null) continue;
+
+        // Discovered ring (gold swirl + sparkles)
+        if (hasDiscovered && discoveredNames.has(node.name)) {
           const { x, y, radius } = node;
 
-          // --- 1. Pulsing outer glow ---
+          // 1. Pulsing outer glow
           const pulse = 0.7 + 0.3 * Math.sin(time * 0.002 + x * 0.01);
           const glowRadius = (radius + 8) * pulse + radius;
           const glow = ctx.createRadialGradient(x, y, radius, x, y, glowRadius);
@@ -558,8 +618,7 @@ export function createUniverseRenderer(canvas, getState) {
           ctx.fillStyle = glow;
           ctx.fill();
 
-          // --- 2. Rotating gradient ring (swirl) ---
-          const angle = time * 0.001;
+          // 2. Rotating gradient ring (swirl)
           const ringR = radius + 3;
           const gx = x + Math.cos(angle) * ringR;
           const gy = y + Math.sin(angle) * ringR;
@@ -577,17 +636,15 @@ export function createUniverseRenderer(canvas, getState) {
           ctx.lineWidth = 2.5;
           ctx.stroke();
 
-          // --- 3. Orbiting sparkle particles ---
-          const sparkleCount = 4;
-          for (let i = 0; i < sparkleCount; i++) {
-            const sparkleAngle = angle * 1.5 + (Math.PI * 2 * i) / sparkleCount;
+          // 3. Orbiting sparkle particles
+          for (let i = 0; i < 4; i++) {
+            const sparkleAngle = angle * 1.5 + (Math.PI * 2 * i) / 4;
             const sparkleR = ringR + 1;
             const sx = x + Math.cos(sparkleAngle) * sparkleR;
             const sy = y + Math.sin(sparkleAngle) * sparkleR;
             const sparkleAlpha = 0.5 + 0.5 * Math.sin(time * 0.004 + i * 1.5);
             const sparkleSize = 1.2 + 0.6 * sparkleAlpha;
 
-            // 4-pointed star sparkle
             ctx.save();
             ctx.translate(sx, sy);
             ctx.rotate(sparkleAngle);
@@ -599,7 +656,6 @@ export function createUniverseRenderer(canvas, getState) {
             ctx.closePath();
             ctx.fillStyle = `rgba(255, 240, 180, ${sparkleAlpha * 0.9})`;
             ctx.fill();
-            // Cross arm
             ctx.beginPath();
             ctx.moveTo(-sparkleSize * 2, 0);
             ctx.lineTo(0, sparkleSize * 0.4);
@@ -610,12 +666,11 @@ export function createUniverseRenderer(canvas, getState) {
             ctx.fill();
             ctx.restore();
           }
+          continue; // discovered takes priority, skip other indicators
         }
-      }
 
-      if (favoriteNames && favoriteNames.size > 0) {
-        for (const node of allNodes) {
-          if (node.x == null || !favoriteNames.has(node.name)) continue;
+        // Favorite ring (blue gradient)
+        if (hasFavs && favoriteNames.has(node.name)) {
           const ringR = node.radius + 3;
           const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
           grad.addColorStop(0, 'rgba(30, 64, 175, 0.95)');
@@ -626,12 +681,11 @@ export function createUniverseRenderer(canvas, getState) {
           ctx.strokeStyle = grad;
           ctx.lineWidth = 2.5;
           ctx.stroke();
+          continue;
         }
-      }
 
-      if (dislikeNames && dislikeNames.size > 0) {
-        for (const node of allNodes) {
-          if (node.x == null || !dislikeNames.has(node.name)) continue;
+        // Dislike ring (red dashed)
+        if (hasDislikes && dislikeNames.has(node.name)) {
           const ringR = node.radius + 3;
           ctx.beginPath();
           ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
@@ -640,39 +694,39 @@ export function createUniverseRenderer(canvas, getState) {
           ctx.setLineDash([4, 4]);
           ctx.stroke();
           ctx.setLineDash([]);
+          continue;
         }
-      }
 
-      // Hidden gem indicators (teal ring with sparkle)
-      for (const node of allNodes) {
-        if (node.x == null || !node.isHiddenGem || node.isChainLink) continue;
-        const ringR = node.radius + 3.5;
-        const sparkle = 0.5 + 0.2 * Math.sin(time * 0.002 + node.x * 0.05);
-        const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
-        grad.addColorStop(0, `rgba(100, 220, 200, ${0.7 * sparkle})`);
-        grad.addColorStop(0.5, `rgba(120, 235, 215, ${0.8 * sparkle})`);
-        grad.addColorStop(1, `rgba(80, 200, 180, ${0.7 * sparkle})`);
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
+        // Hidden gem indicator (teal ring)
+        if (node.isHiddenGem && !node.isChainLink) {
+          const ringR = node.radius + 3.5;
+          const sparkle = 0.5 + 0.2 * Math.sin(time * 0.002 + node.x * 0.05);
+          const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
+          grad.addColorStop(0, `rgba(100, 220, 200, ${0.7 * sparkle})`);
+          grad.addColorStop(0.5, `rgba(120, 235, 215, ${0.8 * sparkle})`);
+          grad.addColorStop(1, `rgba(80, 200, 180, ${0.7 * sparkle})`);
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          continue;
+        }
 
-      // Chain link indicators (purple ring)
-      for (const node of allNodes) {
-        if (node.x == null || !node.isChainLink) continue;
-        const ringR = node.radius + 3.5;
-        const pulse = 0.6 + 0.15 * Math.sin(time * 0.0015 + node.y * 0.04);
-        const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
-        grad.addColorStop(0, `rgba(200, 160, 255, ${0.7 * pulse})`);
-        grad.addColorStop(0.5, `rgba(220, 180, 255, ${0.8 * pulse})`);
-        grad.addColorStop(1, `rgba(180, 140, 235, ${0.7 * pulse})`);
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
+        // Chain link indicator (purple ring)
+        if (node.isChainLink) {
+          const ringR = node.radius + 3.5;
+          const pulse = 0.6 + 0.15 * Math.sin(time * 0.0015 + node.y * 0.04);
+          const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
+          grad.addColorStop(0, `rgba(200, 160, 255, ${0.7 * pulse})`);
+          grad.addColorStop(0.5, `rgba(220, 180, 255, ${0.8 * pulse})`);
+          grad.addColorStop(1, `rgba(180, 140, 235, ${0.7 * pulse})`);
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
       }
 
       ctx.globalAlpha = 1;
@@ -682,9 +736,10 @@ export function createUniverseRenderer(canvas, getState) {
     if (lod.labelFactor > 0 && allNodes) {
       if (lod.detailFactor < 1) {
         ctx.globalAlpha = lod.labelFactor * (1 - lod.detailFactor);
+        ensureLabelMap(allNodes, clusterMetas);
         for (const cm of clusterMetas) {
           for (const name of cm.labelNames) {
-            const node = allNodes.find((n) => n.name === name && n.clusterId === cm.index);
+            const node = labelMap.get(name + '|' + cm.index);
             if (node && node.x != null) {
               drawNodeLabel(ctx, node);
             }
@@ -714,6 +769,7 @@ export function createUniverseRenderer(canvas, getState) {
   return {
     start() {
       if (frameId) return;
+      lastFrameTime = performance.now();
       frameId = requestAnimationFrame(render);
     },
     stop() {
@@ -721,6 +777,7 @@ export function createUniverseRenderer(canvas, getState) {
         cancelAnimationFrame(frameId);
         frameId = null;
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     },
   };
 }
@@ -831,4 +888,3 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
 }
-
