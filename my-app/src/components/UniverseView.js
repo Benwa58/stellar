@@ -58,24 +58,6 @@ function UniverseView() {
         onHoverNode={handleHoverNode}
       />
 
-      {/* Cluster chips — tap to zoom */}
-      <div className="universe-cluster-chips">
-        {clusterCenters.map((c, i) => (
-          <button
-            key={i}
-            className="universe-cluster-chip"
-            onClick={() => canvasRef.current?.zoomToCluster(i)}
-            style={{ borderColor: `hsla(${c.color.h}, ${c.color.s}%, ${c.color.l}%, 0.5)` }}
-          >
-            <span
-              className="universe-chip-dot"
-              style={{ background: `hsl(${c.color.h}, ${c.color.s}%, ${c.color.l}%)` }}
-            />
-            <span className="universe-chip-label">{c.label}</span>
-          </button>
-        ))}
-      </div>
-
       {/* Zoom controls */}
       <div className="universe-zoom-controls">
         <button

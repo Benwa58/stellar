@@ -376,7 +376,8 @@ function assignClusterColor(centroid, vocabulary) {
 
 async function getClusterRecommendations(clusterMembers, allUserArtists, limit = 20) {
   const candidateScores = new Map();
-  const membersToQuery = clusterMembers.slice(0, 5);
+  // Query more members for broader, more evenly distributed recommendations
+  const membersToQuery = clusterMembers.slice(0, Math.min(12, clusterMembers.length));
 
   for (const memberName of membersToQuery) {
     const similar = await fetchSimilarArtists(memberName, 50);
@@ -441,6 +442,72 @@ function detectBridgeArtists(clusters, vectors) {
 
 // --- Mini-visualization layout ---
 
+/**
+ * Place clusters using force-relaxation for an organic, amorphous network
+ * shape instead of a uniform ring or spiral.
+ */
+function relaxClusterPositions(clusters, canvasCenter, iterations = 80) {
+  const n = clusters.length;
+  if (n === 0) return [];
+  if (n === 1) return [{ x: canvasCenter, y: canvasCenter }];
+
+  // Seed with deterministic pseudo-random positions scattered around center
+  const positions = [];
+  for (let i = 0; i < n; i++) {
+    // Use a hash-like seed from cluster label for determinism
+    let hash = 0;
+    const label = clusters[i].label || `c${i}`;
+    for (let c = 0; c < label.length; c++) hash = (hash * 31 + label.charCodeAt(c)) & 0xffffffff;
+    const a = ((hash & 0xffff) / 0xffff) * Math.PI * 2;
+    const r = 80 + ((hash >>> 16) / 0xffff) * 120;
+    positions.push({
+      x: canvasCenter + r * Math.cos(a),
+      y: canvasCenter + r * Math.sin(a),
+    });
+  }
+
+  // Estimate visual weight per cluster for spacing
+  const weights = clusters.map((c) => {
+    const memberCount = c.members?.length || 1;
+    const recCount = c.recommendations?.length || 0;
+    return 50 + memberCount * 8 + recCount * 4;
+  });
+
+  // Iterate: repel overlapping clusters, gently attract toward center
+  for (let iter = 0; iter < iterations; iter++) {
+    const cooling = 1 - iter / iterations; // reduce forces over time
+
+    for (let i = 0; i < n; i++) {
+      let fx = 0, fy = 0;
+
+      // Repulsion between clusters
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const dx = positions[i].x - positions[j].x;
+        const dy = positions[i].y - positions[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const minDist = (weights[i] + weights[j]) * 1.1;
+        if (dist < minDist) {
+          const force = (minDist - dist) / dist * 0.4 * cooling;
+          fx += dx * force;
+          fy += dy * force;
+        }
+      }
+
+      // Gentle pull toward center (keeps layout compact)
+      const dcx = canvasCenter - positions[i].x;
+      const dcy = canvasCenter - positions[i].y;
+      fx += dcx * 0.008 * cooling;
+      fy += dcy * 0.008 * cooling;
+
+      positions[i].x += fx;
+      positions[i].y += fy;
+    }
+  }
+
+  return positions;
+}
+
 function buildMiniVisualization(clusters, bridges) {
   const nodes = [];
   const clusterCenters = [];
@@ -448,21 +515,16 @@ function buildMiniVisualization(clusters, bridges) {
   const totalClusters = clusters.length;
   const canvasSize = 1000;
   const canvasCenter = canvasSize / 2;
-  // Tighter layout for visual continuity between clusters
-  const layoutRadius = totalClusters <= 2 ? 150 : 220;
 
-  // Golden angle spiral for organic, non-uniform distribution
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  // Force-relaxed organic positions
+  const clusterPositions = relaxClusterPositions(clusters, canvasCenter);
 
   // Track member positions for rec-to-member linking
   const memberPositions = new Map();
 
   for (let i = 0; i < totalClusters; i++) {
-    // Sunflower/Fibonacci spiral layout — fills a disk organically
-    const angle = i * goldenAngle - Math.PI / 2;
-    const dist = totalClusters <= 1 ? 0 : layoutRadius * Math.sqrt((i + 0.5) / totalClusters);
-    const cx = canvasCenter + dist * Math.cos(angle);
-    const cy = canvasCenter + dist * Math.sin(angle);
+    const cx = clusterPositions[i].x;
+    const cy = clusterPositions[i].y;
     clusterCenters.push({ x: cx, y: cy });
 
     // Member nodes (favorites/discovered) — form the nebula core
