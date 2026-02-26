@@ -215,11 +215,11 @@
 
 @media (max-width: 480px) {
   .preview-player {
-    padding-bottom: 10px;
+    padding-bottom: 2px;
   }
 
   .player-main {
-    padding: 6px 12px 10px;
+    padding: 6px 12px 4px;
     gap: 6px;
     flex-wrap: wrap;
     justify-content: center;
@@ -243,7 +243,7 @@
     flex: 1 1 100%;
     justify-content: center;
     gap: 10px;
-    padding-top: 2px;
+    padding-top: 0;
   }
 
   .player-mode-btn {
@@ -279,5 +279,20 @@
 
   .galaxy-view:has(.detail-panel) .preview-player {
     right: 0;
+  }
+}
+
+/* PWA standalone has more screen real estate — restore comfortable spacing */
+@media (max-width: 480px) and (display-mode: standalone) {
+  .preview-player {
+    padding-bottom: 10px;
+  }
+
+  .player-main {
+    padding-bottom: 10px;
+  }
+
+  .player-left {
+    padding-top: 2px;
   }
 }
