@@ -216,7 +216,7 @@
 
 @media (max-width: 480px) {
   .preview-player {
-    padding-bottom: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
   .player-main {
