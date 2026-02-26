@@ -439,7 +439,7 @@ export function createUniverseRenderer(canvas, getState) {
     if (lod.detailFactor > 0 && allLinks) {
       ctx.globalAlpha = lod.detailFactor;
       for (const link of allLinks) {
-        if (link.isBridgeLink) continue;
+        if (link.isBridgeLink || link.isChainLink) continue;
         const source = link.source;
         const target = link.target;
         if (!source || !target || source.x == null || target.x == null) continue;

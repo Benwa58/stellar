@@ -4,6 +4,9 @@ const crypto = require('crypto');
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
+// Bump this when compute logic changes to force recompute for all users
+const UNIVERSE_COMPUTE_VERSION = 2;
+
 // Tags that are user noise, not real genres
 const TAG_BLACKLIST = new Set([
   'seen live', 'favorites', 'favourite', 'my music', 'check out',
@@ -758,7 +761,7 @@ function buildMiniVisualization(clusters, bridges) {
 // --- Change detection ---
 
 function computeArtistHash(favorites, discoveredArtists) {
-  const names = [];
+  const names = [`__v${UNIVERSE_COMPUTE_VERSION}`];
   for (const f of favorites) names.push(f.artist_name.toLowerCase().trim());
   for (const d of discoveredArtists) names.push(d.artist_name.toLowerCase().trim());
   names.sort();
@@ -859,12 +862,28 @@ async function computeUniverse(userId, db) {
   // Discover chain links (cross-cluster recommendation overlaps)
   const chainLinks = discoverChainLinks(enrichedClusters, clusterCandidatePools, allArtists.length);
 
-  // Mark chain link recommendations in their home clusters
+  // Mark chain link recommendations in their home clusters.
+  // If the candidate isn't in the top 20 recs, inject it so it appears as a node.
   for (const chain of chainLinks) {
     const cluster = enrichedClusters[chain.homeClusterId];
-    const rec = (cluster?.recommendations || []).find(
+    if (!cluster) continue;
+
+    let rec = (cluster.recommendations || []).find(
       (r) => r.name.toLowerCase().trim() === chain.name.toLowerCase().trim()
     );
+
+    if (!rec) {
+      // Find the candidate in the full pool and inject it
+      const pool = clusterCandidatePools[chain.homeClusterId] || [];
+      const poolCandidate = pool.find(
+        (c) => c.name.toLowerCase().trim() === chain.name.toLowerCase().trim()
+      );
+      if (poolCandidate) {
+        rec = { ...poolCandidate };
+        cluster.recommendations.push(rec);
+      }
+    }
+
     if (rec) {
       rec.isChainLink = true;
       rec.chainClusters = chain.allClusters;
