@@ -137,6 +137,15 @@ async function fetchSimilarArtists(artistName, limit = 60) {
   }
 }
 
+async function fetchArtistListeners(artistName) {
+  try {
+    const data = await lastfmFetch('artist.getInfo', { artist: artistName });
+    return parseInt(data.artist?.stats?.listeners || '0', 10);
+  } catch {
+    return 0;
+  }
+}
+
 // --- Tag vector construction ---
 
 function buildTagVectors(artistTagData) {
@@ -412,7 +421,7 @@ async function getClusterRecommendations(clusterMembers, allUserArtists, limit =
   }));
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit);
+  return { topRecs: scored.slice(0, limit), allCandidates: scored };
 }
 
 // --- Bridge artist detection ---
@@ -438,6 +447,142 @@ function detectBridgeArtists(clusters, vectors) {
 
   bridges.sort((a, b) => b.strength - a.strength);
   return bridges;
+}
+
+// --- Hidden gem classification ---
+
+async function classifyHiddenGems(enrichedClusters) {
+  // Collect all recommendations across clusters
+  const allRecs = [];
+  for (const cluster of enrichedClusters) {
+    for (const rec of (cluster.recommendations || [])) {
+      allRecs.push(rec);
+    }
+  }
+
+  if (allRecs.length === 0) return;
+
+  // Fetch listener counts for all recommendations
+  console.log(`[Universe] Fetching listener counts for ${allRecs.length} recommendations...`);
+  const listenerCounts = [];
+  for (const rec of allRecs) {
+    const listeners = await fetchArtistListeners(rec.name);
+    rec.listeners = listeners;
+    if (listeners > 0) listenerCounts.push(listeners);
+  }
+
+  // Calculate threshold: 30th percentile of listener counts
+  listenerCounts.sort((a, b) => a - b);
+  const threshold = listenerCounts.length > 0
+    ? listenerCounts[Math.floor(listenerCounts.length * 0.3)]
+    : 100000;
+
+  console.log(`[Universe] Hidden gem threshold: ${threshold.toLocaleString()} listeners`);
+
+  // Classify: low listeners OR suggested by only 1 member with low match score
+  for (const rec of allRecs) {
+    const isLowListeners = rec.listeners > 0 && rec.listeners < threshold;
+    const isSingleSuggestor = (rec.suggestedBy || []).length <= 1;
+    const isLowMatch = (rec.matchScore || 0) < 0.4;
+
+    rec.isHiddenGem = isLowListeners || (isSingleSuggestor && isLowMatch);
+  }
+
+  const gemCount = allRecs.filter((r) => r.isHiddenGem).length;
+  console.log(`[Universe] Classified ${gemCount}/${allRecs.length} recommendations as hidden gems`);
+}
+
+// --- Chain link discovery ---
+
+function discoverChainLinks(enrichedClusters, clusterCandidatePools, seedCount) {
+  const maxChains = Math.max(1, Math.floor(seedCount * 0.05));
+  const chainLinks = [];
+
+  // Build a map of candidate name → which clusters they appear in
+  const candidateClusterMap = new Map(); // nameLower → [{ clusterId, score, suggestedBy }]
+
+  for (let ci = 0; ci < clusterCandidatePools.length; ci++) {
+    const pool = clusterCandidatePools[ci];
+    for (const candidate of pool) {
+      const key = candidate.name.toLowerCase().trim();
+      if (!candidateClusterMap.has(key)) {
+        candidateClusterMap.set(key, []);
+      }
+      candidateClusterMap.get(key).push({
+        clusterId: ci,
+        score: candidate.score,
+        matchScore: candidate.matchScore,
+        suggestedBy: candidate.suggestedBy,
+        name: candidate.name,
+      });
+    }
+  }
+
+  // Find candidates that appear in 2+ cluster pools
+  const crossClusterCandidates = [];
+  for (const [nameLower, appearances] of candidateClusterMap) {
+    if (appearances.length < 2) continue;
+
+    // Already a recommendation in some cluster? Skip if it's already a bridge artist
+    const clusterIds = appearances.map((a) => a.clusterId);
+    const avgScore = appearances.reduce((sum, a) => sum + a.score, 0) / appearances.length;
+    const allSuggestors = [];
+    for (const a of appearances) {
+      for (const s of a.suggestedBy) {
+        if (!allSuggestors.includes(s)) allSuggestors.push(s);
+      }
+    }
+
+    crossClusterCandidates.push({
+      name: appearances[0].name,
+      nameLower,
+      clusterIds,
+      avgScore,
+      suggestedBy: allSuggestors,
+      appearances,
+    });
+  }
+
+  // Sort by average score (best connectors first)
+  crossClusterCandidates.sort((a, b) => b.avgScore - a.avgScore);
+
+  // Select top N, ensuring we don't duplicate already-selected cluster pairs
+  const selectedPairs = new Set();
+  for (const candidate of crossClusterCandidates) {
+    if (chainLinks.length >= maxChains) break;
+
+    // Create a pair key for the two strongest clusters
+    const sortedClusters = [...candidate.clusterIds].sort((a, b) => a - b);
+    const pairKey = `${sortedClusters[0]}-${sortedClusters[1]}`;
+
+    // Allow multiple chains per pair but prefer diversity
+    if (selectedPairs.has(pairKey) && chainLinks.length > 0) continue;
+    selectedPairs.add(pairKey);
+
+    // Determine which cluster this candidate is already a recommendation in
+    let homeClusterId = candidate.clusterIds[0];
+    let bestScore = 0;
+    for (const app of candidate.appearances) {
+      if (app.score > bestScore) {
+        bestScore = app.score;
+        homeClusterId = app.clusterId;
+      }
+    }
+
+    const remoteClusters = candidate.clusterIds.filter((ci) => ci !== homeClusterId);
+
+    chainLinks.push({
+      name: candidate.name,
+      homeClusterId,
+      remoteClusters,
+      allClusters: candidate.clusterIds,
+      avgScore: candidate.avgScore,
+      suggestedBy: candidate.suggestedBy,
+    });
+  }
+
+  console.log(`[Universe] Found ${crossClusterCandidates.length} cross-cluster candidates, selected ${chainLinks.length} chain links (max ${maxChains})`);
+  return chainLinks;
 }
 
 // --- Mini-visualization layout ---
@@ -674,11 +819,15 @@ async function computeUniverse(userId, db) {
   const enrichedClusters = [];
   const allUserNamesLower = new Set(allArtists.map((a) => a.name.toLowerCase().trim()));
 
+  const clusterCandidatePools = [];
+
   for (let i = 0; i < rawClusters.length; i++) {
     const cluster = rawClusters[i];
     const label = labelCluster(cluster.centroid, vocabulary);
     const color = assignClusterColor(cluster.centroid, vocabulary);
-    const recommendations = await getClusterRecommendations(cluster.members, allUserNamesLower, 20);
+    const { topRecs, allCandidates } = await getClusterRecommendations(cluster.members, allUserNamesLower, 20);
+
+    clusterCandidatePools.push(allCandidates);
 
     const members = cluster.members.map((name) => {
       const data = artistsWithTags.find((a) => a.artistName === name);
@@ -694,7 +843,7 @@ async function computeUniverse(userId, db) {
       label,
       color,
       members,
-      recommendations,
+      recommendations: topRecs,
       topTags: vocabulary
         .map((tag, idx) => ({ tag, weight: cluster.centroid?.[idx] || 0 }))
         .filter((tw) => tw.weight > 0.05)
@@ -704,17 +853,37 @@ async function computeUniverse(userId, db) {
     });
   }
 
+  // Classify hidden gems (fetches listener counts)
+  await classifyHiddenGems(enrichedClusters);
+
+  // Discover chain links (cross-cluster recommendation overlaps)
+  const chainLinks = discoverChainLinks(enrichedClusters, clusterCandidatePools, allArtists.length);
+
+  // Mark chain link recommendations in their home clusters
+  for (const chain of chainLinks) {
+    const cluster = enrichedClusters[chain.homeClusterId];
+    const rec = (cluster?.recommendations || []).find(
+      (r) => r.name.toLowerCase().trim() === chain.name.toLowerCase().trim()
+    );
+    if (rec) {
+      rec.isChainLink = true;
+      rec.chainClusters = chain.allClusters;
+      rec.remoteClusters = chain.remoteClusters;
+    }
+  }
+
   // Detect bridge artists
   const bridges = detectBridgeArtists(rawClusters, vectors);
 
   // Build mini-visualization positions
   const vizData = buildMiniVisualization(enrichedClusters, bridges);
 
-  console.log(`[Universe] Done. ${enrichedClusters.length} clusters, ${bridges.length} bridges.`);
+  console.log(`[Universe] Done. ${enrichedClusters.length} clusters, ${bridges.length} bridges, ${chainLinks.length} chain links.`);
 
   return {
     clusters: enrichedClusters,
     bridges: bridges.slice(0, 10),
+    chainLinks,
     visualization: vizData,
     artistCount: allArtists.length,
     computedAt: new Date().toISOString(),

@@ -157,7 +157,15 @@ function UniverseArtistCard({ node, clusterCenters, onClose }) {
         <div className="universe-card-info">
           <h3 className="universe-card-name">{node.name}</h3>
           <div className="universe-card-badges">
-            {node.isRecommendation ? (
+            {node.isChainLink ? (
+              <span className="universe-card-badge badge-chain">
+                Chain Link
+              </span>
+            ) : node.isHiddenGem ? (
+              <span className="universe-card-badge badge-gem">
+                Hidden Gem
+              </span>
+            ) : node.isRecommendation ? (
               <span className="universe-card-badge badge-rec">
                 Recommendation
                 {node.matchScore != null && (
@@ -184,9 +192,15 @@ function UniverseArtistCard({ node, clusterCenters, onClose }) {
         </div>
       </div>
 
+      {node.isChainLink && node.remoteClusters?.length > 0 && (
+        <div className="universe-card-suggested universe-card-chain-info">
+          Connects {node.remoteClusters.length + 1} clusters
+        </div>
+      )}
+
       {node.isRecommendation && node.suggestedBy?.length > 0 && (
         <div className="universe-card-suggested">
-          Suggested by {node.suggestedBy.join(', ')}
+          {node.isHiddenGem ? 'Hidden gem \u2014 similar' : 'Suggested'} by {node.suggestedBy.join(', ')}
         </div>
       )}
 

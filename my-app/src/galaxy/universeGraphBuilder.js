@@ -67,6 +67,13 @@ export function buildClusterGalaxyData(cluster) {
       image: null,
       isRecommendation: true,
       suggestedBy: rec.suggestedBy || [],
+      tier: rec.isHiddenGem ? 'hidden_gem' : (rec.isChainLink ? 'hidden_gem' : undefined),
+      isHiddenGem: rec.isHiddenGem || false,
+      isChainLink: rec.isChainLink || false,
+      isChainBridge: rec.isChainLink || false,
+      chainClusters: rec.chainClusters || null,
+      remoteClusters: rec.remoteClusters || null,
+      listeners: rec.listeners,
     });
   }
 
@@ -319,6 +326,47 @@ export function buildUniverseLayout(universeData) {
           strength: bridge.strength * 0.3,
           isBridgeLink: true,
           opacity: 0.15,
+        });
+      }
+    }
+  }
+
+  // --- Inter-cluster chain links ---
+  const chainLinks = universeData.chainLinks || [];
+  for (const chain of chainLinks) {
+    // Find the chain link node in allNodes
+    const chainNode = allNodes.find(
+      (n) => n.name.toLowerCase().trim() === chain.name.toLowerCase().trim()
+    );
+    if (!chainNode) continue;
+
+    const homeCluster = chainNode.clusterId;
+
+    for (const remoteCI of (chain.remoteClusters || [])) {
+      if (remoteCI === homeCluster) continue;
+
+      // Find nearest seed node in the remote cluster
+      let bestNode = null;
+      let bestDist = Infinity;
+      for (const n of allNodes) {
+        if (n.clusterId !== remoteCI || n.type !== 'seed') continue;
+        const ddx = n.x - chainNode.x;
+        const ddy = n.y - chainNode.y;
+        const d = ddx * ddx + ddy * ddy;
+        if (d < bestDist) {
+          bestDist = d;
+          bestNode = n;
+        }
+      }
+
+      if (bestNode) {
+        allLinks.push({
+          source: chainNode,
+          target: bestNode,
+          strength: (chain.avgScore || 0.3) * 0.4,
+          isChainLink: true,
+          isBridgeLink: false,
+          opacity: 0.2,
         });
       }
     }
