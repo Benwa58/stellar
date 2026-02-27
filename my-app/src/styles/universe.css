@@ -518,4 +518,7 @@
     width: calc(100vw - 16px);
   }
 
+  .universe-zoom-controls {
+    display: none;
+  }
 }
