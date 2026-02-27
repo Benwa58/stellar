@@ -776,6 +776,7 @@ function computeArtistHash(favorites, discoveredArtists) {
 async function computeUniverse(userId, db) {
   const favorites = db.getUserFavorites(userId);
   const discovered = db.getUserDiscoveredArtists(userId);
+  const dislikes = db.getUserDislikes(userId);
 
   const allArtists = [];
   const seen = new Set();
@@ -793,6 +794,11 @@ async function computeUniverse(userId, db) {
       seen.add(key);
     }
   }
+
+  // Build set of disliked artist names to exclude from recommendations
+  const dislikedNamesLower = new Set(
+    dislikes.map((d) => d.artist_name.toLowerCase().trim())
+  );
 
   if (allArtists.length < 4) {
     return { error: 'Need at least 4 artists (favorites + discoveries) to build your universe.' };
@@ -824,6 +830,10 @@ async function computeUniverse(userId, db) {
   console.log(`[Universe] Enriching ${rawClusters.length} clusters with recommendations...`);
   const enrichedClusters = [];
   const allUserNamesLower = new Set(allArtists.map((a) => a.name.toLowerCase().trim()));
+  // Also exclude disliked artists from recommendations
+  for (const name of dislikedNamesLower) {
+    allUserNamesLower.add(name);
+  }
 
   const clusterCandidatePools = [];
 
