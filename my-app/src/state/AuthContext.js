@@ -223,7 +223,7 @@ function pollUniverseStatus(dispatch) {
     try {
       const res = await authApi.getUniverseStatus();
       const data = await res.json();
-      if (data.status === 'ready') {
+      if (data.status === 'ready' && !data.isComputing) {
         clearInterval(universePollTimer);
         universePollTimer = null;
         const universeRes = await authApi.getUniverse();
