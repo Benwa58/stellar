@@ -229,7 +229,7 @@ function pollUniverseStatus(dispatch) {
         const universeRes = await authApi.getUniverse();
         const universeData = await universeRes.json();
         if (universeData.universe) {
-          dispatch({ type: 'SET_UNIVERSE_DATA', data: universeData.universe, status: 'ready' });
+          dispatch({ type: 'SET_UNIVERSE_DATA', data: universeData.universe, status: universeData.isStale ? 'stale' : 'ready' });
         }
       } else if (data.status === 'error') {
         clearInterval(universePollTimer);
@@ -453,7 +453,7 @@ export function useAuthActions() {
         const universeRes = await authApi.getUniverse();
         const universeData = await universeRes.json();
         if (universeData.universe) {
-          dispatch({ type: 'SET_UNIVERSE_DATA', data: universeData.universe, status: 'ready' });
+          dispatch({ type: 'SET_UNIVERSE_DATA', data: universeData.universe, status: universeData.isStale ? 'stale' : 'ready' });
         }
       } else if (data.status === 'computing') {
         pollUniverseStatus(dispatch);
