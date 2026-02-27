@@ -8,14 +8,27 @@ const router = express.Router();
 router.get('/', requireAuth, (req, res) => {
   try {
     const maps = db.getUserMaps(req.userId);
-    // Parse seed_artists JSON for each map
-    const result = maps.map((m) => ({
-      id: m.id,
-      name: m.name,
-      seedArtists: JSON.parse(m.seed_artists),
-      nodeCount: m.node_count,
-      savedAt: m.created_at,
-    }));
+    // Parse seed_artists JSON for each map; extract recommendation node names
+    const result = maps.map((m) => {
+      const seedArtists = JSON.parse(m.seed_artists);
+      let recNames = [];
+      try {
+        const galaxy = JSON.parse(m.galaxy_data);
+        if (galaxy.nodes) {
+          recNames = galaxy.nodes
+            .filter((n) => n.type !== 'seed')
+            .map((n) => n.name);
+        }
+      } catch {}
+      return {
+        id: m.id,
+        name: m.name,
+        seedArtists,
+        recNames,
+        nodeCount: m.node_count,
+        savedAt: m.created_at,
+      };
+    });
     res.json({ maps: result });
   } catch (err) {
     console.error('Get maps error:', err);
