@@ -184,11 +184,30 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     }, 200);
   }, [size.width, size.height]);
 
+  const zoomToNode = useCallback((node) => {
+    if (!node || size.width === 0) return;
+    const targetScale = clamp(1.5, 0.05, 8);
+    const target = {
+      x: size.width / 2 - node.x * targetScale,
+      y: size.height / 2 - node.y * targetScale,
+      scale: targetScale,
+    };
+    stateRef.current.selectedNode = node;
+    if (onSelectNode) onSelectNode(node);
+    animateTransform(stateRef, target, 700);
+  }, [size.width, size.height, onSelectNode]);
+
+  const getNodes = useCallback(() => {
+    return stateRef.current.allNodes || [];
+  }, []);
+
   useImperativeHandle(ref, () => ({
     resetView: () => fitAll(true),
     zoomToCluster,
     zoomBy,
-  }), [fitAll, zoomToCluster, zoomBy]);
+    zoomToNode,
+    getNodes,
+  }), [fitAll, zoomToCluster, zoomBy, zoomToNode, getNodes]);
 
   // Set up canvas, renderer, and interactions
   useEffect(() => {

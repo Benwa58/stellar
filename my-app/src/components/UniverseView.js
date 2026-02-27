@@ -5,6 +5,7 @@ import { useAuthActions } from '../state/AuthContext';
 import { GO_TO_INPUT } from '../state/actions';
 import Header from './Header';
 import UniverseCanvas from '../galaxy/UniverseCanvas';
+import UniverseSearch from './UniverseSearch';
 import ArtistDetailPanel from './ArtistDetailPanel';
 import { useBottomBarDetect } from '../hooks/useBottomBarDetect';
 import '../styles/universe.css';
@@ -63,6 +64,9 @@ function UniverseView() {
         onSelectNode={handleSelectNode}
         onHoverNode={handleHoverNode}
       />
+
+      {/* Search */}
+      <UniverseSearch canvasRef={canvasRef} />
 
       {/* Zoom controls */}
       <div className="universe-zoom-controls">
