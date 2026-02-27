@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useDispatch } from '../state/AppContext';
 import { useAuth, useAuthActions } from '../state/AuthContext';
 import { LOAD_SAVED_MAP } from '../state/actions';
@@ -178,10 +178,18 @@ function GalaxyCardCanvas({ seeds, nodeCount }) {
 
 function SavedMapsSection() {
   const dispatch = useDispatch();
-  const { user } = useAuth();
+  const { user, favorites, dislikes, knownArtists, discoveredArtists } = useAuth();
   const { showAuthModal } = useAuthActions();
   const [maps, setMaps] = useState([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  // Set of all categorized artist names (favorites, dislikes, known, discovered)
+  const categorizedNames = useMemo(() => new Set([
+    ...favorites.map((f) => f.artistName),
+    ...dislikes.map((d) => d.artistName),
+    ...knownArtists.map((k) => k.artistName),
+    ...discoveredArtists.map((d) => d.artistName),
+  ]), [favorites, dislikes, knownArtists, discoveredArtists]);
 
   useEffect(() => {
     if (user) {
@@ -276,7 +284,9 @@ function SavedMapsSection() {
       {user && maps.length > 0 && (
         <div className="saved-maps-scroll">
           {maps.map((map) => {
-            const unknownCount = map.nodeCount - map.seedArtists.length;
+            const unknownCount = (map.recNames || []).filter(
+              (name) => !categorizedNames.has(name)
+            ).length;
             return (
               <div
                 key={map.id}

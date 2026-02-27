@@ -216,7 +216,7 @@ function deleteUserRefreshTokens(userId) {
 
 function getUserMaps(userId) {
   return getDb().prepare(
-    'SELECT id, name, seed_artists, node_count, created_at FROM saved_maps WHERE user_id = ? ORDER BY created_at DESC'
+    'SELECT id, name, seed_artists, galaxy_data, node_count, created_at FROM saved_maps WHERE user_id = ? ORDER BY created_at DESC'
   ).all(userId);
 }
 
