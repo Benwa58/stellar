@@ -246,7 +246,7 @@
 .universe-zoom-controls {
   position: absolute;
   left: 12px;
-  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--browser-bar-offset, 0px));
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
   z-index: 15;
   display: flex;
   flex-direction: column;
@@ -280,7 +280,7 @@
 
 .universe-artist-card {
   position: absolute;
-  bottom: calc(50px + env(safe-area-inset-bottom, 0px) + var(--browser-bar-offset, 0px));
+  bottom: calc(50px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
@@ -506,7 +506,7 @@
 
   .universe-cluster-chips {
     top: auto;
-    bottom: calc(50px + env(safe-area-inset-bottom, 0px) + var(--browser-bar-offset, 0px));
+    bottom: calc(50px + env(safe-area-inset-bottom, 0px));
     left: 8px;
     flex-direction: row;
     flex-wrap: wrap;
@@ -514,7 +514,7 @@
   }
 
   .universe-artist-card {
-    bottom: calc(90px + env(safe-area-inset-bottom, 0px) + var(--browser-bar-offset, 0px));
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
     width: calc(100vw - 16px);
   }
 
