@@ -29,7 +29,7 @@
 
 .galaxy-toolbar {
   position: absolute;
-  bottom: calc(20px + max(env(safe-area-inset-bottom), var(--browser-bar-offset, 0px)));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   left: calc(20px + env(safe-area-inset-left));
   z-index: 20;
   display: flex;
@@ -544,7 +544,7 @@
 
 .zoom-controls {
   position: absolute;
-  bottom: calc(70px + max(env(safe-area-inset-bottom), var(--browser-bar-offset, 0px)));
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   left: calc(20px + env(safe-area-inset-left));
   z-index: 20;
   display: flex;
@@ -690,7 +690,7 @@
 
 .regenerate-queue-btn {
   position: absolute;
-  bottom: calc(70px + max(env(safe-area-inset-bottom), var(--browser-bar-offset, 0px)));
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
@@ -757,7 +757,7 @@
 
 @media (max-width: 480px) {
   .galaxy-toolbar {
-    bottom: calc(38px + max(env(safe-area-inset-bottom), var(--browser-bar-offset, 0px)));
+    bottom: calc(38px + env(safe-area-inset-bottom, 0px));
     left: calc(16px + env(safe-area-inset-left));
     gap: 8px;
     flex-wrap: wrap;
@@ -783,7 +783,7 @@
   }
 
   .galaxy-legend-card {
-    bottom: calc(84px + max(env(safe-area-inset-bottom), var(--browser-bar-offset, 0px)));
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     left: calc(12px + env(safe-area-inset-left));
     right: calc(12px + env(safe-area-inset-right));
     width: auto;
@@ -804,7 +804,7 @@
   }
 
   .regenerate-queue-btn {
-    bottom: calc(84px + max(env(safe-area-inset-bottom), var(--browser-bar-offset, 0px)));
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     font-size: 0.78rem;
     padding: 8px 18px;
   }

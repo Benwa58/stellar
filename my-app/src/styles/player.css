@@ -1,6 +1,6 @@
 .preview-player {
   position: absolute;
-  bottom: max(var(--browser-bar-offset, 0px), env(safe-area-inset-bottom));
+  bottom: env(safe-area-inset-bottom, 0px);
   left: 0;
   right: 0;
   background: rgba(10, 10, 26, 0.92);

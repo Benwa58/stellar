@@ -10,6 +10,7 @@
 
 html, body, #root {
   height: 100%;
+  height: 100dvh; /* visible viewport — avoids iOS/Android bottom-bar overlap */
   width: 100%;
   overflow: hidden;
 }
