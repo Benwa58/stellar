@@ -18,11 +18,15 @@ function UniverseView() {
   const canvasRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
-  // Auto-trigger recompute when universe is marked stale (e.g. after favorite/discover)
+  // Only recompute a stale universe on mount (e.g. navigating back after
+  // marking favorites elsewhere).  Do NOT recompute while actively viewing —
+  // that resets the zoom/pan transform and snaps the view to LOD 1.
+  const mountedRef = useRef(false);
   useEffect(() => {
-    if (user && universeStatus === 'stale') {
+    if (user && universeStatus === 'stale' && !mountedRef.current) {
       refreshUniverse();
     }
+    mountedRef.current = true;
   }, [user, universeStatus, refreshUniverse]);
 
   const universeLabel = user?.displayName ? `${user.displayName}\u2019s Universe` : 'My Universe';
