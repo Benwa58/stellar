@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth, useAuthActions } from '../state/AuthContext';
 import { useAppState, useDispatch } from '../state/AppContext';
 import { ADD_SEED_ARTIST } from '../state/actions';
+import AddFavoriteModal from './AddFavoriteModal';
 import '../styles/favorites.css';
 
 function FavoritesSection() {
@@ -9,6 +10,7 @@ function FavoritesSection() {
   const { toggleFavorite, showAuthModal } = useAuthActions();
   const { seedArtists } = useAppState();
   const dispatch = useDispatch();
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const selectedNames = useMemo(
     () => new Set(seedArtists.map((a) => a.name)),
@@ -36,6 +38,18 @@ function FavoritesSection() {
         Favorites
         {user && favorites.length > 0 && (
           <span className="section-count">{favorites.length}</span>
+        )}
+        {user && (
+          <button
+            className="favorites-add-btn"
+            onClick={() => setShowAddModal(true)}
+            title="Add favorites"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
         )}
       </h3>
 
@@ -97,6 +111,7 @@ function FavoritesSection() {
           ))}
         </div>
       )}
+      {showAddModal && <AddFavoriteModal onClose={() => setShowAddModal(false)} />}
     </div>
   );
 }
