@@ -57,6 +57,17 @@ router.post('/', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'Map name must be 80 characters or fewer.' });
     }
 
+    // Check for duplicate: exact same set of seed artist IDs
+    const incomingIds = seedArtists.map((a) => a.id).sort().join(',');
+    const existingMaps = db.getUserMaps(req.userId);
+    const isDuplicate = existingMaps.some((m) => {
+      const savedIds = JSON.parse(m.seed_artists).map((a) => a.id).sort().join(',');
+      return savedIds === incomingIds;
+    });
+    if (isDuplicate) {
+      return res.status(409).json({ error: 'This galaxy is already saved.' });
+    }
+
     const storableGalaxyData = {
       nodes: galaxyData.nodes,
       links: galaxyData.links,
