@@ -7,7 +7,7 @@ import { buildSpotifySearchUrl, formatTrackLinks, generateCSV } from '../utils/e
 import { createSharedPlaylist } from '../api/authClient';
 import '../styles/export.css';
 
-function ExportDrawer({ onClose, seedArtists, overrideNodes }) {
+function ExportDrawer({ onClose, seedArtists, overrideNodes, showRecsOnlyFilter }) {
   const { galaxyData } = useAppState();
   const { user, dislikes, favorites, discoveredArtists } = useAuth();
   const { showAuthModal } = useAuthActions();
@@ -242,8 +242,8 @@ function ExportDrawer({ onClose, seedArtists, overrideNodes }) {
           </div>
         )}
 
-        {/* Recommendations-only filter */}
-        {user && hasFavsOrDiscsOnMap && (
+        {/* Recommendations-only filter (universe only) */}
+        {showRecsOnlyFilter && user && hasFavsOrDiscsOnMap && (
           <div className="export-dislike-filter">
             <button
               className={`export-dislike-toggle ${recsOnly ? 'active' : ''}`}
