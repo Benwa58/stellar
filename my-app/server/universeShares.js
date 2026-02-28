@@ -30,9 +30,9 @@ router.post('/', optionalAuth, (req, res) => {
     const id = crypto.randomUUID();
     db.createSharedUniverse(id, {
       mapName: mapName.trim(),
-      universeData: { nodes: universeData.nodes, links: universeData.links },
-      nodeCount: nodeCount || universeData.nodes.length,
-      linkCount: linkCount || universeData.links.length,
+      universeData,
+      nodeCount: nodeCount || 0,
+      linkCount: linkCount || 0,
       ownerUserId: req.userId,
       thumbnail: thumbnailBuf,
     });

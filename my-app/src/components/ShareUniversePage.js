@@ -92,17 +92,6 @@ function ShareUniversePage({ universeId }) {
         />
       </div>
 
-      {/* Open in Stellar CTA */}
-      <div className="share-galaxy-page-footer">
-        <a href="/" className="share-galaxy-page-cta-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="18" height="18">
-            <circle cx="12" cy="12" r="3" />
-            <circle cx="12" cy="12" r="8" opacity="0.4" />
-          </svg>
-          Open in Stellar
-        </a>
-      </div>
-
       {/* Artist detail panel (tap a node to open) */}
       {selectedNode && !selectedNode._isClusterCenter && (
         <ArtistDetailPanel
