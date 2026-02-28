@@ -11,7 +11,7 @@ import GalaxyInfoModal from './GalaxyInfoModal';
 import GalaxyLegend from './GalaxyLegend';
 import GalaxyPlayerController from './GalaxyPlayerController';
 import ExportDrawer from './ExportDrawer';
-import ShareGalaxyDrawer from './ShareGalaxyDrawer';
+import ShareUniverseDrawer from './ShareUniverseDrawer';
 import ReleaseNotesModal from './ReleaseNotesModal';
 import { useBottomBarDetect } from '../hooks/useBottomBarDetect';
 import '../styles/universe.css';
@@ -229,10 +229,11 @@ function UniverseView() {
       {showInfo && <GalaxyInfoModal onClose={() => setShowInfo(false)} />}
       {showReleaseNotes && <ReleaseNotesModal onClose={() => setShowReleaseNotes(false)} />}
       {showShare && (
-        <ShareGalaxyDrawer
+        <ShareUniverseDrawer
           onClose={handleCloseShare}
           canvasRef={canvasRef}
-          seedArtists={[]}
+          universeLabel={universeLabel}
+          universeData={universeData}
           overrideNodes={canvasRef.current?.getNodes() || []}
           overrideLinks={canvasRef.current?.getLinks() || []}
         />
