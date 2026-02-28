@@ -371,7 +371,7 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
           totalCount={playlist.length}
           recsOnly={recsOnly}
           onRecsOnlyToggle={() => setRecsOnly((v) => !v)}
-          showRecsFilter={hasFilterableArtists}
+          showRecsFilter={externalMode && hasFilterableArtists}
         />,
         portalTarget
       )}
