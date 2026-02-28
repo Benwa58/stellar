@@ -170,20 +170,16 @@ function initSchema() {
     db.prepare("SELECT username FROM users LIMIT 0").run();
   } catch {
     db.exec("ALTER TABLE users ADD COLUMN username TEXT UNIQUE");
-    // Backfill existing users: derive username from email prefix, append
-    // numeric suffix when there are collisions.
-    const users = db.prepare("SELECT id, email FROM users WHERE username IS NULL").all();
-    const taken = new Set();
-    for (const u of users) {
-      let base = (u.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 16) || 'user';
-      let candidate = base;
-      let suffix = 1;
-      while (taken.has(candidate)) {
-        candidate = `${base}${suffix++}`;
-      }
-      taken.add(candidate);
-      db.prepare("UPDATE users SET username = ? WHERE id = ?").run(candidate, u.id);
-    }
+  }
+
+  // One-time migrations tracked by name
+  db.exec("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)");
+
+  // Clear any auto-backfilled usernames so existing users can choose their own
+  // via the ChooseUsernameModal on next login.
+  if (!db.prepare("SELECT 1 FROM _migrations WHERE name = 'clear_backfilled_usernames'").get()) {
+    db.exec("UPDATE users SET username = NULL");
+    db.prepare("INSERT INTO _migrations (name) VALUES (?)").run('clear_backfilled_usernames');
   }
 }
 

@@ -144,7 +144,7 @@ function AuthModal() {
                   <label className="auth-label" htmlFor="auth-username">Username</label>
                   <input
                     id="auth-username"
-                    className={`auth-input ${usernameStatus === 'available' ? 'auth-input-valid' : usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'error' ? 'auth-input-error' : ''}`}
+                    className={`auth-input ${usernameStatus === 'available' ? 'auth-input-valid' : usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'auth-input-error' : ''}`}
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
@@ -159,7 +159,7 @@ function AuthModal() {
                   {usernameStatus === 'invalid' && username && (
                     <span className="auth-field-hint auth-field-error">3-20 chars, start with a letter, lowercase letters/numbers/_/-</span>
                   )}
-                  {usernameStatus === 'error' && <span className="auth-field-hint auth-field-error">Unable to check availability. Try again.</span>}
+                  {usernameStatus === 'error' && <span className="auth-field-hint auth-field-error">Couldn't check availability — you can still submit.</span>}
                 </div>
               </>
             )}
@@ -202,7 +202,7 @@ function AuthModal() {
 
             {error && <div className="auth-error">{error}</div>}
 
-            <button className="auth-submit-btn" type="submit" disabled={loading || (tab === 'register' && usernameStatus !== 'available')}>
+            <button className="auth-submit-btn" type="submit" disabled={loading || (tab === 'register' && usernameStatus !== 'available' && usernameStatus !== 'error')}>
               {loading
                 ? 'Please wait...'
                 : tab === 'forgot'
