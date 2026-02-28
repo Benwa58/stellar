@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { findArtistTrack } from '../api/musicClient';
 import { getArtistTopTracks, findArtistByName } from '../api/deezerClient';
 import { getArtistInfo } from '../api/lastfmClient';
@@ -26,11 +26,13 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
   const [loadingMore, setLoadingMore] = useState(false);
   const [enrichedImage, setEnrichedImage] = useState(null);
   const [enrichedDeezerId, setEnrichedDeezerId] = useState(null);
+  const panelRef = useRef(null);
   const audio = useAudioPreview();
 
-  // Stop panel audio when node changes
+  // Reset scroll position and stop audio when node changes
   useEffect(() => {
     audio.pause();
+    if (panelRef.current) panelRef.current.scrollTop = 0;
   }, [node]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enrich image + Deezer ID from Deezer when the node doesn't have them
@@ -121,7 +123,7 @@ function ArtistDetailPanel({ node, onClose, onQueueSeed, onUnqueueSeed, pendingS
     : null;
 
   return (
-    <div className="detail-panel">
+    <div className="detail-panel" ref={panelRef}>
       <button className="panel-close" onClick={onClose}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
           <line x1="18" y1="6" x2="6" y2="18" />
