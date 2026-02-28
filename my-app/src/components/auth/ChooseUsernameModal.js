@@ -8,7 +8,7 @@ function ChooseUsernameModal() {
   const { setUsername: saveUsername } = useAuthActions();
 
   const [username, setUsername] = useState('');
-  const [status, setStatus] = useState(''); // '', 'checking', 'available', 'taken', 'invalid'
+  const [status, setStatus] = useState(''); // '', 'checking', 'available', 'taken', 'invalid', 'error'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const timerRef = useRef(null);
@@ -33,7 +33,7 @@ function ChooseUsernameModal() {
         const data = await checkUsername(val);
         setStatus(data.available ? 'available' : 'taken');
       } catch {
-        setStatus('');
+        setStatus('error');
       }
     }, 400);
     return () => clearTimeout(timerRef.current);
@@ -68,7 +68,7 @@ function ChooseUsernameModal() {
             <label className="auth-label" htmlFor="choose-username">Username</label>
             <input
               id="choose-username"
-              className={`auth-input ${status === 'available' ? 'auth-input-valid' : status === 'taken' || status === 'invalid' ? 'auth-input-error' : ''}`}
+              className={`auth-input ${status === 'available' ? 'auth-input-valid' : status === 'taken' || status === 'invalid' || status === 'error' ? 'auth-input-error' : ''}`}
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
@@ -84,6 +84,7 @@ function ChooseUsernameModal() {
             {status === 'invalid' && username && (
               <span className="auth-field-hint auth-field-error">3-20 chars, start with a letter, lowercase letters/numbers/_/-</span>
             )}
+            {status === 'error' && <span className="auth-field-hint auth-field-error">Unable to check availability. Try again.</span>}
           </div>
 
           {error && <div className="auth-error">{error}</div>}

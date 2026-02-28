@@ -136,8 +136,12 @@ export async function register(email, password, displayName, username) {
   return res;
 }
 
-export function checkUsername(username) {
-  return fetch(`${API_BASE}/api/auth/check-username?username=${encodeURIComponent(username)}`).then((r) => r.json());
+export async function checkUsername(username) {
+  const res = await fetch(`${API_BASE}/api/auth/check-username?username=${encodeURIComponent(username)}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Check failed');
+  return res.json();
 }
 
 export function setUsername(username) {
