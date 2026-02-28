@@ -75,7 +75,7 @@ function ChooseUsernameModal() {
           Pick a unique username so friends can find you on Stellar.
         </p>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
           <div className="auth-field">
             <label className="auth-label" htmlFor="choose-username">Username</label>
             <input
@@ -86,9 +86,8 @@ function ChooseUsernameModal() {
               onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
               placeholder="your_username"
               maxLength={20}
-              required
               autoFocus
-              autoComplete="username"
+              autoComplete="off"
             />
             {status === 'checking' && <span className="auth-field-hint">Checking...</span>}
             {status === 'available' && <span className="auth-field-hint auth-field-success">Available</span>}
