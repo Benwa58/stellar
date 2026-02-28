@@ -114,7 +114,7 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
     setCurrentIndex((prev) => (prev - 1 >= 0 ? prev - 1 : playlist.length - 1));
   }, [getPlaylist]);
 
-  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev, mediaSession: true });
+  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek, prefetchArtwork } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev, mediaSession: true });
 
   // Clear playlists when galaxy data changes (will rebuild on play start)
   useEffect(() => {
@@ -190,12 +190,17 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
         audioPlay(track);
         skipCountRef.current = 0;
 
-        // Pre-fetch next track
+        // Pre-fetch next track and its artwork so metadata is ready instantly
         const nextIdx = index + 1 < playlist.length ? index + 1 : 0;
         const nextNode = playlist[nextIdx];
         if (nextNode && !trackCache.current.has(nextNode.id)) {
           findArtistTrack(nextNode.name, nextNode.id)
-            .then((t) => { if (t) trackCache.current.set(nextNode.id, t); })
+            .then((t) => {
+              if (t) {
+                trackCache.current.set(nextNode.id, t);
+                if (t.albumImage) prefetchArtwork(t.albumImage);
+              }
+            })
             .catch(() => {});
         }
       } else {
