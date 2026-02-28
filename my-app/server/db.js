@@ -162,6 +162,18 @@ function initSchema() {
       link_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS friendships (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      addressee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT DEFAULT (datetime('now')),
+      accepted_at TEXT,
+      UNIQUE(requester_id, addressee_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_id);
+    CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id);
   `);
 
   // --- Migrations for existing databases ---
@@ -519,6 +531,89 @@ function getUniverseArtistHash(userId) {
   return row?.artist_hash || null;
 }
 
+// --- Friendship helpers ---
+
+function sendFriendRequest(requesterId, addresseeId) {
+  try {
+    getDb().prepare(`
+      INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?, ?, 'pending')
+    `).run(requesterId, addresseeId);
+    return { ok: true };
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint')) return { ok: false, error: 'Request already exists' };
+    throw err;
+  }
+}
+
+function acceptFriendRequest(requesterId, addresseeId) {
+  const result = getDb().prepare(`
+    UPDATE friendships SET status = 'accepted', accepted_at = datetime('now')
+    WHERE requester_id = ? AND addressee_id = ? AND status = 'pending'
+  `).run(requesterId, addresseeId);
+  return result.changes > 0;
+}
+
+function rejectFriendRequest(requesterId, addresseeId) {
+  const result = getDb().prepare(`
+    DELETE FROM friendships
+    WHERE requester_id = ? AND addressee_id = ? AND status = 'pending'
+  `).run(requesterId, addresseeId);
+  return result.changes > 0;
+}
+
+function removeFriend(userId1, userId2) {
+  const result = getDb().prepare(`
+    DELETE FROM friendships
+    WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)
+  `).run(userId1, userId2, userId2, userId1);
+  return result.changes > 0;
+}
+
+function getFriends(userId) {
+  return getDb().prepare(`
+    SELECT u.id, u.display_name, u.username, f.accepted_at
+    FROM friendships f
+    JOIN users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
+    WHERE (f.requester_id = ? OR f.addressee_id = ?) AND f.status = 'accepted'
+    ORDER BY f.accepted_at DESC
+  `).all(userId, userId, userId);
+}
+
+function getIncomingRequests(userId) {
+  return getDb().prepare(`
+    SELECT u.id, u.display_name, u.username, f.created_at
+    FROM friendships f
+    JOIN users u ON u.id = f.requester_id
+    WHERE f.addressee_id = ? AND f.status = 'pending'
+    ORDER BY f.created_at DESC
+  `).all(userId);
+}
+
+function getSentRequests(userId) {
+  return getDb().prepare(`
+    SELECT u.id, u.display_name, u.username, f.created_at
+    FROM friendships f
+    JOIN users u ON u.id = f.addressee_id
+    WHERE f.requester_id = ? AND f.status = 'pending'
+    ORDER BY f.created_at DESC
+  `).all(userId);
+}
+
+function getFriendship(userId1, userId2) {
+  return getDb().prepare(`
+    SELECT * FROM friendships
+    WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)
+  `).get(userId1, userId2, userId2, userId1);
+}
+
+function searchUsersByUsername(query, excludeUserId) {
+  return getDb().prepare(`
+    SELECT id, display_name, username FROM users
+    WHERE username LIKE ? AND id != ? AND username IS NOT NULL
+    LIMIT 10
+  `).all(`%${query}%`, excludeUserId);
+}
+
 module.exports = {
   getDb,
   createUser,
@@ -568,4 +663,13 @@ module.exports = {
   upsertUniverseSnapshot,
   setUniverseStatus,
   getUniverseArtistHash,
+  sendFriendRequest,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  removeFriend,
+  getFriends,
+  getIncomingRequests,
+  getSentRequests,
+  getFriendship,
+  searchUsersByUsername,
 };

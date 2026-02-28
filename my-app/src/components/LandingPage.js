@@ -12,6 +12,7 @@ import SavedMapsSection from './SavedMapsSection';
 import MyUniverseSection from './MyUniverseSection';
 import FavoritesSection from './FavoritesSection';
 import DiscoveredSection from './DiscoveredSection';
+import FriendsSection from './FriendsSection';
 import ImportLocalMapsPrompt from './ImportLocalMapsPrompt';
 import '../styles/landing.css';
 
@@ -91,6 +92,7 @@ function LandingPage() {
         <SavedMapsSection />
         <DiscoveredSection />
         <FavoritesSection />
+        <FriendsSection />
         <ImportLocalMapsPrompt />
       </div>
 

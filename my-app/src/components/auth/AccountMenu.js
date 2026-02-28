@@ -4,9 +4,10 @@ import { getSavedMaps } from '../../utils/savedMapsStorage';
 import { importMaps } from '../../api/authClient';
 import { STORAGE_KEY } from '../../utils/constants';
 import '../../styles/auth.css';
+import '../../styles/friends.css';
 
 function AccountMenu({ onClose }) {
-  const { user } = useAuth();
+  const { user, friendRequests } = useAuth();
   const { logout } = useAuthActions();
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -64,6 +65,19 @@ function AccountMenu({ onClose }) {
       {importResult && (
         <div className="account-menu-item account-menu-import-result">
           {importResult}
+        </div>
+      )}
+
+      {friendRequests.length > 0 && (
+        <div className="account-menu-item account-menu-friends-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          Friend Requests
+          <span className="account-menu-friend-badge">{friendRequests.length}</span>
         </div>
       )}
 
