@@ -123,7 +123,7 @@ function AuthModal() {
             <p className="auth-forgot-success-sub">If an account exists with that email, you'll receive instructions to reset your password.</p>
           </div>
         ) : (
-          <form className="auth-form" onSubmit={handleSubmit}>
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
             {tab === 'register' && (
               <>
                 <div className="auth-field">
@@ -150,8 +150,7 @@ function AuthModal() {
                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
                     placeholder="your_username"
                     maxLength={20}
-                    required
-                    autoComplete="username"
+                    autoComplete="off"
                   />
                   {usernameStatus === 'checking' && <span className="auth-field-hint">Checking...</span>}
                   {usernameStatus === 'available' && <span className="auth-field-hint auth-field-success">Available</span>}
