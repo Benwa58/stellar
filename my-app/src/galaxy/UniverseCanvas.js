@@ -205,6 +205,25 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     return stateRef.current.allLinks || [];
   }, []);
 
+  // Capture canvas as a PNG data URL with optional watermark
+  const captureImage = useCallback((options = {}) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    if (options.watermark) {
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      ctx.save();
+      ctx.font = `600 ${14 * dpr}px 'Space Grotesk', sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.textAlign = 'right';
+      ctx.fillText('Stellar', canvas.width - 16 * dpr, canvas.height - 12 * dpr);
+      ctx.restore();
+    }
+
+    return canvas.toDataURL('image/png');
+  }, []);
+
   const followNode = useCallback((node) => {
     if (!node || size.width === 0) return;
     const targetScale = clamp(1.5, 0.05, 8);
@@ -224,7 +243,8 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     followNode,
     getNodes,
     getLinks,
-  }), [fitAll, zoomToCluster, zoomBy, zoomToNode, followNode, getNodes, getLinks]);
+    captureImage,
+  }), [fitAll, zoomToCluster, zoomBy, zoomToNode, followNode, getNodes, getLinks, captureImage]);
 
   // Set up canvas, renderer, and interactions
   useEffect(() => {

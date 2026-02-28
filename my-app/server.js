@@ -110,6 +110,7 @@ app.use('/api/known-artists', require('./server/knownArtists'));
 app.use('/api/discovered-artists', require('./server/discoveredArtists'));
 app.use('/api/playlists', require('./server/playlists'));
 app.use('/api/galaxy-shares', require('./server/galaxyShares'));
+app.use('/api/universe-shares', require('./server/universeShares'));
 app.use('/api/universe', require('./server/universe'));
 
 // --- Static files from React build ---
@@ -166,6 +167,45 @@ app.get('*path', (req, res) => {
       }
     } catch (err) {
       console.error('OG meta injection error:', err.message);
+      // Fall through to normal SPA serving
+    }
+  }
+
+  // Check if this is a shared universe page — inject OG meta tags for link previews
+  const universeMatch = req.path.match(/^\/universe\/([a-f0-9-]+)$/);
+  if (universeMatch) {
+    try {
+      const share = db.getSharedUniverse(universeMatch[1]);
+      if (share) {
+        let html = fs.readFileSync(indexPath, 'utf8');
+        const origin = `${req.protocol}://${req.get('host')}`;
+        const shareUrl = `${origin}/universe/${share.id}`;
+        const imageUrl = `${origin}/api/universe-shares/${share.id}/image`;
+        const description = `A universe of ${share.node_count} artists and ${share.link_count} connections. Explore it on Stellar.`;
+
+        const ogTags = `
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="${share.map_name.replace(/"/g, '&quot;')} — Stellar" />
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}" />
+    <meta property="og:image" content="${imageUrl}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="${shareUrl}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${share.map_name.replace(/"/g, '&quot;')} — Stellar" />
+    <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}" />
+    <meta name="twitter:image" content="${imageUrl}" />`;
+
+        html = html.replace('</head>', `${ogTags}\n  </head>`);
+        html = html.replace(
+          /<title>.*?<\/title>/,
+          `<title>${share.map_name.replace(/</g, '&lt;')} — Stellar</title>`
+        );
+
+        return res.set('Cache-Control', 'no-cache').type('html').send(html);
+      }
+    } catch (err) {
+      console.error('Universe OG meta injection error:', err.message);
       // Fall through to normal SPA serving
     }
   }

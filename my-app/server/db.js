@@ -144,6 +144,17 @@ function initSchema() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_universe_user ON universe_snapshots(user_id);
+
+    CREATE TABLE IF NOT EXISTS shared_universes (
+      id TEXT PRIMARY KEY,
+      owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      map_name TEXT NOT NULL,
+      universe_data TEXT NOT NULL,
+      thumbnail BLOB,
+      node_count INTEGER NOT NULL DEFAULT 0,
+      link_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // --- Migrations for existing databases ---
@@ -403,6 +414,23 @@ function getSharedGalaxy(id) {
   return getDb().prepare('SELECT * FROM shared_galaxies WHERE id = ?').get(id);
 }
 
+// --- Shared universe helpers ---
+
+function createSharedUniverse(id, { mapName, universeData, nodeCount, linkCount, ownerUserId, thumbnail }) {
+  getDb().prepare(`
+    INSERT INTO shared_universes (id, owner_user_id, map_name, universe_data, thumbnail, node_count, link_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, ownerUserId || null, mapName, JSON.stringify(universeData), thumbnail || null, nodeCount || 0, linkCount || 0);
+}
+
+function getSharedUniverseThumbnail(id) {
+  return getDb().prepare('SELECT thumbnail FROM shared_universes WHERE id = ?').get(id);
+}
+
+function getSharedUniverse(id) {
+  return getDb().prepare('SELECT * FROM shared_universes WHERE id = ?').get(id);
+}
+
 // --- Universe snapshot helpers ---
 
 function getUniverseSnapshot(userId) {
@@ -494,6 +522,9 @@ module.exports = {
   createSharedGalaxy,
   getSharedGalaxy,
   getSharedGalaxyThumbnail,
+  createSharedUniverse,
+  getSharedUniverse,
+  getSharedUniverseThumbnail,
   getUniverseSnapshot,
   upsertUniverseSnapshot,
   setUniverseStatus,

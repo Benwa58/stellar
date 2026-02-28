@@ -331,3 +331,19 @@ export function getGalaxyShare(id) {
     return res.json();
   });
 }
+
+// --- Shared Universe Maps API ---
+
+export function createUniverseShare(data) {
+  return authFetch('/api/universe-shares', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function getUniverseShare(id) {
+  return fetch(`${API_BASE}/api/universe-shares/${id}`).then((res) => {
+    if (!res.ok) throw new Error('Universe not found');
+    return res.json();
+  });
+}

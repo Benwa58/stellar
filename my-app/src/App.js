@@ -8,6 +8,7 @@ import GalaxyView from './components/GalaxyView';
 import UniverseView from './components/UniverseView';
 import SharePage from './components/SharePage';
 import ShareGalaxyPage from './components/ShareGalaxyPage';
+import ShareUniversePage from './components/ShareUniversePage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import AuthModal from './components/auth/AuthModal';
 import './App.css';
@@ -28,6 +29,12 @@ function AppContent() {
     return match ? match[1] : null;
   });
 
+  // Universe share page routing
+  const [universeShareId] = useState(() => {
+    const match = window.location.pathname.match(/^\/universe\/([a-f0-9-]+)$/);
+    return match ? match[1] : null;
+  });
+
   // Password reset page routing
   const [resetToken] = useState(() => {
     if (window.location.pathname === '/reset-password') {
@@ -45,6 +52,11 @@ function AppContent() {
   // Render galaxy share page if URL matches /galaxy/:id
   if (galaxyShareId) {
     return <ShareGalaxyPage galaxyId={galaxyShareId} />;
+  }
+
+  // Render universe share page if URL matches /universe/:id
+  if (universeShareId) {
+    return <ShareUniversePage universeId={universeShareId} />;
   }
 
   // Render reset password page if URL matches /reset-password?token=...
