@@ -227,42 +227,52 @@ function optionalAuth(req, res, next) {
 
 // GET /api/auth/check-username?username=...
 router.get('/check-username', (req, res) => {
-  const { username } = req.query;
-  const validationError = validateUsername(username);
-  if (validationError) {
-    return res.json({ available: false, error: validationError });
+  try {
+    const { username } = req.query;
+    const validationError = validateUsername(username);
+    if (validationError) {
+      return res.json({ available: false, error: validationError });
+    }
+    const existing = db.getUserByUsername(username.toLowerCase());
+    res.json({ available: !existing });
+  } catch (err) {
+    console.error('Check username error:', err);
+    res.status(500).json({ error: 'Failed to check username: ' + err.message });
   }
-  const existing = db.getUserByUsername(username.toLowerCase());
-  res.json({ available: !existing });
 });
 
 // POST /api/auth/set-username  (for existing users who don't have one yet)
 router.post('/set-username', requireAuth, (req, res) => {
-  const { username } = req.body;
-  const validationError = validateUsername(username);
-  if (validationError) {
-    return res.status(400).json({ error: validationError });
-  }
-
-  const user = db.getUserById(req.userId);
-  if (!user) return res.status(401).json({ error: 'User not found' });
-  if (user.username) return res.status(400).json({ error: 'Username already set.' });
-
-  const lower = username.toLowerCase();
-  const existing = db.getUserByUsername(lower);
-  if (existing) return res.status(409).json({ error: 'That username is taken.' });
-
   try {
-    db.updateUsername(req.userId, lower);
-  } catch (err) {
-    if (err.message.includes('UNIQUE constraint')) {
-      return res.status(409).json({ error: 'That username is taken.' });
+    const { username } = req.body;
+    const validationError = validateUsername(username);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
-    throw err;
-  }
 
-  const updated = db.getUserById(req.userId);
-  res.json({ user: sanitizeUser(updated) });
+    const user = db.getUserById(req.userId);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    if (user.username) return res.status(400).json({ error: 'Username already set.' });
+
+    const lower = username.toLowerCase();
+    const existing = db.getUserByUsername(lower);
+    if (existing) return res.status(409).json({ error: 'That username is taken.' });
+
+    try {
+      db.updateUsername(req.userId, lower);
+    } catch (err) {
+      if (err.message.includes('UNIQUE constraint')) {
+        return res.status(409).json({ error: 'That username is taken.' });
+      }
+      throw err;
+    }
+
+    const updated = db.getUserById(req.userId);
+    res.json({ user: sanitizeUser(updated) });
+  } catch (err) {
+    console.error('Set username error:', err);
+    res.status(500).json({ error: 'Failed to set username: ' + err.message });
+  }
 });
 
 // POST /api/auth/register
