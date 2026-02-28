@@ -84,6 +84,15 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
   // recreation, which causes the Now Playing widget to fall back to the site icon.
   const artworkBlobCache = useRef(new Map());
 
+  // Deduplicate in-flight artwork fetches so rapid track changes don't
+  // kick off multiple fetches for the same URL.
+  const artworkCachePromises = useRef(new Map());
+
+  // Debounce timer for lock-screen metadata updates.  During rapid skipping
+  // we defer the MediaMetadata rebuild until the user settles on a track,
+  // avoiding the iOS Now Playing widget teardown/rebuild flicker.
+  const metadataTimerRef = useRef(null);
+
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
@@ -135,15 +144,14 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
       isPlayingRef.current = false;
     }
 
-    // Re-apply media session metadata when audio actually starts playing.
-    // On iOS, the browser can reset metadata during source transitions,
-    // so we need to re-set it once playback genuinely begins.
-    // Only the primary player (ownsMediaSession) should touch metadata,
-    // and only when the track has actually changed (not on resume — resuming
-    // with a metadata recreate causes iOS to tear down the Now Playing widget).
+    // Handle the 'playing' event from the audio element.
+    // During rapid track changes a debounced timer (scheduleMetadataUpdate)
+    // handles metadata, so we skip metadata here when a timer is pending.
+    // On resume (no pending timer) we re-apply metadata in case iOS tore
+    // down the Now Playing widget during an interruption (phone call, Siri).
     function onPlaying() {
       switchingTrackRef.current = false;
-      if (ownsMediaSessionRef.current && currentTrackRef.current) {
+      if (!metadataTimerRef.current && ownsMediaSessionRef.current && currentTrackRef.current) {
         if (currentTrackRef.current.id !== lastMetadataTrackIdRef.current) {
           updateMediaSessionRef.current(currentTrackRef.current);
           lastMetadataTrackIdRef.current = currentTrackRef.current.id;
@@ -185,6 +193,12 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
       audio.removeEventListener('pause', onAudioPause);
       audio.pause();
       audio.src = '';
+      // Clear pending metadata debounce timer
+      if (metadataTimerRef.current) {
+        clearTimeout(metadataTimerRef.current);
+        metadataTimerRef.current = null;
+      }
+      artworkCachePromises.current.clear();
       // Revoke cached blob URLs
       for (const blobUrl of artworkBlobCache.current.values()) {
         URL.revokeObjectURL(blobUrl);
@@ -195,15 +209,22 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
 
   // Pre-fetch artwork image as blob URL to prevent iOS re-fetch flicker.
   // Returns a promise that resolves when the blob is cached (or on failure).
+  // Deduplicates concurrent fetches for the same URL.
   const cacheArtwork = useCallback((url) => {
     if (!url) return Promise.resolve();
     if (artworkBlobCache.current.has(url)) return Promise.resolve();
-    return fetch(url)
+    if (artworkCachePromises.current.has(url)) return artworkCachePromises.current.get(url);
+    const promise = fetch(url)
       .then((r) => r.blob())
       .then((blob) => {
         artworkBlobCache.current.set(url, URL.createObjectURL(blob));
       })
-      .catch(() => {}); // fall back to original URL
+      .catch(() => {}) // fall back to original URL
+      .finally(() => {
+        artworkCachePromises.current.delete(url);
+      });
+    artworkCachePromises.current.set(url, promise);
+    return promise;
   }, []);
 
   // Update lock screen / MediaSession metadata.
@@ -245,6 +266,42 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     }
   }, []);
   updateMediaSessionRef.current = updateMediaSession;
+
+  // Schedule a debounced metadata update for the lock screen.
+  // During rapid track changes this avoids repeatedly tearing down and
+  // rebuilding the iOS Now Playing widget (which causes flicker / fallback
+  // to the site icon).  Only the "settled" track gets its metadata pushed.
+  const scheduleMetadataUpdate = useCallback((track) => {
+    if (!ownsMediaSessionRef.current) return;
+    if (metadataTimerRef.current) {
+      clearTimeout(metadataTimerRef.current);
+      metadataTimerRef.current = null;
+    }
+
+    // Start caching artwork immediately so it's likely ready when the timer fires
+    if (track.albumImage) cacheArtwork(track.albumImage);
+
+    // First track ever: update immediately. Subsequent: debounce 300ms.
+    const delay = lastMetadataTrackIdRef.current ? 300 : 0;
+
+    metadataTimerRef.current = setTimeout(() => {
+      metadataTimerRef.current = null;
+      // Only update if this track is still the current one
+      if (currentTrackRef.current?.id !== track.id) return;
+
+      updateMediaSession(track);
+      lastMetadataTrackIdRef.current = track.id;
+
+      // If artwork blob still isn't cached, wait for it and re-apply once ready
+      if (track.albumImage && !artworkBlobCache.current.has(track.albumImage)) {
+        cacheArtwork(track.albumImage).then(() => {
+          if (currentTrackRef.current?.id === track.id) {
+            updateMediaSession(track);
+          }
+        });
+      }
+    }, delay);
+  }, [updateMediaSession, cacheArtwork]);
 
   // Wire up MediaSession action handlers (play, pause, next, prev, seek).
   // Only the primary player instance (ownsMediaSession) should register these —
@@ -369,27 +426,15 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     isPlayingRef.current = true;
     setProgress(0);
 
-    // Set metadata after play() resolves so iOS sees an active session.
-    audio.play()
-      .then(() => {
-        updateMediaSession(track);
-        lastMetadataTrackIdRef.current = track.id;
-      })
-      .catch((err) => {
-        console.warn('[play] new track play() failed:', err);
-      });
+    audio.play().catch((err) => {
+      console.warn('[play] new track play() failed:', err);
+    });
 
-    // Cache artwork blob, then re-set metadata with the blob URL so the
-    // lock screen gets the proper image instead of falling back to the site icon.
-    if (track.albumImage) {
-      cacheArtwork(track.albumImage).then(() => {
-        if (currentTrackRef.current?.id === track.id) {
-          updateMediaSession(track);
-          lastMetadataTrackIdRef.current = track.id;
-        }
-      });
-    }
-  }, [updateMediaSession, cacheArtwork]);
+    // Debounced metadata update — avoids rapid lock-screen churn on iOS.
+    // Artwork caching starts immediately inside scheduleMetadataUpdate so
+    // the blob is likely ready by the time the debounce timer fires.
+    scheduleMetadataUpdate(track);
+  }, [scheduleMetadataUpdate]);
 
   const pause = useCallback(() => {
     const audio = audioRef.current;
@@ -429,5 +474,5 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     }
   }, []);
 
-  return { currentTrack, isPlaying, progress, duration, play, pause, toggle, seek };
+  return { currentTrack, isPlaying, progress, duration, play, pause, toggle, seek, prefetchArtwork: cacheArtwork };
 }
