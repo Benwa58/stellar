@@ -58,6 +58,19 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
   const navigatingFromClickRef = useRef(false);
   const silentSyncRef = useRef(false);
 
+  // Track current index imperatively so lock-screen handlers (which fire
+  // while React effects are suspended on iOS) can compute the next index.
+  const currentIndexRef = useRef(-1);
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+
+  // Ref for navigateToIndex — handlers are defined before it, so they
+  // call through the ref to avoid a circular dependency.
+  const navigateToIndexRef = useRef(null);
+
+  // When a handler calls navigateToIndex directly, this flag prevents
+  // the useEffect from triggering a duplicate navigation.
+  const directNavRef = useRef(false);
+
   // Select node — dispatches to Redux or calls external handler
   const selectNode = useCallback((node) => {
     if (externalMode) {
@@ -92,26 +105,38 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
     return mode === 'shuffle' ? shuffleOrder.current : sequentialOrder.current;
   }, [mode]);
 
-  // Auto-advance handler
+  // Auto-advance / next / prev handlers.
+  // These call navigateToIndex directly (via ref) so that lock-screen and
+  // auto-advance playback works even when the app is backgrounded on iOS
+  // (where React effects are suspended and would never trigger navigation).
   const handleAutoAdvance = useCallback(() => {
     const playlist = mode === 'shuffle' ? shuffleOrder.current : sequentialOrder.current;
     if (playlist.length === 0) return;
-    setCurrentIndex((prev) => {
-      const next = prev + 1 < playlist.length ? prev + 1 : 0;
-      return next;
-    });
+    const next = currentIndexRef.current + 1 < playlist.length ? currentIndexRef.current + 1 : 0;
+    currentIndexRef.current = next;
+    directNavRef.current = true;
+    setCurrentIndex(next);
+    navigateToIndexRef.current?.(next);
   }, [mode]);
 
   const handleNext = useCallback(() => {
     const playlist = getPlaylist();
     if (playlist.length === 0) return;
-    setCurrentIndex((prev) => (prev + 1 < playlist.length ? prev + 1 : 0));
+    const next = currentIndexRef.current + 1 < playlist.length ? currentIndexRef.current + 1 : 0;
+    currentIndexRef.current = next;
+    directNavRef.current = true;
+    setCurrentIndex(next);
+    navigateToIndexRef.current?.(next);
   }, [getPlaylist]);
 
   const handlePrev = useCallback(() => {
     const playlist = getPlaylist();
     if (playlist.length === 0) return;
-    setCurrentIndex((prev) => (prev - 1 >= 0 ? prev - 1 : playlist.length - 1));
+    const next = currentIndexRef.current - 1 >= 0 ? currentIndexRef.current - 1 : playlist.length - 1;
+    currentIndexRef.current = next;
+    directNavRef.current = true;
+    setCurrentIndex(next);
+    navigateToIndexRef.current?.(next);
   }, [getPlaylist]);
 
   const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek, prefetchArtwork } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev, mediaSession: true });
@@ -214,14 +239,20 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
         }
       }
     },
-    [mode, selectNode, audioPlay, canvasRef]
+    [mode, selectNode, audioPlay, canvasRef, prefetchArtwork]
   );
+  navigateToIndexRef.current = navigateToIndex;
 
-  // React to currentIndex changes
+  // React to currentIndex changes (fallback for state updates that don't
+  // come from the direct-nav handlers, e.g. clicking a node on the canvas).
   useEffect(() => {
     if (currentIndex >= 0 && isActive) {
       if (silentSyncRef.current) {
         silentSyncRef.current = false;
+        return;
+      }
+      if (directNavRef.current) {
+        directNavRef.current = false;
         return;
       }
       navigateToIndex(currentIndex);
