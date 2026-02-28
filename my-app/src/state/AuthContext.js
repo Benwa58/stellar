@@ -268,14 +268,15 @@ export function useAuthActions() {
     let res;
     try {
       res = await authApi.setUsername(username);
-    } catch {
-      throw new Error('Could not reach the server. Please try again.');
+    } catch (err) {
+      throw new Error('Could not reach the server: ' + (err.message || 'unknown error'));
     }
+    const text = await res.text();
     let data;
     try {
-      data = await res.json();
+      data = JSON.parse(text);
     } catch {
-      throw new Error('Server returned an unexpected response. Please try again.');
+      throw new Error(`Server error (${res.status}): ${text.slice(0, 200)}`);
     }
     if (!res.ok) throw new Error(data.error || 'Failed to set username');
     dispatch({ type: 'SET_USER', user: data.user });
