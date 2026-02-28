@@ -360,3 +360,46 @@ export function getUniverseShare(id) {
     return res.json();
   });
 }
+
+// --- Friends API ---
+
+export function getFriends() {
+  return authFetch('/api/friends');
+}
+
+export function getFriendRequests() {
+  return authFetch('/api/friends/requests');
+}
+
+export function getSentRequests() {
+  return authFetch('/api/friends/sent');
+}
+
+export function sendFriendRequest(username) {
+  return authFetch('/api/friends/request', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function acceptFriendRequest(userId) {
+  return authFetch('/api/friends/accept', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export function rejectFriendRequest(userId) {
+  return authFetch('/api/friends/reject', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export function removeFriend(userId) {
+  return authFetch(`/api/friends/${userId}`, { method: 'DELETE' });
+}
+
+export function searchUsers(query) {
+  return authFetch(`/api/friends/search?q=${encodeURIComponent(query)}`);
+}

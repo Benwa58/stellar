@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth, useAuthActions } from '../state/AuthContext';
-import { searchUsers } from '../api/friendsClient';
+import { searchUsers } from '../api/authClient';
 import '../styles/friends.css';
 
 function AddFriendModal({ onClose }) {
