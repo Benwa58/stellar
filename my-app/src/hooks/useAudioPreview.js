@@ -98,6 +98,11 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
   // double-advance.  Reset when a new track starts playing.
   const earlyAdvanceFiredRef = useRef(false);
 
+  // Callable ref: re-registers this instance's MediaSession handlers.
+  // Used by play()/toggle() to reclaim lock-screen controls when multiple
+  // useAudioPreview instances have mediaSession: true (e.g. explore vs playlist).
+  const registerMediaHandlersRef = useRef(null);
+
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
@@ -336,9 +341,9 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
   }, [updateMediaSession, cacheArtwork]);
 
   // Wire up MediaSession action handlers (play, pause, next, prev, seek).
-  // Only the primary player instance (ownsMediaSession) should register these —
-  // otherwise secondary instances (ArtistDetailPanel, etc.) overwrite the handlers
-  // and lock screen controls route to the wrong audio element.
+  // Instances with mediaSession: true register these handlers.  When multiple
+  // instances coexist (e.g. explore + playlist), play()/toggle() re-call
+  // registerMediaHandlersRef so the *last player to start* owns the lock screen.
   useEffect(() => {
     if (!ownsMediaSession || !('mediaSession' in navigator)) return;
 
@@ -352,9 +357,6 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
       'previoustrack', 'nexttrack',
       'skipad',
     ];
-    for (const action of allKnownActions) {
-      try { navigator.mediaSession.setActionHandler(action, null); } catch {}
-    }
 
     // ── Handlers ───────────────────────────────────────────────────
     const playHandler = () => {
@@ -415,13 +417,22 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
       ['seekto', seekHandler],
     ];
 
-    for (const [action, handler] of handlers) {
-      try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
-    }
+    const registerHandlers = () => {
+      for (const action of allKnownActions) {
+        try { navigator.mediaSession.setActionHandler(action, null); } catch {}
+      }
+      for (const [action, handler] of handlers) {
+        try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
+      }
+    };
+
+    registerMediaHandlersRef.current = registerHandlers;
+    registerHandlers();
 
     console.info('[MediaSession] handlers registered — nexttrack/previoustrack active, seekforward/seekbackward cleared');
 
     return () => {
+      registerMediaHandlersRef.current = null;
       for (const [action] of handlers) {
         try { navigator.mediaSession.setActionHandler(action, null); } catch {}
       }
@@ -444,6 +455,8 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
       audio.play().catch((err) => {
         console.warn('[play] resume failed:', err);
       });
+      // Reclaim lock-screen handlers in case another player took over.
+      registerMediaHandlersRef.current?.();
       return;
     }
 
@@ -473,6 +486,9 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     // Artwork caching starts immediately inside scheduleMetadataUpdate so
     // the blob is likely ready by the time the debounce timer fires.
     scheduleMetadataUpdate(track);
+
+    // Reclaim lock-screen handlers in case another player took over.
+    registerMediaHandlersRef.current?.();
   }, [scheduleMetadataUpdate]);
 
   const pause = useCallback(() => {
@@ -502,6 +518,9 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
       audio.play().catch((err) => {
         console.warn('[toggle] resume failed:', err);
       });
+
+      // Reclaim lock-screen handlers in case another player took over.
+      registerMediaHandlersRef.current?.();
     }
   }, [pause]);
 
