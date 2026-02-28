@@ -95,6 +95,14 @@ function ExportDrawer({ onClose, seedArtists, overrideNodes, showRecsOnlyFilter 
     for (let i = currentIdx + 1; i < list.length; i++) {
       if (list[i].previewUrl) {
         audioInstanceRef.current?.play(list[i]);
+        // Pre-load the track after this one so it's ready for the next
+        // transition — critical for iOS lock screen where network is throttled.
+        for (let j = i + 1; j < list.length; j++) {
+          if (list[j].previewUrl) {
+            audioInstanceRef.current?.preloadAudio(list[j].previewUrl);
+            break;
+          }
+        }
         return;
       }
     }
@@ -198,6 +206,17 @@ function ExportDrawer({ onClose, seedArtists, overrideNodes, showRecsOnlyFilter 
       } else {
         audio.play(track);
         autoplayStartedRef.current = true;
+        // Pre-load the next track's audio so it's ready for auto-advance
+        const list = trackListRef.current;
+        const idx = list.findIndex((t) => t.id === track.id);
+        if (idx >= 0) {
+          for (let i = idx + 1; i < list.length; i++) {
+            if (list[i].previewUrl) {
+              audio.preloadAudio(list[i].previewUrl);
+              break;
+            }
+          }
+        }
       }
     },
     [audio]

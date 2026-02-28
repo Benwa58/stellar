@@ -139,7 +139,7 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
     navigateToIndexRef.current?.(next);
   }, [getPlaylist]);
 
-  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek, prefetchArtwork } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev, mediaSession: true });
+  const { isPlaying, progress, play: audioPlay, toggle: audioToggle, seek: audioSeek, prefetchArtwork, preloadAudio } = useAudioPreview({ onEnded: handleAutoAdvance, onNext: handleNext, onPrev: handlePrev, mediaSession: true });
 
   // Clear playlists when galaxy data changes (will rebuild on play start)
   useEffect(() => {
@@ -215,18 +215,27 @@ function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSel
         audioPlay(track);
         skipCountRef.current = 0;
 
-        // Pre-fetch next track and its artwork so metadata is ready instantly
+        // Pre-fetch next track metadata, artwork, AND audio data so the
+        // transition is instant — especially on iOS lock screen where
+        // network requests are throttled and play() would otherwise fail.
         const nextIdx = index + 1 < playlist.length ? index + 1 : 0;
         const nextNode = playlist[nextIdx];
-        if (nextNode && !trackCache.current.has(nextNode.id)) {
-          findArtistTrack(nextNode.name, nextNode.id)
-            .then((t) => {
-              if (t) {
-                trackCache.current.set(nextNode.id, t);
-                if (t.albumImage) prefetchArtwork(t.albumImage);
-              }
-            })
-            .catch(() => {});
+        if (nextNode) {
+          const cachedNext = trackCache.current.get(nextNode.id);
+          if (cachedNext) {
+            // Already have metadata — just pre-load audio
+            if (cachedNext.previewUrl) preloadAudio(cachedNext.previewUrl);
+          } else {
+            findArtistTrack(nextNode.name, nextNode.id)
+              .then((t) => {
+                if (t) {
+                  trackCache.current.set(nextNode.id, t);
+                  if (t.albumImage) prefetchArtwork(t.albumImage);
+                  if (t.previewUrl) preloadAudio(t.previewUrl);
+                }
+              })
+              .catch(() => {});
+          }
         }
       } else {
         // Skip nodes without previews

@@ -88,6 +88,11 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
   // kick off multiple fetches for the same URL.
   const artworkCachePromises = useRef(new Map());
 
+  // Cache pre-loaded audio preview data as blob URLs so iOS can start
+  // playback instantly on lock screen without waiting for a network fetch.
+  const audioBlobCache = useRef(new Map());
+  const audioBlobPromises = useRef(new Map());
+
   // Debounce timer for lock-screen metadata updates.  During rapid skipping
   // we defer the MediaMetadata rebuild until the user settles on a track,
   // avoiding the iOS Now Playing widget teardown/rebuild flicker.
@@ -133,10 +138,20 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     }
 
     function onEnded() {
-      setIsPlaying(false);
-      isPlayingRef.current = false;
       setProgress(0);
-      if (onEndedRef.current) onEndedRef.current();
+      // Call the auto-advance callback FIRST, before marking playback as
+      // stopped.  This lets the callback synchronously start the next track
+      // (via play()), keeping the iOS audio session alive across transitions.
+      // If we set isPlaying=false first, iOS may deactivate the session and
+      // reject the subsequent play() call on the lock screen.
+      if (onEndedRef.current) {
+        onEndedRef.current();
+      }
+      // If the callback started a new track, play() already set
+      // isPlayingRef to true — don't overwrite it.
+      if (!isPlayingRef.current) {
+        setIsPlaying(false);
+      }
     }
 
     function onError() {
@@ -204,7 +219,31 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
         URL.revokeObjectURL(blobUrl);
       }
       artworkBlobCache.current.clear();
+      audioBlobPromises.current.clear();
+      for (const blobUrl of audioBlobCache.current.values()) {
+        URL.revokeObjectURL(blobUrl);
+      }
+      audioBlobCache.current.clear();
     };
+  }, []);
+
+  // Pre-load audio preview data as a blob URL.  When the next track's
+  // audio is already in memory, play() can start instantly on iOS lock
+  // screen without waiting for a network fetch (which iOS throttles).
+  const preloadAudio = useCallback((url) => {
+    if (!url || audioBlobCache.current.has(url)) return Promise.resolve();
+    if (audioBlobPromises.current.has(url)) return audioBlobPromises.current.get(url);
+    const promise = fetch(url)
+      .then((r) => r.blob())
+      .then((blob) => {
+        audioBlobCache.current.set(url, URL.createObjectURL(blob));
+      })
+      .catch(() => {}) // fall back to network URL
+      .finally(() => {
+        audioBlobPromises.current.delete(url);
+      });
+    audioBlobPromises.current.set(url, promise);
+    return promise;
   }, []);
 
   // Pre-fetch artwork image as blob URL to prevent iOS re-fetch flicker.
@@ -400,13 +439,17 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     const audio = audioRef.current;
     if (!audio || !track?.previewUrl) return;
 
+    // Use pre-loaded blob URL if available — avoids network fetch on iOS
+    // lock screen where requests are throttled / blocked.
+    const effectiveUrl = audioBlobCache.current.get(track.previewUrl) || track.previewUrl;
+
     // Resume same track — don't touch metadata (avoids iOS widget reset).
     // Native 'play' event on the audio element will sync isPlaying state.
     if (currentTrackRef.current?.id === track.id && !isPlayingRef.current) {
       // If iOS released the source while backgrounded, reload it.
       if (audio.readyState === 0) {
         console.info('[play] audio source lost — reloading for resume');
-        audio.src = track.previewUrl;
+        audio.src = effectiveUrl;
         audio.load();
       }
       audio.play().catch((err) => {
@@ -418,7 +461,7 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     // Play new track — mark switching so native pause/play events from the
     // source change don't briefly desync isPlaying state.
     switchingTrackRef.current = true;
-    audio.src = track.previewUrl;
+    audio.src = effectiveUrl;
     audio.load();
     setCurrentTrack(track);
     currentTrackRef.current = track;
@@ -428,6 +471,11 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
 
     audio.play().catch((err) => {
       console.warn('[play] new track play() failed:', err);
+      // Clean up state so we don't get stuck with isPlaying=true
+      // and switchingTrackRef=true when play is rejected.
+      switchingTrackRef.current = false;
+      setIsPlaying(false);
+      isPlayingRef.current = false;
     });
 
     // Debounced metadata update — avoids rapid lock-screen churn on iOS.
@@ -474,5 +522,5 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     }
   }, []);
 
-  return { currentTrack, isPlaying, progress, duration, play, pause, toggle, seek, prefetchArtwork: cacheArtwork };
+  return { currentTrack, isPlaying, progress, duration, play, pause, toggle, seek, prefetchArtwork: cacheArtwork, preloadAudio };
 }
