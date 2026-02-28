@@ -616,6 +616,7 @@
   }
 
   .panel-genres {
+    width: 100%;
     gap: 4px;
     justify-content: flex-start;
   }
