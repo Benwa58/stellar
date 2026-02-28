@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppState, useDispatch } from '../state/AppContext';
+import { useAuth } from '../state/AuthContext';
 import { SELECT_NODE } from '../state/actions';
 import { useAudioPreview } from '../hooks/useAudioPreview';
 import { findArtistTrack } from '../api/musicClient';
@@ -33,15 +34,21 @@ function buildShuffleOrder(nodes) {
 
 const MAX_CONSECUTIVE_SKIPS = 5;
 
-function GalaxyPlayerController({ canvasRef }) {
-  const { selectedNode, galaxyData } = useAppState();
+function GalaxyPlayerController({ canvasRef, externalSelectedNode, onExternalSelectNode, portalSelector }) {
+  const { selectedNode: reduxSelectedNode, galaxyData } = useAppState();
   const dispatch = useDispatch();
+  const { user, favorites, discoveredArtists } = useAuth();
+
+  const externalMode = !!onExternalSelectNode;
+  const selectedNode = externalMode ? externalSelectedNode : reduxSelectedNode;
 
   const [mode, setMode] = useState('sequential');
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isActive, setIsActive] = useState(false);
   const [currentNodeTrack, setCurrentNodeTrack] = useState(null);
   const [isLoadingTrack, setIsLoadingTrack] = useState(false);
+
+  const [recsOnly, setRecsOnly] = useState(true);
 
   const trackCache = useRef(new Map());
   const sequentialOrder = useRef([]);
@@ -50,6 +57,36 @@ function GalaxyPlayerController({ canvasRef }) {
   const skipCountRef = useRef(0);
   const navigatingFromClickRef = useRef(false);
   const silentSyncRef = useRef(false);
+
+  // Select node — dispatches to Redux or calls external handler
+  const selectNode = useCallback((node) => {
+    if (externalMode) {
+      onExternalSelectNode(node);
+    } else {
+      dispatch({ type: SELECT_NODE, payload: node });
+    }
+  }, [externalMode, onExternalSelectNode, dispatch]);
+
+  // Recommendations-only filter
+  const favoriteNames = useMemo(
+    () => new Set((favorites || []).map((f) => f.artistName)),
+    [favorites]
+  );
+  const discoveredNames = useMemo(
+    () => new Set((discoveredArtists || []).map((d) => d.artistName)),
+    [discoveredArtists]
+  );
+
+  const filterNodes = useCallback((nodes) => {
+    if (!recsOnly || !user) return nodes;
+    return nodes.filter((n) => !favoriteNames.has(n.name) && !discoveredNames.has(n.name));
+  }, [recsOnly, user, favoriteNames, discoveredNames]);
+
+  const hasFilterableArtists = useMemo(() => {
+    if (!user) return false;
+    const allNodes = canvasRef.current?.getNodes() || [];
+    return allNodes.some((n) => favoriteNames.has(n.name) || discoveredNames.has(n.name));
+  }, [user, canvasRef, favoriteNames, discoveredNames]);
 
   const getPlaylist = useCallback(() => {
     return mode === 'shuffle' ? shuffleOrder.current : sequentialOrder.current;
@@ -81,23 +118,39 @@ function GalaxyPlayerController({ canvasRef }) {
 
   // Clear playlists when galaxy data changes (will rebuild on play start)
   useEffect(() => {
-    if (!galaxyData) return;
+    if (externalMode || !galaxyData) return;
     sequentialOrder.current = [];
     shuffleOrder.current = [];
     trackCache.current.clear();
-  }, [galaxyData]);
+  }, [galaxyData, externalMode]);
 
   // Build playlists on demand from current (settled) node positions
   const ensurePlaylistsBuilt = useCallback(() => {
     const allNodes = canvasRef.current?.getNodes() || [];
-    if (allNodes.length === 0) return;
+    const nodes = filterNodes(allNodes);
+    if (nodes.length === 0) return;
     if (sequentialOrder.current.length === 0) {
-      sequentialOrder.current = buildSequentialOrder(allNodes);
+      sequentialOrder.current = buildSequentialOrder(nodes);
     }
     if (shuffleOrder.current.length === 0) {
-      shuffleOrder.current = buildShuffleOrder(allNodes);
+      shuffleOrder.current = buildShuffleOrder(nodes);
     }
-  }, [canvasRef]);
+  }, [canvasRef, filterNodes]);
+
+  // Rebuild playlists when recommendations filter changes during active playback
+  const recsOnlyMountRef = useRef(true);
+  useEffect(() => {
+    if (recsOnlyMountRef.current) {
+      recsOnlyMountRef.current = false;
+      return;
+    }
+    sequentialOrder.current = [];
+    shuffleOrder.current = [];
+    if (!isActive) return;
+    ensurePlaylistsBuilt();
+    setCurrentIndex(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recsOnly]);
 
   // Navigate to a node by index
   const navigateToIndex = useCallback(
@@ -110,7 +163,7 @@ function GalaxyPlayerController({ canvasRef }) {
 
       // Select node (opens detail panel, highlights on canvas)
       navigatingFromClickRef.current = true;
-      dispatch({ type: SELECT_NODE, payload: node });
+      selectNode(node);
       setTimeout(() => { navigatingFromClickRef.current = false; }, 100);
 
       // Smoothly pan camera to follow the active node
@@ -156,7 +209,7 @@ function GalaxyPlayerController({ canvasRef }) {
         }
       }
     },
-    [mode, dispatch, audioPlay, canvasRef]
+    [mode, selectNode, audioPlay, canvasRef]
   );
 
   // React to currentIndex changes
@@ -221,7 +274,7 @@ function GalaxyPlayerController({ canvasRef }) {
     setMode((prev) => {
       const newMode = prev === 'sequential' ? 'shuffle' : 'sequential';
 
-      const allNodes = canvasRef.current?.getNodes() || [];
+      const allNodes = filterNodes(canvasRef.current?.getNodes() || []);
       // Re-shuffle when switching to shuffle
       if (newMode === 'shuffle') {
         shuffleOrder.current = buildShuffleOrder(allNodes);
@@ -243,13 +296,13 @@ function GalaxyPlayerController({ canvasRef }) {
 
       return newMode;
     });
-  }, [currentIndex, canvasRef]);
+  }, [currentIndex, canvasRef, filterNodes]);
 
   const playlist = getPlaylist();
 
-  // Portal target: render the player bar into .galaxy-view so it isn't
+  // Portal target: render the player bar into the parent view so it isn't
   // trapped inside the .galaxy-toolbar (which is position: absolute).
-  const galaxyView = document.querySelector('.galaxy-view');
+  const portalTarget = document.querySelector(portalSelector || '.galaxy-view');
 
   return (
     <>
@@ -266,7 +319,7 @@ function GalaxyPlayerController({ canvasRef }) {
         </button>
       )}
 
-      {isActive && galaxyView && createPortal(
+      {isActive && portalTarget && createPortal(
         <PreviewPlayer
           currentTrack={currentNodeTrack}
           isPlaying={isPlaying}
@@ -280,8 +333,11 @@ function GalaxyPlayerController({ canvasRef }) {
           onModeToggle={handleModeToggle}
           currentIndex={currentIndex}
           totalCount={playlist.length}
+          recsOnly={recsOnly}
+          onRecsOnlyToggle={() => setRecsOnly((v) => !v)}
+          showRecsFilter={hasFilterableArtists}
         />,
-        galaxyView
+        portalTarget
       )}
     </>
   );

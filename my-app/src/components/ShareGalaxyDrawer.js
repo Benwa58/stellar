@@ -4,7 +4,7 @@ import { createGalaxyShare } from '../api/authClient';
 import { generateMapName } from '../utils/mapNameUtil';
 import '../styles/shareGalaxy.css';
 
-function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
+function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists, overrideNodes, overrideLinks }) {
   const { galaxyData } = useAppState();
 
   const [mapName, setMapName] = useState(() => generateMapName(seedArtists));
@@ -16,8 +16,8 @@ function ShareGalaxyDrawer({ onClose, canvasRef, seedArtists }) {
   const [thumbnailDataUrl, setThumbnailDataUrl] = useState(null);
   const [error, setError] = useState(null);
 
-  const nodes = useMemo(() => galaxyData?.nodes || [], [galaxyData]);
-  const links = useMemo(() => galaxyData?.links || [], [galaxyData]);
+  const nodes = useMemo(() => overrideNodes || galaxyData?.nodes || [], [overrideNodes, galaxyData]);
+  const links = useMemo(() => overrideLinks || galaxyData?.links || [], [overrideLinks, galaxyData]);
 
   // Capture thumbnail on mount
   useEffect(() => {
