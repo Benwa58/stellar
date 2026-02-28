@@ -256,10 +256,18 @@ export function useAuthActions() {
     return data.user;
   }, [dispatch]);
 
-  const register = useCallback(async (email, password, displayName) => {
-    const res = await authApi.register(email, password, displayName);
+  const register = useCallback(async (email, password, displayName, username) => {
+    const res = await authApi.register(email, password, displayName, username);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Registration failed');
+    dispatch({ type: 'SET_USER', user: data.user });
+    return data.user;
+  }, [dispatch]);
+
+  const setUsername = useCallback(async (username) => {
+    const res = await authApi.setUsername(username);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to set username');
     dispatch({ type: 'SET_USER', user: data.user });
     return data.user;
   }, [dispatch]);
@@ -471,5 +479,5 @@ export function useAuthActions() {
     dispatch({ type: 'HIDE_AUTH_MODAL' });
   }, [dispatch]);
 
-  return { login, register, logout, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, refreshUniverse, showAuthModal, hideAuthModal };
+  return { login, register, logout, setUsername, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, refreshUniverse, showAuthModal, hideAuthModal };
 }

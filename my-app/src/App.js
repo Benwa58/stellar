@@ -11,6 +11,7 @@ import ShareGalaxyPage from './components/ShareGalaxyPage';
 import ShareUniversePage from './components/ShareUniversePage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import AuthModal from './components/auth/AuthModal';
+import ChooseUsernameModal from './components/auth/ChooseUsernameModal';
 import './App.css';
 
 function AppContent() {
@@ -81,6 +82,7 @@ function AppContent() {
       {phase === 'viewing-universe' && <UniverseView />}
 
       <AuthModal />
+      <ChooseUsernameModal />
     </div>
   );
 }
