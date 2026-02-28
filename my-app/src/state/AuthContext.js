@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import * as authApi from '../api/authClient';
+import * as friendsApi from '../api/friendsClient';
 
 const AuthContext = createContext(null);
 const AuthDispatchContext = createContext(null);
@@ -15,6 +16,8 @@ const initialState = {
   authModalTab: 'login', // 'login' or 'register'
   universeData: null,
   universeStatus: 'none', // 'none', 'computing', 'ready', 'error', 'stale'
+  friends: [],
+  friendRequests: [],
 };
 
 function authReducer(state, action) {
@@ -22,7 +25,7 @@ function authReducer(state, action) {
     case 'SET_USER':
       return { ...state, user: action.user, isLoading: false };
     case 'CLEAR_USER':
-      return { ...state, user: null, isLoading: false, favorites: [], dislikes: [], knownArtists: [], discoveredArtists: [], universeData: null, universeStatus: 'none' };
+      return { ...state, user: null, isLoading: false, favorites: [], dislikes: [], knownArtists: [], discoveredArtists: [], universeData: null, universeStatus: 'none', friends: [], friendRequests: [] };
     case 'SET_AUTH_LOADING':
       return { ...state, isLoading: action.isLoading };
     case 'SET_FAVORITES':
@@ -89,6 +92,16 @@ function authReducer(state, action) {
       return { ...state, showAuthModal: true, authModalTab: action.tab || 'login' };
     case 'HIDE_AUTH_MODAL':
       return { ...state, showAuthModal: false };
+    case 'SET_FRIENDS':
+      return { ...state, friends: action.friends };
+    case 'SET_FRIEND_REQUESTS':
+      return { ...state, friendRequests: action.requests };
+    case 'ADD_FRIEND':
+      return { ...state, friends: [action.friend, ...state.friends], friendRequests: state.friendRequests.filter((r) => r.id !== action.friend.id) };
+    case 'REMOVE_FRIEND':
+      return { ...state, friends: state.friends.filter((f) => f.id !== action.userId) };
+    case 'REMOVE_FRIEND_REQUEST':
+      return { ...state, friendRequests: state.friendRequests.filter((r) => r.id !== action.userId) };
     default:
       return state;
   }
@@ -166,6 +179,22 @@ export function AuthProvider({ children }) {
           } else {
             dispatch({ type: 'SET_UNIVERSE_STATUS', status: data.status || 'none' });
           }
+        })
+        .catch(() => {});
+
+      friendsApi
+        .getFriends()
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.friends) dispatch({ type: 'SET_FRIENDS', friends: data.friends });
+        })
+        .catch(() => {});
+
+      friendsApi
+        .getFriendRequests()
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.requests) dispatch({ type: 'SET_FRIEND_REQUESTS', requests: data.requests });
         })
         .catch(() => {});
     }
@@ -490,5 +519,71 @@ export function useAuthActions() {
     dispatch({ type: 'HIDE_AUTH_MODAL' });
   }, [dispatch]);
 
-  return { login, register, logout, setUsername, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, refreshUniverse, showAuthModal, hideAuthModal };
+  const sendFriendRequest = useCallback(async (username) => {
+    const res = await friendsApi.sendFriendRequest(username);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send request');
+    // If auto-accepted (they had already sent us a request), refresh friends
+    if (data.status === 'accepted') {
+      friendsApi.getFriends().then((r) => r.json()).then((d) => {
+        if (d.friends) dispatch({ type: 'SET_FRIENDS', friends: d.friends });
+      }).catch(() => {});
+      dispatch({ type: 'REMOVE_FRIEND_REQUEST', userId: data.userId });
+    }
+    return data;
+  }, [dispatch]);
+
+  const acceptFriend = useCallback(async (userId) => {
+    const res = await friendsApi.acceptFriendRequest(userId);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to accept');
+    // Move from requests to friends — find the request data
+    const req = auth.friendRequests.find((r) => r.id === userId);
+    if (req) {
+      dispatch({ type: 'ADD_FRIEND', friend: { ...req, acceptedAt: new Date().toISOString() } });
+    } else {
+      // Refresh friends list from server
+      friendsApi.getFriends().then((r) => r.json()).then((d) => {
+        if (d.friends) dispatch({ type: 'SET_FRIENDS', friends: d.friends });
+      }).catch(() => {});
+      dispatch({ type: 'REMOVE_FRIEND_REQUEST', userId });
+    }
+  }, [dispatch, auth.friendRequests]);
+
+  const rejectFriend = useCallback(async (userId) => {
+    dispatch({ type: 'REMOVE_FRIEND_REQUEST', userId });
+    const res = await friendsApi.rejectFriendRequest(userId);
+    if (!res.ok) {
+      // Revert — re-fetch requests
+      friendsApi.getFriendRequests().then((r) => r.json()).then((d) => {
+        if (d.requests) dispatch({ type: 'SET_FRIEND_REQUESTS', requests: d.requests });
+      }).catch(() => {});
+    }
+  }, [dispatch]);
+
+  const removeFriend = useCallback(async (userId) => {
+    dispatch({ type: 'REMOVE_FRIEND', userId });
+    const res = await friendsApi.removeFriend(userId);
+    if (!res.ok) {
+      // Revert — re-fetch friends
+      friendsApi.getFriends().then((r) => r.json()).then((d) => {
+        if (d.friends) dispatch({ type: 'SET_FRIENDS', friends: d.friends });
+      }).catch(() => {});
+    }
+  }, [dispatch]);
+
+  const refreshFriends = useCallback(async () => {
+    try {
+      const [friendsRes, requestsRes] = await Promise.all([
+        friendsApi.getFriends(),
+        friendsApi.getFriendRequests(),
+      ]);
+      const friendsData = await friendsRes.json();
+      const requestsData = await requestsRes.json();
+      if (friendsData.friends) dispatch({ type: 'SET_FRIENDS', friends: friendsData.friends });
+      if (requestsData.requests) dispatch({ type: 'SET_FRIEND_REQUESTS', requests: requestsData.requests });
+    } catch {}
+  }, [dispatch]);
+
+  return { login, register, logout, setUsername, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, refreshUniverse, showAuthModal, hideAuthModal, sendFriendRequest, acceptFriend, rejectFriend, removeFriend, refreshFriends };
 }
