@@ -243,6 +243,7 @@ function UniverseView() {
           onClose={handleCloseExport}
           seedArtists={[{ name: universeLabel }]}
           overrideNodes={canvasRef.current?.getNodes() || []}
+          showRecsOnlyFilter
         />
       )}
 
