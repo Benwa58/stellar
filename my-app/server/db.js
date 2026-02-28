@@ -164,16 +164,37 @@ function initSchema() {
   } catch {
     db.exec("ALTER TABLE shared_galaxies ADD COLUMN thumbnail BLOB");
   }
+
+  // Add username column if it doesn't exist
+  try {
+    db.prepare("SELECT username FROM users LIMIT 0").run();
+  } catch {
+    db.exec("ALTER TABLE users ADD COLUMN username TEXT UNIQUE");
+    // Backfill existing users: derive username from email prefix, append
+    // numeric suffix when there are collisions.
+    const users = db.prepare("SELECT id, email FROM users WHERE username IS NULL").all();
+    const taken = new Set();
+    for (const u of users) {
+      let base = (u.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 16) || 'user';
+      let candidate = base;
+      let suffix = 1;
+      while (taken.has(candidate)) {
+        candidate = `${base}${suffix++}`;
+      }
+      taken.add(candidate);
+      db.prepare("UPDATE users SET username = ? WHERE id = ?").run(candidate, u.id);
+    }
+  }
 }
 
 // --- User helpers ---
 
-function createUser({ email, passwordHash, displayName, spotifyId, spotifyAccessToken, spotifyRefreshToken, spotifyTokenExpiresAt }) {
+function createUser({ email, passwordHash, displayName, username, spotifyId, spotifyAccessToken, spotifyRefreshToken, spotifyTokenExpiresAt }) {
   const stmt = getDb().prepare(`
-    INSERT INTO users (email, password_hash, display_name, spotify_id, spotify_access_token, spotify_refresh_token, spotify_token_expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO users (email, password_hash, display_name, username, spotify_id, spotify_access_token, spotify_refresh_token, spotify_token_expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const result = stmt.run(email || null, passwordHash || null, displayName, spotifyId || null, spotifyAccessToken || null, spotifyRefreshToken || null, spotifyTokenExpiresAt || null);
+  const result = stmt.run(email || null, passwordHash || null, displayName, username || null, spotifyId || null, spotifyAccessToken || null, spotifyRefreshToken || null, spotifyTokenExpiresAt || null);
   return getUserById(result.lastInsertRowid);
 }
 
@@ -183,6 +204,14 @@ function getUserById(id) {
 
 function getUserByEmail(email) {
   return getDb().prepare('SELECT * FROM users WHERE email = ?').get(email);
+}
+
+function getUserByUsername(username) {
+  return getDb().prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username);
+}
+
+function updateUsername(userId, username) {
+  getDb().prepare("UPDATE users SET username = ?, updated_at = datetime('now') WHERE id = ?").run(username, userId);
 }
 
 function getUserBySpotifyId(spotifyId) {
@@ -487,6 +516,8 @@ module.exports = {
   createUser,
   getUserById,
   getUserByEmail,
+  getUserByUsername,
+  updateUsername,
   getUserBySpotifyId,
   updateSpotifyTokens,
   linkSpotify,

@@ -122,10 +122,10 @@ async function authFetch(path, options = {}) {
 
 // --- Auth API ---
 
-export async function register(email, password, displayName) {
+export async function register(email, password, displayName, username) {
   const res = await authFetch('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, displayName }),
+    body: JSON.stringify({ email, password, displayName, username }),
   });
   // Clone so caller can also read .json()
   const clone = res.clone();
@@ -134,6 +134,17 @@ export async function register(email, password, displayName) {
     handleAuthResponse(data);
   } catch {}
   return res;
+}
+
+export function checkUsername(username) {
+  return fetch(`${API_BASE}/api/auth/check-username?username=${encodeURIComponent(username)}`).then((r) => r.json());
+}
+
+export function setUsername(username) {
+  return authFetch('/api/auth/set-username', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  });
 }
 
 export async function login(email, password) {

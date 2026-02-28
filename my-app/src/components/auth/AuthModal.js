@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth, useAuthActions } from '../../state/AuthContext';
-import { forgotPassword } from '../../api/authClient';
+import { forgotPassword, checkUsername } from '../../api/authClient';
 import '../../styles/auth.css';
 
 function AuthModal() {
@@ -11,9 +11,37 @@ function AuthModal() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState(''); // '', 'checking', 'available', 'taken', 'invalid'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+  const usernameTimerRef = useRef(null);
+
+  const USERNAME_RE = /^[a-z][a-z0-9_-]{2,19}$/;
+
+  useEffect(() => {
+    if (tab !== 'register' || !username) {
+      setUsernameStatus('');
+      return;
+    }
+    const val = username.toLowerCase();
+    if (!USERNAME_RE.test(val)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+    setUsernameStatus('checking');
+    clearTimeout(usernameTimerRef.current);
+    usernameTimerRef.current = setTimeout(async () => {
+      try {
+        const data = await checkUsername(val);
+        setUsernameStatus(data.available ? 'available' : 'taken');
+      } catch {
+        setUsernameStatus('');
+      }
+    }, 400);
+    return () => clearTimeout(usernameTimerRef.current);
+  }, [username, tab]);
 
   if (!showAuthModal) return null;
 
@@ -31,7 +59,7 @@ function AuthModal() {
         }
         setForgotSent(true);
       } else if (tab === 'register') {
-        await register(email, password, displayName);
+        await register(email, password, displayName, username.toLowerCase());
         hideAuthModal();
       } else {
         await login(email, password);
@@ -97,20 +125,42 @@ function AuthModal() {
         ) : (
           <form className="auth-form" onSubmit={handleSubmit}>
             {tab === 'register' && (
-              <div className="auth-field">
-                <label className="auth-label" htmlFor="auth-name">Display Name</label>
-                <input
-                  id="auth-name"
-                  className="auth-input"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your name"
-                  maxLength={50}
-                  required
-                  autoComplete="name"
-                />
-              </div>
+              <>
+                <div className="auth-field">
+                  <label className="auth-label" htmlFor="auth-name">Display Name</label>
+                  <input
+                    id="auth-name"
+                    className="auth-input"
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Your name"
+                    maxLength={50}
+                    required
+                    autoComplete="name"
+                  />
+                </div>
+                <div className="auth-field">
+                  <label className="auth-label" htmlFor="auth-username">Username</label>
+                  <input
+                    id="auth-username"
+                    className={`auth-input ${usernameStatus === 'available' ? 'auth-input-valid' : usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'auth-input-error' : ''}`}
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                    placeholder="your_username"
+                    maxLength={20}
+                    required
+                    autoComplete="username"
+                  />
+                  {usernameStatus === 'checking' && <span className="auth-field-hint">Checking...</span>}
+                  {usernameStatus === 'available' && <span className="auth-field-hint auth-field-success">Available</span>}
+                  {usernameStatus === 'taken' && <span className="auth-field-hint auth-field-error">Already taken</span>}
+                  {usernameStatus === 'invalid' && username && (
+                    <span className="auth-field-hint auth-field-error">3-20 chars, start with a letter, lowercase letters/numbers/_/-</span>
+                  )}
+                </div>
+              </>
             )}
 
             <div className="auth-field">
@@ -151,7 +201,7 @@ function AuthModal() {
 
             {error && <div className="auth-error">{error}</div>}
 
-            <button className="auth-submit-btn" type="submit" disabled={loading}>
+            <button className="auth-submit-btn" type="submit" disabled={loading || (tab === 'register' && usernameStatus !== 'available')}>
               {loading
                 ? 'Please wait...'
                 : tab === 'forgot'

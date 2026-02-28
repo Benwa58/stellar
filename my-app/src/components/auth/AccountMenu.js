@@ -40,6 +40,7 @@ function AccountMenu({ onClose }) {
     <>
       <div className="account-menu-header">
         <span className="account-menu-name">{user.displayName}</span>
+        {user.username && <span className="account-menu-username">@{user.username}</span>}
         {user.email && <span className="account-menu-email">{user.email}</span>}
       </div>
 

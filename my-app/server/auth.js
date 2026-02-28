@@ -75,8 +75,33 @@ function sanitizeUser(user) {
     id: user.id,
     email: user.email,
     displayName: user.display_name,
+    username: user.username || null,
     hasSpotify: !!user.spotify_id,
   };
+}
+
+// Username rules: 3-20 chars, lowercase alphanumeric + underscore/dash,
+// must start with a letter.
+const USERNAME_RE = /^[a-z][a-z0-9_-]{2,19}$/;
+const RESERVED_USERNAMES = new Set([
+  'admin', 'administrator', 'stellar', 'api', 'app', 'www', 'help',
+  'support', 'system', 'root', 'null', 'undefined', 'login', 'register',
+  'signup', 'signin', 'logout', 'account', 'settings', 'profile',
+  'user', 'users', 'explore', 'playlist', 'playlists', 'galaxy',
+  'universe', 'share', 'shared', 'reset', 'password', 'forgot',
+]);
+
+function validateUsername(username) {
+  if (!username) return 'Username is required.';
+  const lower = username.toLowerCase();
+  if (!USERNAME_RE.test(lower)) {
+    if (lower.length < 3) return 'Username must be at least 3 characters.';
+    if (lower.length > 20) return 'Username must be 20 characters or fewer.';
+    if (!/^[a-z]/.test(lower)) return 'Username must start with a letter.';
+    return 'Username can only contain lowercase letters, numbers, underscores, and hyphens.';
+  }
+  if (RESERVED_USERNAMES.has(lower)) return 'That username is reserved.';
+  return null;
 }
 
 // --- Email notification on new signup ---
@@ -200,13 +225,53 @@ function optionalAuth(req, res, next) {
 
 // --- Routes ---
 
+// GET /api/auth/check-username?username=...
+router.get('/check-username', (req, res) => {
+  const { username } = req.query;
+  const validationError = validateUsername(username);
+  if (validationError) {
+    return res.json({ available: false, error: validationError });
+  }
+  const existing = db.getUserByUsername(username.toLowerCase());
+  res.json({ available: !existing });
+});
+
+// POST /api/auth/set-username  (for existing users who don't have one yet)
+router.post('/set-username', requireAuth, (req, res) => {
+  const { username } = req.body;
+  const validationError = validateUsername(username);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+
+  const user = db.getUserById(req.userId);
+  if (!user) return res.status(401).json({ error: 'User not found' });
+  if (user.username) return res.status(400).json({ error: 'Username already set.' });
+
+  const lower = username.toLowerCase();
+  const existing = db.getUserByUsername(lower);
+  if (existing) return res.status(409).json({ error: 'That username is taken.' });
+
+  try {
+    db.updateUsername(req.userId, lower);
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'That username is taken.' });
+    }
+    throw err;
+  }
+
+  const updated = db.getUserById(req.userId);
+  res.json({ user: sanitizeUser(updated) });
+});
+
 // POST /api/auth/register
 router.post('/register', rateLimit, async (req, res) => {
   try {
-    const { email, password, displayName } = req.body;
+    const { email, password, displayName, username } = req.body;
 
-    if (!email || !password || !displayName) {
-      return res.status(400).json({ error: 'Email, password, and display name are required.' });
+    if (!email || !password || !displayName || !username) {
+      return res.status(400).json({ error: 'Email, password, display name, and username are required.' });
     }
 
     if (password.length < 8) {
@@ -215,6 +280,11 @@ router.post('/register', rateLimit, async (req, res) => {
 
     if (displayName.length > 50) {
       return res.status(400).json({ error: 'Display name must be 50 characters or fewer.' });
+    }
+
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      return res.status(400).json({ error: usernameError });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -227,11 +297,17 @@ router.post('/register', rateLimit, async (req, res) => {
       return res.status(409).json({ error: 'An account with this email already exists.' });
     }
 
+    const existingUsername = db.getUserByUsername(username.toLowerCase());
+    if (existingUsername) {
+      return res.status(409).json({ error: 'That username is taken.' });
+    }
+
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const user = db.createUser({
       email: email.toLowerCase(),
       passwordHash,
       displayName: displayName.trim(),
+      username: username.toLowerCase(),
     });
 
     const accessToken = generateAccessToken(user.id);
