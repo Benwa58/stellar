@@ -14,6 +14,9 @@ function PreviewPlayer({
   onModeToggle,
   currentIndex,
   totalCount,
+  recsOnly,
+  onRecsOnlyToggle,
+  showRecsFilter,
 }) {
   // Use a callback ref so the ResizeObserver is set up/torn down exactly when
   // the player div appears/disappears in the DOM. The previous useEffect+useRef
@@ -111,6 +114,19 @@ function PreviewPlayer({
               </>
             )}
           </button>
+
+          {showRecsFilter && (
+            <button
+              className={`player-mode-btn ${recsOnly ? 'active' : ''}`}
+              onClick={onRecsOnlyToggle}
+              title={recsOnly ? 'Showing recommendations only — click to show all' : 'Showing all artists — click for recommendations only'}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              <span className="player-mode-label">{recsOnly ? 'Recs' : 'All'}</span>
+            </button>
+          )}
 
           <span className="player-position">
             {currentIndex + 1} / {totalCount}

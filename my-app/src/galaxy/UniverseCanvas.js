@@ -201,13 +201,30 @@ const UniverseCanvas = forwardRef(function UniverseCanvas(
     return stateRef.current.allNodes || [];
   }, []);
 
+  const getLinks = useCallback(() => {
+    return stateRef.current.allLinks || [];
+  }, []);
+
+  const followNode = useCallback((node) => {
+    if (!node || size.width === 0) return;
+    const targetScale = clamp(1.5, 0.05, 8);
+    const target = {
+      x: size.width / 2 - node.x * targetScale,
+      y: size.height / 2 - node.y * targetScale,
+      scale: targetScale,
+    };
+    animateTransform(stateRef, target, 700);
+  }, [size.width, size.height]);
+
   useImperativeHandle(ref, () => ({
     resetView: () => fitAll(true),
     zoomToCluster,
     zoomBy,
     zoomToNode,
+    followNode,
     getNodes,
-  }), [fitAll, zoomToCluster, zoomBy, zoomToNode, getNodes]);
+    getLinks,
+  }), [fitAll, zoomToCluster, zoomBy, zoomToNode, followNode, getNodes, getLinks]);
 
   // Set up canvas, renderer, and interactions
   useEffect(() => {

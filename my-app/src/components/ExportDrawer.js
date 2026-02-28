@@ -7,9 +7,9 @@ import { buildSpotifySearchUrl, formatTrackLinks, generateCSV } from '../utils/e
 import { createSharedPlaylist } from '../api/authClient';
 import '../styles/export.css';
 
-function ExportDrawer({ onClose, seedArtists }) {
+function ExportDrawer({ onClose, seedArtists, overrideNodes }) {
   const { galaxyData } = useAppState();
-  const { user, dislikes } = useAuth();
+  const { user, dislikes, favorites, discoveredArtists } = useAuth();
   const { showAuthModal } = useAuthActions();
 
   const [playlistName, setPlaylistName] = useState(() => {
@@ -18,6 +18,7 @@ function ExportDrawer({ onClose, seedArtists }) {
   });
   const [linkFormat, setLinkFormat] = useState('with-names');
   const [excludeDislikes, setExcludeDislikes] = useState(true);
+  const [recsOnly, setRecsOnly] = useState(true);
   const [copied, setCopied] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState(null);
@@ -25,11 +26,19 @@ function ExportDrawer({ onClose, seedArtists }) {
   const [autoplay, setAutoplay] = useState(true);
   const autoplayStartedRef = useRef(false);
 
-  // Filter nodes based on dislike toggle
-  const allNodes = useMemo(() => galaxyData?.nodes || [], [galaxyData]);
+  // Filter nodes based on dislike toggle and recommendations-only toggle
+  const allNodes = useMemo(() => overrideNodes || galaxyData?.nodes || [], [overrideNodes, galaxyData]);
   const dislikeNames = useMemo(
     () => new Set((dislikes || []).map((d) => d.artistName)),
     [dislikes]
+  );
+  const favoriteNames = useMemo(
+    () => new Set((favorites || []).map((f) => f.artistName)),
+    [favorites]
+  );
+  const discoveredNames = useMemo(
+    () => new Set((discoveredArtists || []).map((d) => d.artistName)),
+    [discoveredArtists]
   );
 
   const hasDislikesOnMap = useMemo(
@@ -37,12 +46,24 @@ function ExportDrawer({ onClose, seedArtists }) {
     [allNodes, dislikeNames]
   );
 
-  const filteredNodes = useMemo(() => {
+  const hasFavsOrDiscsOnMap = useMemo(
+    () => (favoriteNames.size > 0 || discoveredNames.size > 0) &&
+          allNodes.some((n) => favoriteNames.has(n.name) || discoveredNames.has(n.name)),
+    [allNodes, favoriteNames, discoveredNames]
+  );
+
+  const afterDislikeFilter = useMemo(() => {
     if (!excludeDislikes || !hasDislikesOnMap) return allNodes;
     return allNodes.filter((n) => !dislikeNames.has(n.name));
   }, [allNodes, excludeDislikes, hasDislikesOnMap, dislikeNames]);
 
-  const excludedCount = allNodes.length - filteredNodes.length;
+  const filteredNodes = useMemo(() => {
+    if (!recsOnly || !hasFavsOrDiscsOnMap) return afterDislikeFilter;
+    return afterDislikeFilter.filter((n) => !favoriteNames.has(n.name) && !discoveredNames.has(n.name));
+  }, [afterDislikeFilter, recsOnly, hasFavsOrDiscsOnMap, favoriteNames, discoveredNames]);
+
+  const dislikeExcludedCount = allNodes.length - afterDislikeFilter.length;
+  const recsExcludedCount = afterDislikeFilter.length - filteredNodes.length;
 
   // Batch-fetch tracks for filtered nodes
   const { tracks, progress, isLoading } = useExportTracks(filteredNodes);
@@ -221,6 +242,23 @@ function ExportDrawer({ onClose, seedArtists }) {
           </div>
         )}
 
+        {/* Recommendations-only filter */}
+        {user && hasFavsOrDiscsOnMap && (
+          <div className="export-dislike-filter">
+            <button
+              className={`export-dislike-toggle ${recsOnly ? 'active' : ''}`}
+              onClick={() => setRecsOnly((v) => !v)}
+              aria-label="Toggle recommendations only"
+            />
+            <span className="export-dislike-label">Recommendations only</span>
+            {recsExcludedCount > 0 && (
+              <span className="export-dislike-count">
+                {recsExcludedCount} excluded
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Dislike filter */}
         {user && hasDislikesOnMap && (
           <div className="export-dislike-filter">
@@ -230,9 +268,9 @@ function ExportDrawer({ onClose, seedArtists }) {
               aria-label="Toggle exclude dislikes"
             />
             <span className="export-dislike-label">Exclude dislikes</span>
-            {excludedCount > 0 && (
+            {dislikeExcludedCount > 0 && (
               <span className="export-dislike-count">
-                {excludedCount} artist{excludedCount !== 1 ? 's' : ''} excluded
+                {dislikeExcludedCount} excluded
               </span>
             )}
           </div>

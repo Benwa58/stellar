@@ -609,6 +609,47 @@
   white-space: nowrap;
 }
 
+/* ============================
+   UNIVERSE TOOLBAR OVERRIDES
+   ============================ */
+
+/* Override the old zoom-controls position for universe view when using the galaxy toolbar */
+.universe-zoom-override {
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  left: calc(20px + env(safe-area-inset-left));
+}
+
+/* Shift toolbar up when player bar is visible */
+.universe-view:has(.preview-player) .galaxy-toolbar {
+  bottom: calc(var(--preview-player-top, 84px) + 8px);
+}
+
+/* Shift zoom controls up when player bar is visible */
+.universe-view:has(.preview-player) .universe-zoom-override {
+  bottom: calc(var(--preview-player-top, 84px) + 58px);
+}
+
+/* Shift legend card up when player bar is visible */
+.universe-view:has(.preview-player) .galaxy-legend-card {
+  bottom: calc(var(--preview-player-top, 84px) + 58px);
+}
+
+/* Pull player bar back when detail panel is open */
+.universe-view:has(.detail-panel) .preview-player {
+  right: 320px;
+}
+
+/* Shrink player bar when export drawer is open (desktop) */
+.universe-view:has(.export-drawer) .preview-player {
+  right: 380px;
+}
+
+/* Hide zoom controls when drawers are open */
+.universe-view:has(.export-drawer) .universe-zoom-override,
+.universe-view:has(.share-galaxy-drawer) .universe-zoom-override {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .universe-viz-container {
@@ -629,7 +670,16 @@
     width: calc(100vw - 16px);
   }
 
-  .universe-zoom-controls {
+  .universe-zoom-override {
     display: none;
+  }
+
+  .universe-view:has(.preview-player) .galaxy-toolbar {
+    bottom: calc(var(--preview-player-top, 130px) + 8px);
+  }
+
+  .universe-view:has(.detail-panel) .preview-player,
+  .universe-view:has(.export-drawer) .preview-player {
+    right: 0;
   }
 }
