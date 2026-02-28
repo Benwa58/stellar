@@ -12,7 +12,12 @@ function getDb() {
     instance.pragma('journal_mode = WAL');
     instance.pragma('foreign_keys = ON');
     db = instance;
-    initSchema();
+    try {
+      initSchema();
+    } catch (err) {
+      db = null;
+      throw err;
+    }
   }
   return db;
 }
@@ -24,6 +29,7 @@ function initSchema() {
       email TEXT UNIQUE,
       password_hash TEXT,
       display_name TEXT NOT NULL,
+      username TEXT UNIQUE,
       spotify_id TEXT UNIQUE,
       spotify_access_token TEXT,
       spotify_refresh_token TEXT,
