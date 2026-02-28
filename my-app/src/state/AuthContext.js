@@ -1,6 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import * as authApi from '../api/authClient';
-import * as friendsApi from '../api/friendsClient';
 
 const AuthContext = createContext(null);
 const AuthDispatchContext = createContext(null);
@@ -182,7 +181,7 @@ export function AuthProvider({ children }) {
         })
         .catch(() => {});
 
-      friendsApi
+      authApi
         .getFriends()
         .then((res) => res.json())
         .then((data) => {
@@ -190,7 +189,7 @@ export function AuthProvider({ children }) {
         })
         .catch(() => {});
 
-      friendsApi
+      authApi
         .getFriendRequests()
         .then((res) => res.json())
         .then((data) => {
@@ -520,12 +519,12 @@ export function useAuthActions() {
   }, [dispatch]);
 
   const sendFriendRequest = useCallback(async (username) => {
-    const res = await friendsApi.sendFriendRequest(username);
+    const res = await authApi.sendFriendRequest(username);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to send request');
     // If auto-accepted (they had already sent us a request), refresh friends
     if (data.status === 'accepted') {
-      friendsApi.getFriends().then((r) => r.json()).then((d) => {
+      authApi.getFriends().then((r) => r.json()).then((d) => {
         if (d.friends) dispatch({ type: 'SET_FRIENDS', friends: d.friends });
       }).catch(() => {});
       dispatch({ type: 'REMOVE_FRIEND_REQUEST', userId: data.userId });
@@ -534,7 +533,7 @@ export function useAuthActions() {
   }, [dispatch]);
 
   const acceptFriend = useCallback(async (userId) => {
-    const res = await friendsApi.acceptFriendRequest(userId);
+    const res = await authApi.acceptFriendRequest(userId);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to accept');
     // Move from requests to friends — find the request data
@@ -543,7 +542,7 @@ export function useAuthActions() {
       dispatch({ type: 'ADD_FRIEND', friend: { ...req, acceptedAt: new Date().toISOString() } });
     } else {
       // Refresh friends list from server
-      friendsApi.getFriends().then((r) => r.json()).then((d) => {
+      authApi.getFriends().then((r) => r.json()).then((d) => {
         if (d.friends) dispatch({ type: 'SET_FRIENDS', friends: d.friends });
       }).catch(() => {});
       dispatch({ type: 'REMOVE_FRIEND_REQUEST', userId });
@@ -552,10 +551,10 @@ export function useAuthActions() {
 
   const rejectFriend = useCallback(async (userId) => {
     dispatch({ type: 'REMOVE_FRIEND_REQUEST', userId });
-    const res = await friendsApi.rejectFriendRequest(userId);
+    const res = await authApi.rejectFriendRequest(userId);
     if (!res.ok) {
       // Revert — re-fetch requests
-      friendsApi.getFriendRequests().then((r) => r.json()).then((d) => {
+      authApi.getFriendRequests().then((r) => r.json()).then((d) => {
         if (d.requests) dispatch({ type: 'SET_FRIEND_REQUESTS', requests: d.requests });
       }).catch(() => {});
     }
@@ -563,10 +562,10 @@ export function useAuthActions() {
 
   const removeFriend = useCallback(async (userId) => {
     dispatch({ type: 'REMOVE_FRIEND', userId });
-    const res = await friendsApi.removeFriend(userId);
+    const res = await authApi.removeFriend(userId);
     if (!res.ok) {
       // Revert — re-fetch friends
-      friendsApi.getFriends().then((r) => r.json()).then((d) => {
+      authApi.getFriends().then((r) => r.json()).then((d) => {
         if (d.friends) dispatch({ type: 'SET_FRIENDS', friends: d.friends });
       }).catch(() => {});
     }
@@ -575,8 +574,8 @@ export function useAuthActions() {
   const refreshFriends = useCallback(async () => {
     try {
       const [friendsRes, requestsRes] = await Promise.all([
-        friendsApi.getFriends(),
-        friendsApi.getFriendRequests(),
+        authApi.getFriends(),
+        authApi.getFriendRequests(),
       ]);
       const friendsData = await friendsRes.json();
       const requestsData = await requestsRes.json();
