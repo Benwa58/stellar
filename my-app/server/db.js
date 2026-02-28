@@ -8,9 +8,10 @@ let db;
 
 function getDb() {
   if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+    const instance = new Database(DB_PATH);
+    instance.pragma('journal_mode = WAL');
+    instance.pragma('foreign_keys = ON');
+    db = instance;
     initSchema();
   }
   return db;
@@ -158,17 +159,18 @@ function initSchema() {
   `);
 
   // --- Migrations for existing databases ---
+  function hasColumn(table, column) {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+    return cols.some(c => c.name === column);
+  }
+
   // Add thumbnail column if it doesn't exist (added after initial release)
-  try {
-    db.prepare("SELECT thumbnail FROM shared_galaxies LIMIT 0").get();
-  } catch {
+  if (!hasColumn('shared_galaxies', 'thumbnail')) {
     db.exec("ALTER TABLE shared_galaxies ADD COLUMN thumbnail BLOB");
   }
 
   // Add username column if it doesn't exist
-  try {
-    db.prepare("SELECT username FROM users LIMIT 0").get();
-  } catch {
+  if (!hasColumn('users', 'username')) {
     db.exec("ALTER TABLE users ADD COLUMN username TEXT UNIQUE");
   }
 
