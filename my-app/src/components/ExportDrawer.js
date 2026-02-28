@@ -82,6 +82,21 @@ function ExportDrawer({ onClose, seedArtists, overrideNodes, showRecsOnlyFilter 
   trackListRef.current = trackList;
   const autoplayRef = useRef(autoplay);
   autoplayRef.current = autoplay;
+  const audioInstanceRef = useRef(null);
+
+  // Find the next track with a preview starting after `fromIdx`.
+  // Wraps around to the beginning when `wrap` is true.
+  const findNextPreview = useCallback((fromIdx, direction = 1, wrap = true) => {
+    const list = trackListRef.current;
+    const len = list.length;
+    if (len === 0) return -1;
+    for (let step = 1; step < len; step++) {
+      const i = ((fromIdx + step * direction) % len + len) % len;
+      if (list[i].previewUrl) return i;
+      if (!wrap && (direction > 0 ? i >= len - 1 : i <= 0)) break;
+    }
+    return -1;
+  }, []);
 
   // Autoplay: when a track ends, play the next one with a preview
   const handleTrackEnded = useCallback(() => {
@@ -91,7 +106,7 @@ function ExportDrawer({ onClose, seedArtists, overrideNodes, showRecsOnlyFilter 
     const currentIdx = list.findIndex((t) => t.id === currentId);
     if (currentIdx === -1) return;
 
-    // Find the next track with a preview, starting after current
+    // Find the next track with a preview (no wrap — stop at end)
     for (let i = currentIdx + 1; i < list.length; i++) {
       if (list[i].previewUrl) {
         audioInstanceRef.current?.play(list[i]);
@@ -101,9 +116,33 @@ function ExportDrawer({ onClose, seedArtists, overrideNodes, showRecsOnlyFilter 
     // Reached end of playlist, stop
   }, []);
 
-  // Independent audio preview for the drawer
-  const audio = useAudioPreview({ onEnded: handleTrackEnded });
-  const audioInstanceRef = useRef(audio);
+  // Lock-screen next/prev handlers
+  const handleNext = useCallback(() => {
+    const list = trackListRef.current;
+    const currentId = audioInstanceRef.current?.currentTrack?.id;
+    const currentIdx = list.findIndex((t) => t.id === currentId);
+    if (currentIdx === -1) return;
+    const next = findNextPreview(currentIdx, 1);
+    if (next !== -1) audioInstanceRef.current?.play(list[next]);
+  }, [findNextPreview]);
+
+  const handlePrev = useCallback(() => {
+    const list = trackListRef.current;
+    const currentId = audioInstanceRef.current?.currentTrack?.id;
+    const currentIdx = list.findIndex((t) => t.id === currentId);
+    if (currentIdx === -1) return;
+    const prev = findNextPreview(currentIdx, -1);
+    if (prev !== -1) audioInstanceRef.current?.play(list[prev]);
+  }, [findNextPreview]);
+
+  // Audio preview for the drawer — owns media session so lock screen
+  // shows playlist track info instead of the default Stellar branding.
+  const audio = useAudioPreview({
+    onEnded: handleTrackEnded,
+    onNext: handleNext,
+    onPrev: handlePrev,
+    mediaSession: true,
+  });
   audioInstanceRef.current = audio;
 
   // Copy Spotify links
