@@ -364,19 +364,18 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
       const track = currentTrackRef.current;
       if (!audio || !track || isPlayingRef.current) return;
 
-      // If iOS released the audio source while backgrounded, reload it.
-      if (audio.readyState === 0 && track.previewUrl) {
-        console.info('[MediaSession] audio source lost — reloading for resume');
-        audio.src = track.previewUrl;
-        audio.load();
+      // Always reload the source — mobile browsers silently lose audio
+      // output after pause (audio session deactivates) even though the
+      // element still reports readyState > 0 and fires timeupdate events.
+      const resumeTime = audio.ended ? 0 : audio.currentTime;
+      audio.src = track.previewUrl;
+      audio.load();
+      if (resumeTime > 0) {
+        audio.addEventListener('loadedmetadata', () => {
+          if (audio.duration) audio.currentTime = Math.min(resumeTime, audio.duration);
+        }, { once: true });
       }
 
-      // If the track ended naturally, seek to beginning so replay works.
-      if (audio.ended) {
-        audio.currentTime = 0;
-      }
-
-      // Set state optimistically so UI updates even if JS is about to suspend.
       setIsPlaying(true);
       isPlayingRef.current = true;
 
@@ -454,17 +453,17 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
 
     // Resume same track — don't touch metadata (avoids iOS widget reset).
     if (currentTrackRef.current?.id === track.id && !isPlayingRef.current) {
-      // If iOS released the source while backgrounded, reload it.
-      if (audio.readyState === 0) {
-        console.info('[play] audio source lost — reloading for resume');
-        audio.src = track.previewUrl;
-        audio.load();
+      // Always reload the source — mobile browsers silently lose audio
+      // output after pause (audio session deactivates) even though the
+      // element still reports readyState > 0 and fires timeupdate events.
+      const resumeTime = audio.ended ? 0 : audio.currentTime;
+      audio.src = track.previewUrl;
+      audio.load();
+      if (resumeTime > 0) {
+        audio.addEventListener('loadedmetadata', () => {
+          if (audio.duration) audio.currentTime = Math.min(resumeTime, audio.duration);
+        }, { once: true });
       }
-      // If the track ended naturally, seek to beginning so replay works.
-      if (audio.ended) {
-        audio.currentTime = 0;
-      }
-      // Set state optimistically so the UI updates immediately.
       setIsPlaying(true);
       isPlayingRef.current = true;
       audio.play().catch((err) => {
@@ -522,20 +521,20 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     } else if (currentTrackRef.current) {
       const audio = audioRef.current;
       if (!audio) return;
+      const track = currentTrackRef.current;
 
-      // If iOS released the source while backgrounded, reload it.
-      if (audio.readyState === 0 && currentTrackRef.current.previewUrl) {
-        console.info('[toggle] audio source lost — reloading for resume');
-        audio.src = currentTrackRef.current.previewUrl;
-        audio.load();
+      // Always reload the source — mobile browsers silently lose audio
+      // output after pause (audio session deactivates) even though the
+      // element still reports readyState > 0 and fires timeupdate events.
+      const resumeTime = audio.ended ? 0 : audio.currentTime;
+      audio.src = track.previewUrl;
+      audio.load();
+      if (resumeTime > 0) {
+        audio.addEventListener('loadedmetadata', () => {
+          if (audio.duration) audio.currentTime = Math.min(resumeTime, audio.duration);
+        }, { once: true });
       }
 
-      // If the track ended naturally, seek to beginning so replay works.
-      if (audio.ended) {
-        audio.currentTime = 0;
-      }
-
-      // Set state optimistically so the UI updates immediately.
       setIsPlaying(true);
       isPlayingRef.current = true;
 
