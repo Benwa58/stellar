@@ -535,7 +535,8 @@
 
 .universe-search-input {
   flex: 1;
-  font-size: 0.75rem;
+  /* 16px prevents iOS from auto-zooming on focus */
+  font-size: max(0.75rem, 16px);
   font-family: inherit;
   color: rgba(255, 255, 255, 0.85);
   background: none;
