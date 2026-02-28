@@ -160,14 +160,14 @@ function initSchema() {
   // --- Migrations for existing databases ---
   // Add thumbnail column if it doesn't exist (added after initial release)
   try {
-    db.prepare("SELECT thumbnail FROM shared_galaxies LIMIT 0").run();
+    db.prepare("SELECT thumbnail FROM shared_galaxies LIMIT 0").get();
   } catch {
     db.exec("ALTER TABLE shared_galaxies ADD COLUMN thumbnail BLOB");
   }
 
   // Add username column if it doesn't exist
   try {
-    db.prepare("SELECT username FROM users LIMIT 0").run();
+    db.prepare("SELECT username FROM users LIMIT 0").get();
   } catch {
     db.exec("ALTER TABLE users ADD COLUMN username TEXT UNIQUE");
   }
