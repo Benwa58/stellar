@@ -265,8 +265,18 @@ export function useAuthActions() {
   }, [dispatch]);
 
   const setUsername = useCallback(async (username) => {
-    const res = await authApi.setUsername(username);
-    const data = await res.json();
+    let res;
+    try {
+      res = await authApi.setUsername(username);
+    } catch {
+      throw new Error('Could not reach the server. Please try again.');
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error('Server returned an unexpected response. Please try again.');
+    }
     if (!res.ok) throw new Error(data.error || 'Failed to set username');
     dispatch({ type: 'SET_USER', user: data.user });
     return data.user;

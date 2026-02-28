@@ -137,9 +137,7 @@ export async function register(email, password, displayName, username) {
 }
 
 export async function checkUsername(username) {
-  const res = await fetch(`${API_BASE}/api/auth/check-username?username=${encodeURIComponent(username)}`, {
-    credentials: 'include',
-  });
+  const res = await authFetch(`/api/auth/check-username?username=${encodeURIComponent(username)}`);
   if (!res.ok) throw new Error('Check failed');
   return res.json();
 }
