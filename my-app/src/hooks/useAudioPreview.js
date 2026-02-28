@@ -371,10 +371,19 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
         audio.load();
       }
 
-      // Let native 'play'/'pause' events on the audio element sync
-      // isPlaying state — no optimistic setState here.
+      // If the track ended naturally, seek to beginning so replay works.
+      if (audio.ended) {
+        audio.currentTime = 0;
+      }
+
+      // Set state optimistically so UI updates even if JS is about to suspend.
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+
       audio.play().catch((err) => {
         console.warn('[MediaSession] play() rejected on resume:', err);
+        setIsPlaying(false);
+        isPlayingRef.current = false;
       });
     };
 
@@ -444,7 +453,6 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     if (!audio || !track?.previewUrl) return;
 
     // Resume same track — don't touch metadata (avoids iOS widget reset).
-    // Native 'play' event on the audio element will sync isPlaying state.
     if (currentTrackRef.current?.id === track.id && !isPlayingRef.current) {
       // If iOS released the source while backgrounded, reload it.
       if (audio.readyState === 0) {
@@ -452,8 +460,17 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
         audio.src = track.previewUrl;
         audio.load();
       }
+      // If the track ended naturally, seek to beginning so replay works.
+      if (audio.ended) {
+        audio.currentTime = 0;
+      }
+      // Set state optimistically so the UI updates immediately.
+      setIsPlaying(true);
+      isPlayingRef.current = true;
       audio.play().catch((err) => {
         console.warn('[play] resume failed:', err);
+        setIsPlaying(false);
+        isPlayingRef.current = false;
       });
       // Reclaim lock-screen handlers in case another player took over.
       registerMediaHandlersRef.current?.();
@@ -513,10 +530,19 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
         audio.load();
       }
 
-      // Native 'play' event on the audio element will sync isPlaying.
-      // Don't call updateMediaSession on resume — metadata is already set.
+      // If the track ended naturally, seek to beginning so replay works.
+      if (audio.ended) {
+        audio.currentTime = 0;
+      }
+
+      // Set state optimistically so the UI updates immediately.
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+
       audio.play().catch((err) => {
         console.warn('[toggle] resume failed:', err);
+        setIsPlaying(false);
+        isPlayingRef.current = false;
       });
 
       // Reclaim lock-screen handlers in case another player took over.
