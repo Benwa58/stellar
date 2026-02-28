@@ -249,6 +249,12 @@ function SavedMapsSection() {
   return (
     <div className="saved-maps-section">
       <h3 className="saved-maps-title">
+        <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+          <path d="M12 3c3 3 4.5 5.5 4.5 9s-1.5 6-4.5 9" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
+          <path d="M12 3c-3 3-4.5 5.5-4.5 9s1.5 6 4.5 9" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
+        </svg>
         Saved Galaxies
         {user && maps.length > 0 && (
           <span className="section-count">{maps.length}</span>
