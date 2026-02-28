@@ -7,7 +7,15 @@ function FriendsSection() {
   const { user, friends, friendRequests } = useAuth();
   const { acceptFriend, rejectFriend, removeFriend, showAuthModal } = useAuthActions();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(null);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' | 'requests'
+
+  const handleRemoveFriend = () => {
+    if (confirmRemove) {
+      removeFriend(confirmRemove.id);
+      setConfirmRemove(null);
+    }
+  };
 
   return (
     <div className="friends-section">
@@ -135,7 +143,7 @@ function FriendsSection() {
                   </div>
                   <button
                     className="friend-card-remove"
-                    onClick={() => removeFriend(friend.id)}
+                    onClick={() => setConfirmRemove(friend)}
                     title="Remove friend"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
@@ -169,6 +177,24 @@ function FriendsSection() {
       )}
 
       {showAddModal && <AddFriendModal onClose={() => setShowAddModal(false)} />}
+
+      {confirmRemove && (
+        <div className="auth-modal-overlay" onClick={(e) => e.target === e.currentTarget && setConfirmRemove(null)}>
+          <div className="confirm-remove-modal">
+            <p className="confirm-remove-text">
+              Remove <strong>{confirmRemove.displayName}</strong> as a friend?
+            </p>
+            <div className="confirm-remove-actions">
+              <button className="confirm-remove-cancel" onClick={() => setConfirmRemove(null)}>
+                Cancel
+              </button>
+              <button className="confirm-remove-confirm" onClick={handleRemoveFriend}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
