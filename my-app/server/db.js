@@ -176,9 +176,13 @@ function initSchema() {
   }
 
   // Add username column if it doesn't exist
+  // Note: SQLite does not allow UNIQUE constraints on ALTER TABLE ADD COLUMN,
+  // so we add the column plain and enforce uniqueness via a separate index.
   if (!hasColumn('users', 'username')) {
-    db.exec("ALTER TABLE users ADD COLUMN username TEXT UNIQUE");
+    db.exec("ALTER TABLE users ADD COLUMN username TEXT");
   }
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)");
+
 
   // One-time migrations tracked by name
   db.exec("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)");
