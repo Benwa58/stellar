@@ -161,6 +161,10 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
         earlyAdvanceFiredRef.current = false;
         return;
       }
+      // If we're in the middle of switching tracks (src changed by
+      // audioPlay), this ended event is from the old source — ignore.
+      if (switchingTrackRef.current) return;
+
       setIsPlaying(false);
       isPlayingRef.current = false;
       setProgress(0);
@@ -457,6 +461,12 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
 
     audio.play().catch((err) => {
       console.warn('[play] new track play() failed:', err);
+      // Clean up optimistic state so pause/resume isn't stuck.
+      // Without this, switchingTrackRef stays true (onPlaying never
+      // fires), suppressing all future pause/play event handlers.
+      switchingTrackRef.current = false;
+      setIsPlaying(false);
+      isPlayingRef.current = false;
     });
 
     // Debounced metadata update — avoids rapid lock-screen churn on iOS.
