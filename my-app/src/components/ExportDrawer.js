@@ -32,10 +32,15 @@ function ExportDrawer({ onClose, seedArtists }) {
     [dislikes]
   );
 
+  const hasDislikesOnMap = useMemo(
+    () => dislikeNames.size > 0 && allNodes.some((n) => dislikeNames.has(n.name)),
+    [allNodes, dislikeNames]
+  );
+
   const filteredNodes = useMemo(() => {
-    if (!excludeDislikes || dislikeNames.size === 0) return allNodes;
+    if (!excludeDislikes || !hasDislikesOnMap) return allNodes;
     return allNodes.filter((n) => !dislikeNames.has(n.name));
-  }, [allNodes, excludeDislikes, dislikeNames]);
+  }, [allNodes, excludeDislikes, hasDislikesOnMap, dislikeNames]);
 
   const excludedCount = allNodes.length - filteredNodes.length;
 
@@ -217,7 +222,7 @@ function ExportDrawer({ onClose, seedArtists }) {
         )}
 
         {/* Dislike filter */}
-        {user && dislikes && dislikes.length > 0 && (
+        {user && hasDislikesOnMap && (
           <div className="export-dislike-filter">
             <button
               className={`export-dislike-toggle ${excludeDislikes ? 'active' : ''}`}
