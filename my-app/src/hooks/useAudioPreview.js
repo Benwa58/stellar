@@ -93,6 +93,11 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
   // avoiding the iOS Now Playing widget teardown/rebuild flicker.
   const metadataTimerRef = useRef(null);
 
+  // Flag: true once we've triggered an early advance for the current track
+  // (via timeupdate near end-of-track), so the real 'ended' event doesn't
+  // double-advance.  Reset when a new track starts playing.
+  const earlyAdvanceFiredRef = useRef(false);
+
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
@@ -125,6 +130,23 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
             });
           } catch {}
         }
+
+        // ── Lock-screen early advance ─────────────────────────────────
+        // iOS suspends JS execution as soon as the audio element enters
+        // the 'ended' state when the screen is locked, which prevents
+        // the onEnded callback from starting the next track.  By
+        // detecting that we're within the last 0.5 s of the current
+        // preview and switching to the next track *before* 'ended'
+        // fires, we keep the audio session active so iOS never suspends.
+        if (
+          !earlyAdvanceFiredRef.current &&
+          onEndedRef.current &&
+          audio.duration > 1 &&
+          audio.duration - audio.currentTime < 0.5
+        ) {
+          earlyAdvanceFiredRef.current = true;
+          onEndedRef.current();
+        }
       }
     }
 
@@ -133,6 +155,12 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     }
 
     function onEnded() {
+      // If early advance already triggered the callback for this track,
+      // skip to avoid double-advancing.
+      if (earlyAdvanceFiredRef.current) {
+        earlyAdvanceFiredRef.current = false;
+        return;
+      }
       setIsPlaying(false);
       isPlayingRef.current = false;
       setProgress(0);
@@ -418,6 +446,7 @@ export function useAudioPreview({ onEnded: onEndedCallback, onNext: onNextCallba
     // Play new track — mark switching so native pause/play events from the
     // source change don't briefly desync isPlaying state.
     switchingTrackRef.current = true;
+    earlyAdvanceFiredRef.current = false;
     audio.src = track.previewUrl;
     audio.load();
     setCurrentTrack(track);
