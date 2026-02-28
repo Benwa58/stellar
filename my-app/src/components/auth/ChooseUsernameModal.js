@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useAuth, useAuthActions } from '../../state/AuthContext';
-import { checkUsername } from '../../api/authClient';
+import { useAuth, useAuthActions, useAuthDispatch } from '../../state/AuthContext';
+import { checkUsername, getMe } from '../../api/authClient';
 import '../../styles/auth.css';
 
 function ChooseUsernameModal() {
   const { user } = useAuth();
   const { setUsername: saveUsername } = useAuthActions();
+  const dispatch = useAuthDispatch();
 
   const [username, setUsername] = useState('');
   const [status, setStatus] = useState(''); // '', 'checking', 'available', 'taken', 'invalid', 'error'
@@ -41,14 +42,25 @@ function ChooseUsernameModal() {
 
   if (!shouldShow) return null;
 
+  const canSubmit = status === 'available' || status === 'error';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (status !== 'available') return;
+    if (!canSubmit) return;
     setError('');
     setLoading(true);
     try {
       await saveUsername(username.toLowerCase());
     } catch (err) {
+      if (err.message === 'Username already set.') {
+        // Stale state — refresh user data so modal dismisses
+        try {
+          const res = await getMe();
+          const data = await res.json();
+          if (data.user) dispatch({ type: 'SET_USER', user: data.user });
+        } catch {}
+        return;
+      }
       setError(err.message);
     } finally {
       setLoading(false);
@@ -68,7 +80,7 @@ function ChooseUsernameModal() {
             <label className="auth-label" htmlFor="choose-username">Username</label>
             <input
               id="choose-username"
-              className={`auth-input ${status === 'available' ? 'auth-input-valid' : status === 'taken' || status === 'invalid' || status === 'error' ? 'auth-input-error' : ''}`}
+              className={`auth-input ${status === 'available' ? 'auth-input-valid' : status === 'taken' || status === 'invalid' ? 'auth-input-error' : ''}`}
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
@@ -84,7 +96,7 @@ function ChooseUsernameModal() {
             {status === 'invalid' && username && (
               <span className="auth-field-hint auth-field-error">3-20 chars, start with a letter, lowercase letters/numbers/_/-</span>
             )}
-            {status === 'error' && <span className="auth-field-hint auth-field-error">Unable to check availability. Try again.</span>}
+            {status === 'error' && <span className="auth-field-hint auth-field-error">Couldn't check availability — you can still submit.</span>}
           </div>
 
           {error && <div className="auth-error">{error}</div>}
@@ -92,7 +104,7 @@ function ChooseUsernameModal() {
           <button
             className="auth-submit-btn"
             type="submit"
-            disabled={loading || status !== 'available'}
+            disabled={loading || !canSubmit}
           >
             {loading ? 'Saving...' : 'Set Username'}
           </button>
