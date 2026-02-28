@@ -12,7 +12,7 @@ function AuthModal() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
-  const [usernameStatus, setUsernameStatus] = useState(''); // '', 'checking', 'available', 'taken', 'invalid'
+  const [usernameStatus, setUsernameStatus] = useState(''); // '', 'checking', 'available', 'taken', 'invalid', 'error'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
@@ -37,7 +37,7 @@ function AuthModal() {
         const data = await checkUsername(val);
         setUsernameStatus(data.available ? 'available' : 'taken');
       } catch {
-        setUsernameStatus('');
+        setUsernameStatus('error');
       }
     }, 400);
     return () => clearTimeout(usernameTimerRef.current);
@@ -144,7 +144,7 @@ function AuthModal() {
                   <label className="auth-label" htmlFor="auth-username">Username</label>
                   <input
                     id="auth-username"
-                    className={`auth-input ${usernameStatus === 'available' ? 'auth-input-valid' : usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'auth-input-error' : ''}`}
+                    className={`auth-input ${usernameStatus === 'available' ? 'auth-input-valid' : usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'error' ? 'auth-input-error' : ''}`}
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
@@ -159,6 +159,7 @@ function AuthModal() {
                   {usernameStatus === 'invalid' && username && (
                     <span className="auth-field-hint auth-field-error">3-20 chars, start with a letter, lowercase letters/numbers/_/-</span>
                   )}
+                  {usernameStatus === 'error' && <span className="auth-field-hint auth-field-error">Unable to check availability. Try again.</span>}
                 </div>
               </>
             )}
