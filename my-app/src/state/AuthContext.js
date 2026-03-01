@@ -101,6 +101,8 @@ function authReducer(state, action) {
       return { ...state, friends: state.friends.filter((f) => f.id !== action.userId) };
     case 'REMOVE_FRIEND_REQUEST':
       return { ...state, friendRequests: state.friendRequests.filter((r) => r.id !== action.userId) };
+    case 'UPDATE_USER':
+      return { ...state, user: { ...state.user, ...action.fields } };
     default:
       return state;
   }
@@ -584,5 +586,29 @@ export function useAuthActions() {
     } catch {}
   }, [dispatch]);
 
-  return { login, register, logout, setUsername, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, refreshUniverse, showAuthModal, hideAuthModal, sendFriendRequest, acceptFriend, rejectFriend, removeFriend, refreshFriends };
+  const updateProfile = useCallback(async ({ displayName, email }) => {
+    const res = await authApi.updateProfile({ displayName, email });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update profile');
+    dispatch({ type: 'UPDATE_USER', fields: data.user });
+    return data.user;
+  }, [dispatch]);
+
+  const uploadAvatar = useCallback(async (base64Data) => {
+    const res = await authApi.uploadAvatar(base64Data);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to upload avatar');
+    dispatch({ type: 'UPDATE_USER', fields: data.user });
+    return data.user;
+  }, [dispatch]);
+
+  const deleteAvatar = useCallback(async () => {
+    const res = await authApi.deleteAvatar();
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to remove avatar');
+    dispatch({ type: 'UPDATE_USER', fields: data.user });
+    return data.user;
+  }, [dispatch]);
+
+  return { login, register, logout, setUsername, toggleFavorite, toggleDislike, toggleKnownArtist, toggleDiscoveredArtist, refreshUniverse, showAuthModal, hideAuthModal, sendFriendRequest, acceptFriend, rejectFriend, removeFriend, refreshFriends, updateProfile, uploadAvatar, deleteAvatar };
 }

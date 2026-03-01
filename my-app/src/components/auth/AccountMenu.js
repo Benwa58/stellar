@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth, useAuthActions } from '../../state/AuthContext';
 import { getSavedMaps } from '../../utils/savedMapsStorage';
 import { importMaps } from '../../api/authClient';
 import { STORAGE_KEY } from '../../utils/constants';
+import EditProfileModal from './EditProfileModal';
 import '../../styles/auth.css';
 import '../../styles/friends.css';
 
@@ -11,6 +13,7 @@ function AccountMenu({ onClose }) {
   const { logout } = useAuthActions();
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   const localMaps = getSavedMaps();
 
@@ -39,6 +42,10 @@ function AccountMenu({ onClose }) {
 
   return (
     <>
+      {showEditProfile && createPortal(
+        <EditProfileModal onClose={() => { setShowEditProfile(false); onClose(); }} />,
+        document.body
+      )}
       <div className="account-menu-header">
         <span className="account-menu-name">{user.displayName}</span>
         {user.username && <span className="account-menu-username">@{user.username}</span>}
@@ -46,6 +53,17 @@ function AccountMenu({ onClose }) {
       </div>
 
       <div className="account-menu-divider" />
+
+      <button
+        className="account-menu-item account-menu-btn"
+        onClick={() => setShowEditProfile(true)}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+        Edit Profile
+      </button>
 
       {localMaps.length > 0 && !importResult && (
         <button

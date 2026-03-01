@@ -77,6 +77,7 @@ function sanitizeUser(user) {
     displayName: user.display_name,
     username: user.username || null,
     hasSpotify: !!user.spotify_id,
+    hasAvatar: !!user.avatar,
   };
 }
 
@@ -526,6 +527,108 @@ router.post('/reset-password', rateLimit, async (req, res) => {
   } catch (err) {
     console.error('Reset password error:', err);
     res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+// PUT /api/auth/profile  (update display name and/or email)
+router.put('/profile', requireAuth, (req, res) => {
+  try {
+    const { displayName, email } = req.body;
+    const user = db.getUserById(req.userId);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    // Validate display name
+    if (displayName !== undefined) {
+      const trimmed = displayName.trim();
+      if (!trimmed || trimmed.length === 0) {
+        return res.status(400).json({ error: 'Display name is required.' });
+      }
+      if (trimmed.length > 50) {
+        return res.status(400).json({ error: 'Display name must be 50 characters or fewer.' });
+      }
+    }
+
+    // Validate email
+    if (email !== undefined) {
+      const normalizedEmail = email.toLowerCase().trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({ error: 'Invalid email address.' });
+      }
+      // Check uniqueness (skip if unchanged)
+      if (normalizedEmail !== user.email) {
+        const existing = db.getUserByEmail(normalizedEmail);
+        if (existing) {
+          return res.status(409).json({ error: 'An account with this email already exists.' });
+        }
+      }
+    }
+
+    db.updateUserProfile(req.userId, {
+      displayName: displayName !== undefined ? displayName.trim() : undefined,
+      email: email !== undefined ? email.toLowerCase().trim() : undefined,
+    });
+
+    const updated = db.getUserById(req.userId);
+    res.json({ user: sanitizeUser(updated) });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile.' });
+  }
+});
+
+// POST /api/auth/avatar  (upload avatar as base64)
+router.post('/avatar', requireAuth, (req, res) => {
+  try {
+    const { avatar } = req.body; // base64 data URI or raw base64
+    if (!avatar) {
+      return res.status(400).json({ error: 'Avatar data is required.' });
+    }
+
+    // Strip data URI prefix if present
+    const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Sanity check: limit to 2MB
+    if (buffer.length > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Avatar image must be under 2MB.' });
+    }
+
+    db.setUserAvatar(req.userId, buffer);
+
+    const updated = db.getUserById(req.userId);
+    res.json({ user: sanitizeUser(updated) });
+  } catch (err) {
+    console.error('Upload avatar error:', err);
+    res.status(500).json({ error: 'Failed to upload avatar.' });
+  }
+});
+
+// DELETE /api/auth/avatar  (remove avatar)
+router.delete('/avatar', requireAuth, (req, res) => {
+  try {
+    db.deleteUserAvatar(req.userId);
+    const updated = db.getUserById(req.userId);
+    res.json({ user: sanitizeUser(updated) });
+  } catch (err) {
+    console.error('Delete avatar error:', err);
+    res.status(500).json({ error: 'Failed to remove avatar.' });
+  }
+});
+
+// GET /api/auth/avatar/:userId  (serve avatar image)
+router.get('/avatar/:userId', (req, res) => {
+  try {
+    const avatar = db.getUserAvatar(parseInt(req.params.userId, 10));
+    if (!avatar) {
+      return res.status(404).json({ error: 'No avatar found' });
+    }
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=300');
+    res.send(avatar);
+  } catch (err) {
+    console.error('Get avatar error:', err);
+    res.status(500).json({ error: 'Failed to get avatar.' });
   }
 });
 

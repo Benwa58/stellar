@@ -617,6 +617,138 @@ a.export-open-link:hover,
   padding: 20px;
 }
 
+/* Avatar image in header button */
+.auth-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Edit Profile Modal */
+.edit-profile-modal {
+  width: 380px;
+}
+
+.edit-profile-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.edit-profile-avatar-btn {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-accent, #6366f1);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--transition-fast, 150ms ease);
+  padding: 0;
+}
+
+.edit-profile-avatar-btn:hover {
+  border-color: var(--color-accent, #6366f1);
+}
+
+.edit-profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.edit-profile-avatar-initials {
+  color: white;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.edit-profile-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity var(--transition-fast, 150ms ease);
+  color: white;
+  border-radius: 50%;
+}
+
+.edit-profile-avatar-btn:hover .edit-profile-avatar-overlay {
+  opacity: 1;
+}
+
+.edit-profile-avatar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.edit-profile-photo-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-accent, #6366f1);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast, 150ms ease);
+}
+
+.edit-profile-photo-btn:hover {
+  color: var(--color-accent-hover, #818cf8);
+}
+
+.edit-profile-remove-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-text-muted, #555577);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: color var(--transition-fast, 150ms ease);
+}
+
+.edit-profile-remove-btn:hover {
+  color: var(--color-error, #ef4444);
+}
+
+.edit-profile-username-display {
+  padding: 10px 12px;
+  background: var(--color-bg-input, #0f0f25);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 12px);
+  color: var(--color-text-muted, #555577);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.9rem;
+}
+
+.edit-profile-success {
+  padding: 8px 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--color-success, #22c55e);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
 /* Mobile */
 @media (max-width: 480px) {
   .auth-modal {

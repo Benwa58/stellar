@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth, useAuthActions } from '../../state/AuthContext';
+import { getAvatarUrl } from '../../api/authClient';
 import AccountMenu from './AccountMenu';
 import '../../styles/auth.css';
 
@@ -62,7 +63,11 @@ function AuthButton() {
   return (
     <>
       <button className="auth-avatar-btn" ref={avatarRef} onClick={handleToggle}>
-        <span className="auth-avatar-initials">{initials}</span>
+        {user.hasAvatar ? (
+          <img src={getAvatarUrl(user.id)} alt="" className="auth-avatar-img" />
+        ) : (
+          <span className="auth-avatar-initials">{initials}</span>
+        )}
       </button>
       {menuOpen && createPortal(
         <div
