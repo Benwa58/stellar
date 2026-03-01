@@ -72,6 +72,7 @@ const CollisionCanvas = forwardRef(function CollisionCanvas(
   const canvasRef = useRef(null);
 
   const layoutRef = useRef(null);
+  const hadDataRef = useRef(false);
 
   const stateRef = useRef({
     zoneMetas: [],
@@ -241,7 +242,10 @@ const CollisionCanvas = forwardRef(function CollisionCanvas(
     canvas.style.width = size.width + 'px';
     canvas.style.height = size.height + 'px';
 
-    fitAll(false);
+    // Animate back to overview on data updates; snap on initial load
+    const isUpdate = hadDataRef.current;
+    hadDataRef.current = true;
+    fitAll(isUpdate);
 
     if (rendererRef.current) rendererRef.current.stop();
     const renderer = createCollisionRenderer(canvas, () => stateRef.current);
