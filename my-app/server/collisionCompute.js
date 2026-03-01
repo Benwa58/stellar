@@ -173,18 +173,43 @@ async function computeCollision(userId, friendId, db) {
   const friendOnly = friendArtists.filter((a) => !userArtistSet.has(a.key));
 
   // --- Fetch similar artists for connection discovery ---
-  // We need similarities to categorize exploration zones and shared frontier
-  const allUniqueArtists = [...new Set([...userArtists, ...friendArtists].map((a) => a.name))];
+  // We need similarities to categorize exploration zones and shared frontier.
+  // Priority order: core overlap first (drives frontier), then interleave
+  // user-exclusive and friend-exclusive so neither side is starved.
+  const sampledKeys = new Set();
+  const samplesToFetch = [];
 
-  // Limit API calls: fetch similar for a representative sample
-  const samplesToFetch = allUniqueArtists.slice(0, 40);
+  // 1. Core overlap artists (highest priority — they seed the shared frontier)
+  for (const a of coreOverlap) {
+    const key = a.name.toLowerCase().trim();
+    if (!sampledKeys.has(key)) {
+      sampledKeys.add(key);
+      samplesToFetch.push(a.name);
+    }
+  }
+
+  // 2. Interleave user-only and friend-only so both sides get equal coverage
+  const userExcl = userArtists.filter((a) => !friendArtistSet.has(a.key));
+  const friendExcl = friendArtists.filter((a) => !userArtistSet.has(a.key));
+  const maxSide = Math.max(userExcl.length, friendExcl.length);
+  for (let i = 0; i < maxSide; i++) {
+    if (i < userExcl.length) {
+      const key = userExcl[i].key;
+      if (!sampledKeys.has(key)) { sampledKeys.add(key); samplesToFetch.push(userExcl[i].name); }
+    }
+    if (i < friendExcl.length) {
+      const key = friendExcl[i].key;
+      if (!sampledKeys.has(key)) { sampledKeys.add(key); samplesToFetch.push(friendExcl[i].name); }
+    }
+  }
+
   const similarityMap = new Map(); // artist -> [{ name, matchScore }]
 
   const batchSize = 5;
   for (let i = 0; i < samplesToFetch.length; i += batchSize) {
     const batch = samplesToFetch.slice(i, i + batchSize);
     const results = await Promise.all(
-      batch.map((name) => fetchSimilarArtists(name, 40))
+      batch.map((name) => fetchSimilarArtists(name, 60))
     );
     for (let j = 0; j < batch.length; j++) {
       similarityMap.set(batch[j].toLowerCase().trim(), results[j]);
