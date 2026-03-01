@@ -173,18 +173,43 @@ async function computeCollision(userId, friendId, db) {
   const friendOnly = friendArtists.filter((a) => !userArtistSet.has(a.key));
 
   // --- Fetch similar artists for connection discovery ---
-  // We need similarities to categorize exploration zones and shared frontier
-  const allUniqueArtists = [...new Set([...userArtists, ...friendArtists].map((a) => a.name))];
+  // We need similarities to categorize exploration zones and shared frontier.
+  // Priority order: core overlap first (drives frontier), then interleave
+  // user-exclusive and friend-exclusive so neither side is starved.
+  const sampledKeys = new Set();
+  const samplesToFetch = [];
 
-  // Limit API calls: fetch similar for a representative sample
-  const samplesToFetch = allUniqueArtists.slice(0, 40);
+  // 1. Core overlap artists (highest priority — they seed the shared frontier)
+  for (const a of coreOverlap) {
+    const key = a.name.toLowerCase().trim();
+    if (!sampledKeys.has(key)) {
+      sampledKeys.add(key);
+      samplesToFetch.push(a.name);
+    }
+  }
+
+  // 2. Interleave user-only and friend-only so both sides get equal coverage
+  const userExcl = userArtists.filter((a) => !friendArtistSet.has(a.key));
+  const friendExcl = friendArtists.filter((a) => !userArtistSet.has(a.key));
+  const maxSide = Math.max(userExcl.length, friendExcl.length);
+  for (let i = 0; i < maxSide; i++) {
+    if (i < userExcl.length) {
+      const key = userExcl[i].key;
+      if (!sampledKeys.has(key)) { sampledKeys.add(key); samplesToFetch.push(userExcl[i].name); }
+    }
+    if (i < friendExcl.length) {
+      const key = friendExcl[i].key;
+      if (!sampledKeys.has(key)) { sampledKeys.add(key); samplesToFetch.push(friendExcl[i].name); }
+    }
+  }
+
   const similarityMap = new Map(); // artist -> [{ name, matchScore }]
 
   const batchSize = 5;
   for (let i = 0; i < samplesToFetch.length; i += batchSize) {
     const batch = samplesToFetch.slice(i, i + batchSize);
     const results = await Promise.all(
-      batch.map((name) => fetchSimilarArtists(name, 40))
+      batch.map((name) => fetchSimilarArtists(name, 60))
     );
     for (let j = 0; j < batch.length; j++) {
       similarityMap.set(batch[j].toLowerCase().trim(), results[j]);
@@ -199,40 +224,84 @@ async function computeCollision(userId, friendId, db) {
       .map((s) => ({ name: s.name, key: s.name.toLowerCase().trim(), score: s.matchScore }));
   }
 
+  // Build a reverse index: for each artist that appears as a similar result,
+  // record which sampled artists listed it. This lets us detect connections
+  // even when an artist wasn't sampled itself (the similarity API isn't
+  // symmetric — A→B doesn't guarantee B→A in the response).
+  const reverseIndex = new Map(); // artistKey -> [{ from: artistKey, score }]
+  for (const [sampledKey, similarList] of similarityMap) {
+    for (const s of similarList) {
+      if (s.matchScore < 0.15) continue;
+      const targetKey = s.name.toLowerCase().trim();
+      if (!reverseIndex.has(targetKey)) reverseIndex.set(targetKey, []);
+      reverseIndex.get(targetKey).push({ from: sampledKey, score: s.matchScore });
+    }
+  }
+
+  // Lookup table for display names (avoids repeated array scans)
+  const displayNameByKey = new Map();
+  for (const a of [...userArtists, ...friendArtists]) {
+    if (!displayNameByKey.has(a.key)) displayNameByKey.set(a.key, a.name);
+  }
+
+  // Check if artistA connects to any artist in targetKeys, using both
+  // forward (A's similar list) and reverse (who lists A as similar) lookups.
+  function findConnectedNames(artistKey, targetKeys) {
+    const connected = new Set();
+
+    // Forward: artistKey's own similar-artist list
+    const forward = getConnections(artistKey);
+    for (const c of forward) {
+      if (targetKeys.has(c.key)) connected.add(c.name);
+    }
+
+    // Reverse: sampled artists that list artistKey as similar
+    const reverseEntries = reverseIndex.get(artistKey) || [];
+    for (const entry of reverseEntries) {
+      if (targetKeys.has(entry.from)) {
+        const name = displayNameByKey.get(entry.from);
+        if (name) connected.add(name);
+      }
+    }
+
+    return Array.from(connected);
+  }
+
   // --- Zone 5: Your Exploration Zone ---
-  // Friend's exclusive artists that connect to YOUR exclusive artists
+  // Friend's exclusive artists that connect to YOUR artists (exclusive + core overlap)
   const userOnlyKeys = new Set(userOnly.map((a) => a.key));
   const friendOnlyKeys = new Set(friendOnly.map((a) => a.key));
+  const userReachableKeys = new Set([...userOnlyKeys, ...coreOverlapKeys]);
 
   const yourExplorationZone = [];
   const friendExplorationZone = [];
   const usedExplorationKeys = new Set();
 
   for (const friendArtist of friendOnly) {
-    const connections = getConnections(friendArtist.key);
-    const connectsToUser = connections.some((c) => userOnlyKeys.has(c.key));
-    if (connectsToUser) {
+    const connectedNames = findConnectedNames(friendArtist.key, userReachableKeys);
+    if (connectedNames.length > 0) {
       yourExplorationZone.push({
         name: friendArtist.name,
         image: friendArtist.image,
         zone: 'your_exploration',
-        connectedTo: connections.filter((c) => userOnlyKeys.has(c.key)).map((c) => c.name),
+        connectedTo: connectedNames,
       });
       usedExplorationKeys.add(friendArtist.key);
     }
   }
 
   // --- Zone 6: Friend's Exploration Zone ---
-  // Your exclusive artists that connect to THEIR exclusive artists
+  // Your exclusive artists that connect to THEIR artists (exclusive + core overlap)
+  const friendReachableKeys = new Set([...friendOnlyKeys, ...coreOverlapKeys]);
+
   for (const userArtist of userOnly) {
-    const connections = getConnections(userArtist.key);
-    const connectsToFriend = connections.some((c) => friendOnlyKeys.has(c.key));
-    if (connectsToFriend) {
+    const connectedNames = findConnectedNames(userArtist.key, friendReachableKeys);
+    if (connectedNames.length > 0) {
       friendExplorationZone.push({
         name: userArtist.name,
         image: userArtist.image,
         zone: 'friend_exploration',
-        connectedTo: connections.filter((c) => friendOnlyKeys.has(c.key)).map((c) => c.name),
+        connectedTo: connectedNames,
       });
       usedExplorationKeys.add(userArtist.key);
     }
