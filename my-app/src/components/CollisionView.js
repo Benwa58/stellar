@@ -41,6 +41,10 @@ function CollisionView() {
         if (data.collision && data.status === 'ready') {
           setCollisionData(data.collision);
           setStatus('ready');
+          // If stale, backend auto-triggered recompute — poll for the update
+          if (data.isStale) {
+            startPolling(true);
+          }
         } else if (data.status === 'computing') {
           setStatus('computing');
           startPolling();
@@ -87,7 +91,7 @@ function CollisionView() {
     }
   }
 
-  function startPolling() {
+  function startPolling(silentUpdate = false) {
     if (pollRef.current) clearInterval(pollRef.current);
     let attempts = 0;
     pollRef.current = setInterval(async () => {
@@ -95,8 +99,10 @@ function CollisionView() {
       if (attempts > 60) {
         clearInterval(pollRef.current);
         pollRef.current = null;
-        setError('Computation timed out');
-        setStatus('error');
+        if (!silentUpdate) {
+          setError('Computation timed out');
+          setStatus('error');
+        }
         return;
       }
       try {
@@ -114,8 +120,10 @@ function CollisionView() {
         } else if (data.status === 'error') {
           clearInterval(pollRef.current);
           pollRef.current = null;
-          setError('Computation failed');
-          setStatus('error');
+          if (!silentUpdate) {
+            setError('Computation failed');
+            setStatus('error');
+          }
         }
       } catch {
         // continue polling

@@ -9,6 +9,33 @@ const router = express.Router();
 const computingPairs = new Set();
 function pairKey(a, b) { return a < b ? `${a}:${b}` : `${b}:${a}`; }
 
+// Shared background recompute — preserveOnError keeps old snapshot intact on failure
+function runBackgroundRecompute(userId, friendId, currentHash, { preserveOnError = false } = {}) {
+  const pk = pairKey(userId, friendId);
+  computeCollision(userId, friendId, db)
+    .then((result) => {
+      db.upsertCollisionSnapshot(userId, friendId, {
+        snapshotData: result,
+        artistHash: currentHash,
+        status: 'ready',
+      });
+    })
+    .catch((err) => {
+      console.error('Background collision recompute error:', err);
+      if (!preserveOnError) {
+        db.upsertCollisionSnapshot(userId, friendId, {
+          snapshotData: {},
+          artistHash: '',
+          status: 'error',
+          errorMessage: err.message || 'Compute failed',
+        });
+      }
+    })
+    .finally(() => {
+      computingPairs.delete(pk);
+    });
+}
+
 // GET /api/collision/:friendId — Get cached collision snapshot
 router.get('/:friendId', requireAuth, (req, res) => {
   try {
@@ -34,10 +61,32 @@ router.get('/:friendId', requireAuth, (req, res) => {
     const currentHash = computeCollisionHash(userFavs, userDiscovered, friendFavs, friendDiscovered);
     const isStale = currentHash !== snapshot.artist_hash;
 
+    // Auto-trigger recompute if stale and not already computing
+    const pk = pairKey(req.userId, friendId);
+    let isRecomputing = computingPairs.has(pk);
+
+    if (isStale && snapshot.status === 'ready' && !isRecomputing) {
+      const userCount = new Set([
+        ...userFavs.map((f) => f.artist_name.toLowerCase().trim()),
+        ...userDiscovered.map((d) => d.artist_name.toLowerCase().trim()),
+      ]).size;
+      const friendCount = new Set([
+        ...friendFavs.map((f) => f.artist_name.toLowerCase().trim()),
+        ...friendDiscovered.map((d) => d.artist_name.toLowerCase().trim()),
+      ]).size;
+
+      if (userCount >= 3 && friendCount >= 3) {
+        computingPairs.add(pk);
+        isRecomputing = true;
+        runBackgroundRecompute(req.userId, friendId, currentHash, { preserveOnError: true });
+      }
+    }
+
     res.json({
       collision: snapshot.status === 'ready' ? JSON.parse(snapshot.snapshot_data) : null,
       status: snapshot.status,
       isStale,
+      isRecomputing,
       computedAt: snapshot.computed_at,
     });
   } catch (err) {
@@ -97,25 +146,7 @@ router.post('/:friendId/compute', requireAuth, async (req, res) => {
     computingPairs.add(pk);
     res.json({ status: 'computing', message: 'Computing collision...' });
 
-    const userId = req.userId;
-    try {
-      const result = await computeCollision(userId, friendId, db);
-      db.upsertCollisionSnapshot(userId, friendId, {
-        snapshotData: result,
-        artistHash: currentHash,
-        status: 'ready',
-      });
-    } catch (err) {
-      console.error('Collision compute error:', err);
-      db.upsertCollisionSnapshot(userId, friendId, {
-        snapshotData: {},
-        artistHash: '',
-        status: 'error',
-        errorMessage: err.message || 'Compute failed',
-      });
-    } finally {
-      computingPairs.delete(pk);
-    }
+    runBackgroundRecompute(req.userId, friendId, currentHash);
   } catch (err) {
     console.error('Trigger collision compute error:', err);
     res.status(500).json({ error: 'Failed to start compute.' });
