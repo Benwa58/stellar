@@ -283,7 +283,7 @@ export function createCollisionRenderer(canvas, getState) {
     }
 
     const { zoneMetas, allNodes, allLinks, transform, worldBounds,
-            hoveredNode, selectedNode } = state;
+            hoveredNode, selectedNode, favoriteNames, dislikeNames, discoveredNames } = state;
     const time = now - startTime;
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width / dpr;
@@ -565,6 +565,159 @@ export function createCollisionRenderer(canvas, getState) {
 
         const isActive = node === hoveredNode || node === selectedNode;
         drawCollisionNode(ctx, node, isActive, time);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Status glow on favorited/discovered nodes (LOD 2, fades as LOD 1 rings appear) ──
+    if (lod.nodeFactor > 0 && lod.detailFactor < 1 && allNodes) {
+      const glowAlpha = lod.nodeFactor * (1 - lod.detailFactor);
+      if (glowAlpha > 0) {
+        ctx.globalAlpha = glowAlpha;
+
+        if (discoveredNames && discoveredNames.size > 0) {
+          for (const node of allNodes) {
+            if (node.x == null || !discoveredNames.has(node.name)) continue;
+            if (!isVisible(node.x, node.y, (node.radius || 5) * 4, transform, w, h)) continue;
+            const r = node.radius || 5;
+            const glowR = r * 3.5;
+            const glow = ctx.createRadialGradient(node.x, node.y, r * 0.5, node.x, node.y, glowR);
+            glow.addColorStop(0, 'rgba(255, 200, 50, 0.5)');
+            glow.addColorStop(0.4, 'rgba(255, 180, 0, 0.15)');
+            glow.addColorStop(1, 'rgba(255, 150, 0, 0)');
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = glow;
+            ctx.fill();
+          }
+        }
+
+        if (favoriteNames && favoriteNames.size > 0) {
+          for (const node of allNodes) {
+            if (node.x == null || !favoriteNames.has(node.name)) continue;
+            if (!isVisible(node.x, node.y, (node.radius || 5) * 4, transform, w, h)) continue;
+            const r = node.radius || 5;
+            const glowR = r * 3.5;
+            const glow = ctx.createRadialGradient(node.x, node.y, r * 0.5, node.x, node.y, glowR);
+            glow.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
+            glow.addColorStop(0.4, 'rgba(30, 64, 175, 0.15)');
+            glow.addColorStop(1, 'rgba(30, 58, 138, 0)');
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = glow;
+            ctx.fill();
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ── Status indicators (LOD 1 — full detail rings) ──
+    if (lod.detailFactor > 0 && allNodes) {
+      ctx.globalAlpha = lod.detailFactor;
+
+      const hasFavs = favoriteNames && favoriteNames.size > 0;
+      const hasDislikes = dislikeNames && dislikeNames.size > 0;
+      const hasDiscovered = discoveredNames && discoveredNames.size > 0;
+      const angle = time * 0.001;
+
+      for (const node of allNodes) {
+        if (node.x == null) continue;
+
+        // Discovered ring (gold swirl + sparkles)
+        if (hasDiscovered && discoveredNames.has(node.name)) {
+          const { x, y, radius } = node;
+
+          // Pulsing outer glow
+          const pulse = 0.7 + 0.3 * Math.sin(time * 0.002 + x * 0.01);
+          const glowRadius = (radius + 8) * pulse + radius;
+          const glow = ctx.createRadialGradient(x, y, radius, x, y, glowRadius);
+          glow.addColorStop(0, `rgba(255, 200, 50, ${0.25 * pulse})`);
+          glow.addColorStop(0.5, `rgba(255, 170, 0, ${0.1 * pulse})`);
+          glow.addColorStop(1, 'rgba(255, 150, 0, 0)');
+          ctx.beginPath();
+          ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+          ctx.fillStyle = glow;
+          ctx.fill();
+
+          // Rotating gradient ring (swirl)
+          const ringR = radius + 3;
+          const gx = x + Math.cos(angle) * ringR;
+          const gy = y + Math.sin(angle) * ringR;
+          const gx2 = x + Math.cos(angle + Math.PI) * ringR;
+          const gy2 = y + Math.sin(angle + Math.PI) * ringR;
+          const ringGrad = ctx.createLinearGradient(gx, gy, gx2, gy2);
+          ringGrad.addColorStop(0, 'rgba(255, 230, 100, 1)');
+          ringGrad.addColorStop(0.25, 'rgba(255, 190, 0, 0.95)');
+          ringGrad.addColorStop(0.5, 'rgba(255, 140, 0, 0.9)');
+          ringGrad.addColorStop(0.75, 'rgba(255, 200, 50, 0.95)');
+          ringGrad.addColorStop(1, 'rgba(255, 230, 100, 1)');
+          ctx.beginPath();
+          ctx.arc(x, y, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = ringGrad;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+
+          // Orbiting sparkle particles
+          for (let i = 0; i < 4; i++) {
+            const sparkleAngle = angle * 1.5 + (Math.PI * 2 * i) / 4;
+            const sparkleR = ringR + 1;
+            const sx = x + Math.cos(sparkleAngle) * sparkleR;
+            const sy = y + Math.sin(sparkleAngle) * sparkleR;
+            const sparkleAlpha = 0.5 + 0.5 * Math.sin(time * 0.004 + i * 1.5);
+            const sparkleSize = 1.2 + 0.6 * sparkleAlpha;
+
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.rotate(sparkleAngle);
+            ctx.beginPath();
+            ctx.moveTo(0, -sparkleSize * 2);
+            ctx.lineTo(sparkleSize * 0.4, 0);
+            ctx.lineTo(0, sparkleSize * 2);
+            ctx.lineTo(-sparkleSize * 0.4, 0);
+            ctx.closePath();
+            ctx.fillStyle = `rgba(255, 240, 180, ${sparkleAlpha * 0.9})`;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-sparkleSize * 2, 0);
+            ctx.lineTo(0, sparkleSize * 0.4);
+            ctx.lineTo(sparkleSize * 2, 0);
+            ctx.lineTo(0, -sparkleSize * 0.4);
+            ctx.closePath();
+            ctx.fillStyle = `rgba(255, 240, 180, ${sparkleAlpha * 0.7})`;
+            ctx.fill();
+            ctx.restore();
+          }
+          continue;
+        }
+
+        // Favorite ring (blue gradient)
+        if (hasFavs && favoriteNames.has(node.name)) {
+          const ringR = node.radius + 3;
+          const grad = ctx.createLinearGradient(node.x - ringR, node.y - ringR, node.x + ringR, node.y + ringR);
+          grad.addColorStop(0, 'rgba(30, 64, 175, 0.95)');
+          grad.addColorStop(0.5, 'rgba(59, 130, 246, 0.95)');
+          grad.addColorStop(1, 'rgba(30, 58, 138, 0.95)');
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          continue;
+        }
+
+        // Dislike ring (red dashed)
+        if (hasDislikes && dislikeNames.has(node.name)) {
+          const ringR = node.radius + 3;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          continue;
+        }
       }
       ctx.globalAlpha = 1;
     }

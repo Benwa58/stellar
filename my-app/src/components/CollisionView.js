@@ -16,7 +16,7 @@ function CollisionView() {
   useBottomBarDetect();
   const { collisionFriendId } = useAppState();
   const dispatch = useDispatch();
-  const { user, friends } = useAuth();
+  const { user, friends, favorites, discoveredArtists, dislikes } = useAuth();
   const canvasRef = useRef(null);
 
   const [collisionData, setCollisionData] = useState(null);
@@ -208,6 +208,9 @@ function CollisionView() {
       <CollisionCanvas
         ref={canvasRef}
         collisionData={collisionData}
+        favorites={favorites}
+        discoveredArtists={discoveredArtists}
+        dislikes={dislikes}
         onSelectNode={handleSelectNode}
         onHoverNode={handleHoverNode}
       />
