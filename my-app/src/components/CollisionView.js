@@ -24,6 +24,7 @@ function CollisionView() {
   const [error, setError] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
 
   const friend = friends.find((f) => f.id === collisionFriendId);
   const pollRef = useRef(null);
@@ -43,6 +44,7 @@ function CollisionView() {
           setStatus('ready');
           // If stale, backend auto-triggered recompute — poll for the update
           if (data.isStale) {
+            setRecomputing(true);
             startPolling(true);
           }
         } else if (data.status === 'computing') {
@@ -99,7 +101,9 @@ function CollisionView() {
       if (attempts > 60) {
         clearInterval(pollRef.current);
         pollRef.current = null;
-        if (!silentUpdate) {
+        if (silentUpdate) {
+          setRecomputing(false);
+        } else {
           setError('Computation timed out');
           setStatus('error');
         }
@@ -116,11 +120,14 @@ function CollisionView() {
           if (collData.collision) {
             setCollisionData(collData.collision);
             setStatus('ready');
+            if (silentUpdate) setRecomputing(false);
           }
         } else if (data.status === 'error') {
           clearInterval(pollRef.current);
           pollRef.current = null;
-          if (!silentUpdate) {
+          if (silentUpdate) {
+            setRecomputing(false);
+          } else {
             setError('Computation failed');
             setStatus('error');
           }
@@ -279,6 +286,14 @@ function CollisionView() {
           </button>
         </div>
       </div>
+
+      {/* Recomputing indicator */}
+      {recomputing && (
+        <div className="collision-recomputing-pill">
+          <div className="collision-recomputing-spinner" />
+          <span>Recomputing...</span>
+        </div>
+      )}
 
       {/* Stats bar */}
       {collisionData.stats && (
