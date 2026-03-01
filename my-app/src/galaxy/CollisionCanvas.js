@@ -65,7 +65,7 @@ function animateTransform(stateRef, target, duration = 500) {
 }
 
 const CollisionCanvas = forwardRef(function CollisionCanvas(
-  { collisionData, onSelectNode, onHoverNode },
+  { collisionData, favorites, discoveredArtists, dislikes, onSelectNode, onHoverNode },
   ref
 ) {
   const containerRef = useRef(null);
@@ -81,6 +81,9 @@ const CollisionCanvas = forwardRef(function CollisionCanvas(
     transform: { x: 0, y: 0, scale: 1 },
     hoveredNode: null,
     selectedNode: null,
+    favoriteNames: new Set(),
+    dislikeNames: new Set(),
+    discoveredNames: new Set(),
   });
 
   const rendererRef = useRef(null);
@@ -102,6 +105,25 @@ const CollisionCanvas = forwardRef(function CollisionCanvas(
     stateRef.current.hoveredNode = null;
     stateRef.current.selectedNode = null;
   }, [collisionData]);
+
+  // Sync favorite/discovered/dislike names into renderer state for real-time ring effects
+  useEffect(() => {
+    stateRef.current.favoriteNames = new Set(
+      (favorites || []).map((f) => f.artistName)
+    );
+  }, [favorites]);
+
+  useEffect(() => {
+    stateRef.current.discoveredNames = new Set(
+      (discoveredArtists || []).map((d) => d.artistName)
+    );
+  }, [discoveredArtists]);
+
+  useEffect(() => {
+    stateRef.current.dislikeNames = new Set(
+      (dislikes || []).map((d) => d.artistName)
+    );
+  }, [dislikes]);
 
   const fitAll = useCallback((animate = true) => {
     const layout = layoutRef.current;
