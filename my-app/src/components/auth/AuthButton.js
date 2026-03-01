@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom';
 import { useAuth, useAuthActions } from '../../state/AuthContext';
 import { getAvatarUrl } from '../../api/authClient';
 import AccountMenu from './AccountMenu';
+import EditProfileModal from './EditProfileModal';
 import '../../styles/auth.css';
 
 function AuthButton() {
   const { user, isLoading } = useAuth();
   const { showAuthModal } = useAuthActions();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const avatarRef = useRef(null);
   const menuRef = useRef(null);
@@ -75,8 +77,15 @@ function AuthButton() {
           className="account-menu"
           style={{ position: 'fixed', top: menuPos.top, right: menuPos.right }}
         >
-          <AccountMenu onClose={() => setMenuOpen(false)} />
+          <AccountMenu
+            onClose={() => setMenuOpen(false)}
+            onEditProfile={() => { setMenuOpen(false); setShowEditProfile(true); }}
+          />
         </div>,
+        document.body
+      )}
+      {showEditProfile && createPortal(
+        <EditProfileModal onClose={() => setShowEditProfile(false)} />,
         document.body
       )}
     </>
