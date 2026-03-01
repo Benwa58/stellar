@@ -192,10 +192,10 @@ async function computeCollision(userId, friendId, db) {
   }
 
   // Build connection graph: which artists are similar to which
-  function getConnections(artistKey) {
+  function getConnections(artistKey, minScore = 0.15) {
     const similar = similarityMap.get(artistKey) || [];
     return similar
-      .filter((s) => s.matchScore >= 0.15)
+      .filter((s) => s.matchScore >= minScore)
       .map((s) => ({ name: s.name, key: s.name.toLowerCase().trim(), score: s.matchScore }));
   }
 
@@ -239,32 +239,104 @@ async function computeCollision(userId, friendId, db) {
   }
 
   // --- Zone 4: Shared Frontier ---
-  // Artists that connect to core overlap artists but neither user has
-  const sharedFrontier = [];
-  const sharedFrontierKeys = new Set();
+  // Artists that connect to core overlap artists but neither user has.
+  // Diversified: candidates that bridge multiple core artists score higher,
+  // and selection spreads picks across core artists rather than clustering.
+
+  // Phase 1: Gather ALL candidates from ALL core overlap artists (lower
+  // threshold than exploration zones — frontier is about new discovery).
+  const frontierCandidates = new Map(); // key -> { name, sources }
 
   for (const coreArtist of coreOverlap) {
-    const connections = getConnections(coreArtist.name.toLowerCase().trim());
+    const connections = getConnections(coreArtist.name.toLowerCase().trim(), 0.1);
     for (const conn of connections) {
-      if (
-        !userArtistSet.has(conn.key) &&
-        !friendArtistSet.has(conn.key) &&
-        !sharedFrontierKeys.has(conn.key) &&
-        conn.score >= 0.2
-      ) {
-        sharedFrontier.push({
+      if (userArtistSet.has(conn.key) || friendArtistSet.has(conn.key)) continue;
+
+      if (!frontierCandidates.has(conn.key)) {
+        frontierCandidates.set(conn.key, {
           name: conn.name,
-          zone: 'shared_frontier',
-          score: conn.score,
-          suggestedBy: coreArtist.name,
+          key: conn.key,
+          sources: [],
         });
-        sharedFrontierKeys.add(conn.key);
+      }
+      frontierCandidates.get(conn.key).sources.push({
+        coreArtist: coreArtist.name,
+        score: conn.score,
+      });
+    }
+  }
+
+  // Phase 2: Score candidates — reward connections to multiple core artists.
+  for (const [, candidate] of frontierCandidates) {
+    const avgScore = candidate.sources.reduce((sum, s) => sum + s.score, 0) / candidate.sources.length;
+    // Breadth bonus: each additional core artist connection adds 30% weight
+    const breadthMultiplier = 1 + (candidate.sources.length - 1) * 0.3;
+    candidate.compositeScore = avgScore * breadthMultiplier;
+    candidate.suggestedBy = candidate.sources.map((s) => s.coreArtist);
+  }
+
+  // Phase 3: Percentage-based limit — 25% of the total unique artists in the
+  // collision, with a floor of 5 so small maps still get recommendations.
+  const totalUniqueCount = new Set([...userArtists, ...friendArtists].map((a) => a.key)).size;
+  const frontierLimit = Math.max(5, Math.round(totalUniqueCount * 0.25));
+
+  // Phase 4: Diversity-aware selection — spread picks across core artists.
+  const sortedCandidates = Array.from(frontierCandidates.values())
+    .sort((a, b) => b.compositeScore - a.compositeScore);
+
+  const maxPerSource = Math.max(3, Math.ceil(frontierLimit / Math.max(coreOverlap.length, 1)));
+  const sourceCounts = new Map(); // coreArtist name -> count of picks sourced from it
+  const trimmedFrontier = [];
+
+  // Pass 1: multi-source candidates first (they're inherently diverse)
+  for (const c of sortedCandidates) {
+    if (trimmedFrontier.length >= frontierLimit) break;
+    if (c.sources.length > 1) {
+      trimmedFrontier.push({
+        name: c.name,
+        zone: 'shared_frontier',
+        score: c.compositeScore,
+        suggestedBy: c.suggestedBy,
+      });
+      for (const s of c.sources) {
+        sourceCounts.set(s.coreArtist, (sourceCounts.get(s.coreArtist) || 0) + 1);
       }
     }
   }
-  // Limit shared frontier to top 20 by score
-  sharedFrontier.sort((a, b) => b.score - a.score);
-  const trimmedFrontier = sharedFrontier.slice(0, 20);
+
+  // Pass 2: single-source candidates, respecting per-source cap
+  for (const c of sortedCandidates) {
+    if (trimmedFrontier.length >= frontierLimit) break;
+    if (c.sources.length === 1) {
+      const src = c.sources[0].coreArtist;
+      if ((sourceCounts.get(src) || 0) < maxPerSource) {
+        trimmedFrontier.push({
+          name: c.name,
+          zone: 'shared_frontier',
+          score: c.compositeScore,
+          suggestedBy: c.suggestedBy,
+        });
+        sourceCounts.set(src, (sourceCounts.get(src) || 0) + 1);
+      }
+    }
+  }
+
+  // Pass 3: if still under limit, relax per-source cap
+  if (trimmedFrontier.length < frontierLimit) {
+    const usedKeys = new Set(trimmedFrontier.map((f) => f.name.toLowerCase().trim()));
+    for (const c of sortedCandidates) {
+      if (trimmedFrontier.length >= frontierLimit) break;
+      if (!usedKeys.has(c.key)) {
+        trimmedFrontier.push({
+          name: c.name,
+          zone: 'shared_frontier',
+          score: c.compositeScore,
+          suggestedBy: c.suggestedBy,
+        });
+        usedKeys.add(c.key);
+      }
+    }
+  }
 
   // --- Zone 2 & 3: Your Artists / Friend's Artists (remaining) ---
   const yourArtists = userOnly
@@ -329,14 +401,17 @@ async function computeCollision(userId, friendId, db) {
     }
   }
 
-  // Shared frontier connections to core
+  // Shared frontier connections to core (one link per source artist)
   for (const artist of trimmedFrontier) {
-    links.push({
-      source: artist.name,
-      target: artist.suggestedBy,
-      strength: artist.score,
-      type: 'frontier',
-    });
+    const sources = Array.isArray(artist.suggestedBy) ? artist.suggestedBy : [artist.suggestedBy];
+    for (const sourceName of sources) {
+      links.push({
+        source: artist.name,
+        target: sourceName,
+        strength: artist.score,
+        type: 'frontier',
+      });
+    }
   }
 
   const user = db.getUserById(userId);
