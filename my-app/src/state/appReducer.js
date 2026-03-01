@@ -214,6 +214,17 @@ export function appReducer(state, action) {
         isPlaying: false,
       };
 
+    case actions.VIEW_COLLISION:
+      return {
+        ...state,
+        phase: 'viewing-collision',
+        collisionFriendId: action.friendId,
+        selectedNode: null,
+        hoveredNode: null,
+        previewTrack: null,
+        isPlaying: false,
+      };
+
     case actions.RESET:
       return { ...initialState };
 

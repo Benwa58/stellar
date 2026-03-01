@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useAuth, useAuthActions } from '../state/AuthContext';
+import { useDispatch } from '../state/AppContext';
+import { VIEW_COLLISION } from '../state/actions';
 import AddFriendModal from './AddFriendModal';
 import '../styles/friends.css';
 
 function FriendsSection() {
   const { user, friends, friendRequests } = useAuth();
   const { acceptFriend, rejectFriend, removeFriend, showAuthModal } = useAuthActions();
+  const appDispatch = useDispatch();
   const [showAddModal, setShowAddModal] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' | 'requests'
@@ -141,16 +144,28 @@ function FriendsSection() {
                       <span className="friend-card-username-small">@{friend.username}</span>
                     )}
                   </div>
-                  <button
-                    className="friend-card-remove"
-                    onClick={() => setConfirmRemove(friend)}
-                    title="Remove friend"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
+                  <div className="friend-card-actions">
+                    <button
+                      className="friend-card-collide"
+                      onClick={() => appDispatch({ type: VIEW_COLLISION, friendId: friend.id })}
+                      title="Collide universes"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                        <circle cx="8" cy="12" r="5" />
+                        <circle cx="16" cy="12" r="5" />
+                      </svg>
+                    </button>
+                    <button
+                      className="friend-card-remove"
+                      onClick={() => setConfirmRemove(friend)}
+                      title="Remove friend"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -427,3 +427,21 @@ export function removeFriend(userId) {
 export function searchUsers(query) {
   return authFetch(`/api/friends/search?q=${encodeURIComponent(query)}`);
 }
+
+export function getFriendArtists(friendId) {
+  return authFetch(`/api/friends/${friendId}/artists`);
+}
+
+// --- Collision API ---
+
+export function getCollision(friendId) {
+  return authFetch(`/api/collision/${friendId}`);
+}
+
+export function triggerCollisionCompute(friendId) {
+  return authFetch(`/api/collision/${friendId}/compute`, { method: 'POST' });
+}
+
+export function getCollisionStatus(friendId) {
+  return authFetch(`/api/collision/${friendId}/status`);
+}

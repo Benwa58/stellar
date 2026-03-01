@@ -22,3 +22,4 @@ export const UNQUEUE_SEED = 'UNQUEUE_SEED';
 export const CLEAR_SEED_QUEUE = 'CLEAR_SEED_QUEUE';
 export const SET_MAP_NAME = 'SET_MAP_NAME';
 export const VIEW_UNIVERSE = 'VIEW_UNIVERSE';
+export const VIEW_COLLISION = 'VIEW_COLLISION';
