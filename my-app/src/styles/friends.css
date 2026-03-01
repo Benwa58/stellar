@@ -176,11 +176,22 @@
   margin-top: -4px;
 }
 
-.friend-card-remove {
+.friend-card-actions {
   position: absolute;
   top: 2px;
   right: 2px;
   display: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.friend-card:hover .friend-card-actions {
+  display: flex;
+}
+
+.friend-card-collide,
+.friend-card-remove {
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 20px;
@@ -190,10 +201,12 @@
   border-radius: 50%;
   color: var(--color-text-muted, #555577);
   cursor: pointer;
+  transition: all 150ms ease;
 }
 
-.friend-card:hover .friend-card-remove {
-  display: flex;
+.friend-card-collide:hover {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.2);
 }
 
 .friend-card-remove:hover {

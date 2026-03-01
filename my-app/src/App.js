@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage';
 import LoadingAnimation from './components/LoadingAnimation';
 import GalaxyView from './components/GalaxyView';
 import UniverseView from './components/UniverseView';
+import CollisionView from './components/CollisionView';
 import SharePage from './components/SharePage';
 import ShareGalaxyPage from './components/ShareGalaxyPage';
 import ShareUniversePage from './components/ShareUniversePage';
@@ -80,6 +81,7 @@ function AppContent() {
       {phase === 'loading' && <LoadingAnimation />}
       {phase === 'viewing' && <GalaxyView />}
       {phase === 'viewing-universe' && <UniverseView />}
+      {phase === 'viewing-collision' && <CollisionView />}
 
       <AuthModal />
       <ChooseUsernameModal />

@@ -113,6 +113,7 @@ app.use('/api/galaxy-shares', require('./server/galaxyShares'));
 app.use('/api/universe-shares', require('./server/universeShares'));
 app.use('/api/universe', require('./server/universe'));
 app.use('/api/friends', require('./server/friends'));
+app.use('/api/collision', require('./server/collision'));
 
 // --- Static files from React build ---
 app.use(express.static(buildPath, {

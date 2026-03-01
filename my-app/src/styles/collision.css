@@ -1,0 +1,360 @@
+/* ============================
+   COLLISION VIEW — Full page
+   ============================ */
+
+.collision-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: #08080f;
+}
+
+.collision-header-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(8, 8, 15, 0.9) 0%, rgba(8, 8, 15, 0.5) 60%, transparent 100%);
+  padding-bottom: 20px;
+  pointer-events: none;
+}
+
+.collision-header-overlay > * {
+  pointer-events: auto;
+}
+
+/* ============================
+   IDENTITY BADGES
+   ============================ */
+
+.collision-identity-badges {
+  position: absolute;
+  top: calc(56px + env(safe-area-inset-top, 0px));
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collision-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 5px;
+  background: rgba(10, 10, 25, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full, 9999px);
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.collision-badge-user {
+  border-color: hsla(230, 70%, 60%, 0.3);
+}
+
+.collision-badge-friend {
+  border-color: hsla(15, 75%, 58%, 0.3);
+}
+
+.collision-badge-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.collision-badge-initials {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.collision-badge-name {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collision-badge-x {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* ============================
+   STATS BAR
+   ============================ */
+
+.collision-stats-bar {
+  position: absolute;
+  top: calc(56px + env(safe-area-inset-top, 0px));
+  left: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 12px;
+}
+
+.collision-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(10, 10, 25, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md, 12px);
+}
+
+.collision-stat-value {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.collision-stat-label {
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================
+   STATUS SCREENS
+   ============================ */
+
+.collision-status-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.collision-status-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 340px;
+  padding: 32px;
+  background: rgba(12, 12, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg, 16px);
+  text-align: center;
+}
+
+.collision-status-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--color-accent, #6366f1);
+  border-radius: 50%;
+  animation: collision-spin 1s linear infinite;
+}
+
+@keyframes collision-spin {
+  to { transform: rotate(360deg); }
+}
+
+.collision-status-text {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.collision-status-hint {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.collision-status-error .collision-status-text {
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.collision-retry-btn {
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: var(--color-accent, #6366f1);
+  border: none;
+  border-radius: var(--radius-full, 9999px);
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.collision-retry-btn:hover {
+  background: var(--color-accent-hover, #818cf8);
+}
+
+/* ============================
+   ZOOM CONTROLS OVERRIDE
+   ============================ */
+
+.collision-zoom-override {
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  left: calc(20px + env(safe-area-inset-left));
+}
+
+/* Shift toolbar up when player bar is visible */
+.collision-view:has(.preview-player) .galaxy-toolbar {
+  bottom: calc(var(--preview-player-top, 84px) + 8px);
+}
+
+.collision-view:has(.preview-player) .collision-zoom-override {
+  bottom: calc(var(--preview-player-top, 84px) + 58px);
+}
+
+/* Pull player bar back when detail panel is open */
+.collision-view:has(.detail-panel) .preview-player {
+  right: 320px;
+}
+
+/* ============================
+   COLLISION LEGEND
+   ============================ */
+
+.collision-legend-card {
+  position: absolute;
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  background: rgba(12, 12, 30, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg, 16px);
+  animation: collisionLegendIn 200ms ease;
+}
+
+@keyframes collisionLegendIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.collision-legend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.collision-legend-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.collision-legend-close:hover {
+  color: white;
+}
+
+.collision-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.collision-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.collision-legend-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.collision-legend-name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.collision-legend-desc {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ============================
+   RESPONSIVE
+   ============================ */
+
+@media (max-width: 600px) {
+  .collision-identity-badges {
+    top: auto;
+    right: auto;
+    bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .collision-stats-bar {
+    top: calc(56px + env(safe-area-inset-top, 0px));
+    left: 8px;
+    gap: 6px;
+  }
+
+  .collision-stat {
+    padding: 4px 8px;
+  }
+
+  .collision-stat-value {
+    font-size: 0.75rem;
+  }
+
+  .collision-zoom-override {
+    display: none;
+  }
+
+  .collision-legend-card {
+    bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .collision-view:has(.preview-player) .galaxy-toolbar {
+    bottom: calc(var(--preview-player-top, 130px) + 8px);
+  }
+
+  .collision-view:has(.detail-panel) .preview-player {
+    right: 0;
+  }
+}

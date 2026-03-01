@@ -200,6 +200,23 @@ function initSchema() {
     db.exec("ALTER TABLE users ADD COLUMN avatar BLOB");
   }
 
+  // Collision snapshots table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collision_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      friend_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      snapshot_data TEXT NOT NULL,
+      artist_hash TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error_message TEXT,
+      computed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, friend_id)
+    );
+  `);
+
   // One-time migrations tracked by name
   db.exec("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)");
 
@@ -704,4 +721,35 @@ module.exports = {
   getSentRequests,
   getFriendship,
   searchUsersByUsername,
+  getCollisionSnapshot,
+  upsertCollisionSnapshot,
 };
+
+// --- Collision snapshot helpers ---
+
+function getCollisionSnapshot(userId, friendId) {
+  // Always look up with smaller ID first for consistency
+  const [a, b] = userId < friendId ? [userId, friendId] : [friendId, userId];
+  return getDb().prepare(
+    'SELECT * FROM collision_snapshots WHERE user_id = ? AND friend_id = ?'
+  ).get(a, b);
+}
+
+function upsertCollisionSnapshot(userId, friendId, { snapshotData, artistHash, status, errorMessage }) {
+  const [a, b] = userId < friendId ? [userId, friendId] : [friendId, userId];
+  const existing = getCollisionSnapshot(a, b);
+  if (existing) {
+    getDb().prepare(`
+      UPDATE collision_snapshots
+      SET snapshot_data = ?, artist_hash = ?, status = ?, error_message = ?,
+          computed_at = datetime('now'), updated_at = datetime('now')
+      WHERE user_id = ? AND friend_id = ?
+    `).run(JSON.stringify(snapshotData), artistHash, status, errorMessage || null, a, b);
+  } else {
+    getDb().prepare(`
+      INSERT INTO collision_snapshots
+        (user_id, friend_id, snapshot_data, artist_hash, status, error_message, computed_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    `).run(a, b, JSON.stringify(snapshotData), artistHash, status, errorMessage || null);
+  }
+}

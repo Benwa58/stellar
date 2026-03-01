@@ -160,4 +160,41 @@ router.get('/search', requireAuth, (req, res) => {
   }
 });
 
+// GET /api/friends/:userId/artists — get a friend's favorites and discovered artists
+router.get('/:userId/artists', requireAuth, (req, res) => {
+  try {
+    const friendId = parseInt(req.params.userId, 10);
+    if (isNaN(friendId)) return res.status(400).json({ error: 'Invalid userId' });
+
+    // Verify friendship
+    const friendship = db.getFriendship(req.userId, friendId);
+    if (!friendship || friendship.status !== 'accepted') {
+      return res.status(403).json({ error: 'Not friends with this user' });
+    }
+
+    const favorites = db.getUserFavorites(friendId);
+    const discovered = db.getUserDiscoveredArtists(friendId);
+    const user = db.getUserById(friendId);
+
+    res.json({
+      displayName: user?.display_name || 'Friend',
+      username: user?.username || null,
+      hasAvatar: !!(user?.avatar),
+      favorites: favorites.map((f) => ({
+        artistName: f.artist_name,
+        artistId: f.artist_id,
+        artistImage: f.artist_image,
+      })),
+      discoveredArtists: discovered.map((d) => ({
+        artistName: d.artist_name,
+        artistId: d.artist_id,
+        artistImage: d.artist_image,
+      })),
+    });
+  } catch (err) {
+    console.error('Get friend artists error:', err);
+    res.status(500).json({ error: 'Failed to fetch friend artists' });
+  }
+});
+
 module.exports = router;
