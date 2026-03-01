@@ -304,6 +304,30 @@ export function createSharedPlaylist(data) {
   });
 }
 
+// --- Profile API ---
+
+export function updateProfile({ displayName, email }) {
+  return authFetch('/api/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify({ displayName, email }),
+  });
+}
+
+export function uploadAvatar(base64Data) {
+  return authFetch('/api/auth/avatar', {
+    method: 'POST',
+    body: JSON.stringify({ avatar: base64Data }),
+  });
+}
+
+export function deleteAvatar() {
+  return authFetch('/api/auth/avatar', { method: 'DELETE' });
+}
+
+export function getAvatarUrl(userId) {
+  return `${API_BASE}/api/auth/avatar/${userId}`;
+}
+
 // --- Password Reset API (no auth needed) ---
 
 export function forgotPassword(email) {

@@ -195,6 +195,10 @@ function initSchema() {
   }
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)");
 
+  // Add avatar column if it doesn't exist
+  if (!hasColumn('users', 'avatar')) {
+    db.exec("ALTER TABLE users ADD COLUMN avatar BLOB");
+  }
 
   // One-time migrations tracked by name
   db.exec("CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY)");
@@ -250,6 +254,30 @@ function linkSpotify(userId, { spotifyId, accessToken, refreshToken, expiresAt }
     UPDATE users SET spotify_id = ?, spotify_access_token = ?, spotify_refresh_token = ?, spotify_token_expires_at = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(spotifyId, accessToken, refreshToken, expiresAt, userId);
+}
+
+function updateUserProfile(userId, { displayName, email }) {
+  const fields = [];
+  const values = [];
+  if (displayName !== undefined) { fields.push('display_name = ?'); values.push(displayName); }
+  if (email !== undefined) { fields.push('email = ?'); values.push(email); }
+  if (fields.length === 0) return;
+  fields.push("updated_at = datetime('now')");
+  values.push(userId);
+  getDb().prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+}
+
+function setUserAvatar(userId, buffer) {
+  getDb().prepare("UPDATE users SET avatar = ?, updated_at = datetime('now') WHERE id = ?").run(buffer, userId);
+}
+
+function getUserAvatar(userId) {
+  const row = getDb().prepare('SELECT avatar FROM users WHERE id = ?').get(userId);
+  return row?.avatar || null;
+}
+
+function deleteUserAvatar(userId) {
+  getDb().prepare("UPDATE users SET avatar = NULL, updated_at = datetime('now') WHERE id = ?").run(userId);
 }
 
 // --- Refresh token helpers ---
@@ -621,6 +649,10 @@ module.exports = {
   getUserByEmail,
   getUserByUsername,
   updateUsername,
+  updateUserProfile,
+  setUserAvatar,
+  getUserAvatar,
+  deleteUserAvatar,
   getUserBySpotifyId,
   updateSpotifyTokens,
   linkSpotify,
