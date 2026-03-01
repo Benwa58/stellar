@@ -135,6 +135,21 @@ function FriendsSection() {
             <div className="friends-scroll">
               {friends.map((friend) => (
                 <div key={friend.id} className="friend-card">
+                  <button
+                    className="friend-card-remove"
+                    onClick={() => setConfirmRemove(friend)}
+                    title="Remove friend"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                  <div className="friend-card-starfield" aria-hidden="true">
+                    <span /><span /><span /><span /><span />
+                    <span /><span /><span /><span /><span />
+                    <span /><span /><span /><span /><span />
+                  </div>
                   <div className="friend-card-main">
                     <div className="friend-card-avatar">
                       {friend.displayName?.charAt(0) || '?'}
@@ -144,28 +159,16 @@ function FriendsSection() {
                       <span className="friend-card-username-small">@{friend.username}</span>
                     )}
                   </div>
-                  <div className="friend-card-actions">
-                    <button
-                      className="friend-card-collide"
-                      onClick={() => appDispatch({ type: VIEW_COLLISION, friendId: friend.id })}
-                      title="Collide universes"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                        <circle cx="8" cy="12" r="5" />
-                        <circle cx="16" cy="12" r="5" />
-                      </svg>
-                    </button>
-                    <button
-                      className="friend-card-remove"
-                      onClick={() => setConfirmRemove(friend)}
-                      title="Remove friend"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
+                  <button
+                    className="friend-card-collide-btn"
+                    onClick={() => appDispatch({ type: VIEW_COLLISION, friendId: friend.id })}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                      <circle cx="8" cy="12" r="5" />
+                      <circle cx="16" cy="12" r="5" />
+                    </svg>
+                    Collide
+                  </button>
                 </div>
               ))}
             </div>

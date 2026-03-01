@@ -491,44 +491,6 @@ export function createCollisionRenderer(canvas, getState) {
       }
     }
 
-    // ── Zone labels (LOD 4/3 — visible when zoomed out) ──
-    if (lod.hazeFactor > 0.2 && zoneMetas) {
-      ctx.globalAlpha = Math.min(lod.hazeFactor, 0.9);
-      for (const zm of zoneMetas) {
-        if (zm.count === 0) continue;
-        if (!isVisible(zm.cx, zm.cy, zm.visualRadius, transform, w, h)) continue;
-
-        const fontSize = Math.max(10, 14 / scale);
-        ctx.font = `600 ${fontSize}px 'Space Grotesk', Inter, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        // Label background
-        const metrics = ctx.measureText(zm.label);
-        const padding = 8 / scale;
-        const labelW = metrics.width + padding * 2;
-        const labelH = fontSize * 1.4 + padding;
-        const labelY = zm.cy + zm.visualRadius * 0.5 + 20 / scale;
-
-        ctx.fillStyle = 'rgba(10, 10, 30, 0.7)';
-        roundRect(ctx, zm.cx - labelW / 2, labelY - labelH / 2, labelW, labelH, 4 / scale);
-        ctx.fill();
-
-        // Zone count badge
-        const countText = `${zm.count}`;
-        const countFontSize = fontSize * 0.65;
-
-        ctx.fillStyle = `hsla(${zm.color.h}, ${zm.color.s}%, ${zm.color.l}%, 0.9)`;
-        ctx.fillText(zm.label, zm.cx, labelY);
-
-        // Count below
-        ctx.font = `400 ${countFontSize}px Inter, sans-serif`;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.fillText(`${countText} artist${zm.count !== 1 ? 's' : ''}`, zm.cx, labelY + fontSize * 0.85);
-      }
-      ctx.globalAlpha = 1;
-    }
-
     // ── Cross-zone links (LOD 2+) ──
     if (lod.nodeFactor > 0 && allLinks) {
       ctx.globalAlpha = lod.nodeFactor * 0.6;
